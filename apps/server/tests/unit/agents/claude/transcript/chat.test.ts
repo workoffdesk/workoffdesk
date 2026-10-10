@@ -16,6 +16,18 @@ describe('chatItems', () => {
   it.each([
     ['a prompt typed by the user', user('把按钮改成圆角'), [{ k: 'user', text: '把按钮改成圆角', at }]],
     ['a prompt with a picture', user([{ type: 'text', text: '看这张' }, { type: 'image', source: {} }]), [{ k: 'user', text: '看这张 [image]', at }]],
+    // As Claude Code 2.1.278 to 2.1.295 record text pasted at the prompt: the closing tag repeats the id.
+    ['a pasted prompt, as it was pasted', user('<pasted_content id="a3cc">\n最新版本\n\n\n</pasted_content id="a3cc">'), [{ k: 'user', text: '最新版本', at }]],
+    [
+      'a prompt with a paste in it, indented as it was pasted',
+      user('看一下这段\n\n<pasted_content id="6582">\n  def a\n    b\n  end\n</pasted_content id="6582">\n\n怎么改'),
+      [{ k: 'user', text: '看一下这段\n\n  def a\n    b\n  end\n\n怎么改', at }],
+    ],
+    [
+      'a prompt with two pastes',
+      user('<pasted_content id="1a2b">\n一\n</pasted_content id="1a2b">\n和\n<pasted_content id="3c4d">\n二\n</pasted_content id="3c4d">'),
+      [{ k: 'user', text: '一\n和\n二', at }],
+    ],
     ['what Claude says', assistant({ type: 'text', text: '改好了。' }), [{ k: 'text', text: '改好了。', at }]],
     [
       'a shell command, by its description',
@@ -128,6 +140,7 @@ describe('chatItems', () => {
     ['a message Claude took in the middle of its turn', absorbed('找线下门店这个你别提了', { origin: { kind: 'human' } }), [{ k: 'user', text: '找线下门店这个你别提了', at }]],
     ['one recorded by an older version, which names no sender', absorbed('729'), [{ k: 'user', text: '729', at }]],
     ['one with a picture', absorbed([{ type: 'text', text: '看这张' }, { type: 'image', source: {} }]), [{ k: 'user', text: '看这张 [image]', at }]],
+    ['one pasted', absorbed('<pasted_content id="5edb">\n计划\n</pasted_content id="5edb">', { origin: { kind: 'human' } }), [{ k: 'user', text: '计划', at }]],
   ])('shows %s', (_, record, items) => {
     expect(chatItems(record)).toEqual(items);
   });

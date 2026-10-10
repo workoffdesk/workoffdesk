@@ -209,6 +209,13 @@ describe('listRecentClaudeSessions', () => {
       expect(await said({ type: 'last-prompt', lastPrompt: 'written down' }, user('typed after'))).toBe('typed after');
     });
 
+    it.each([
+      ['a prompt pasted whole', user('<pasted_content id="a3cc">\nthe latest\n</pasted_content id="a3cc">'), 'the latest'],
+      ['a prompt with a paste in it', user('look at\n<pasted_content id="6582">\n  def a\n</pasted_content id="6582">'), 'look at def a'],
+    ])('reads %s as it was pasted', async (_, prompt, text) => {
+      expect(await said(user('before'), prompt)).toBe(text);
+    });
+
     it('reads the text of a prompt that came with a picture', async () => {
       expect(await said(user([{ type: 'image', source: {} }, { type: 'text', text: 'what is' }, { type: 'text', text: 'this?' }]))).toBe('what is this?');
     });

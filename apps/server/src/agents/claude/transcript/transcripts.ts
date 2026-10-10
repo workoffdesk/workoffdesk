@@ -1,7 +1,7 @@
 import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import type { TranscriptRecord } from './chat.js';
+import { unpasted, type TranscriptRecord } from './chat.js';
 
 // Claude Code's transcript format is undocumented: every field read here is
 // optional, and a file that yields nothing parseable is skipped, never thrown.
@@ -191,12 +191,13 @@ function parseLines(text: string): TranscriptRecord[] {
 }
 
 function promptText(content: unknown): string | null {
-  const raw =
+  const raw = unpasted(
     typeof content === 'string'
       ? content
       : Array.isArray(content)
         ? content.filter((b) => b?.type === 'text' && typeof b.text === 'string').map((b) => b.text).join(' ')
-        : '';
+        : '',
+  );
   // An agent runner's wake names its issue on a line of its own; that, not its template, says what it is.
   const issue = /^- issue:\s*(.+)$/m.exec(raw)?.[1];
   const text = (issue ?? raw.replace(/^#{1,6}\s+/gm, '')).replace(/\s+/g, ' ').trim();

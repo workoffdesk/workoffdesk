@@ -160,7 +160,7 @@ function userItems(r: TranscriptRecord, at: string | undefined): ChatItem[] {
     const started = results.length === 1 ? backgroundStarted(r.toolUseResult, results[0].tool_use_id) : [];
     return [...shown, ...(made ? [made] : []), ...started];
   }
-  const text = blocksText(content).trim();
+  const text = unpasted(blocksText(content)).trim();
   if (!text) return [];
   if (text.startsWith('[Request interrupted')) return [{ k: 'note', event: { e: 'interrupted' }, retry: true }];
   const command = /<command-name>([^<]*)<\/command-name>/.exec(text);
@@ -181,6 +181,9 @@ function userItems(r: TranscriptRecord, at: string | undefined): ChatItem[] {
   }
   return [{ k: 'user', text, at }];
 }
+
+// Text as it was pasted at the prompt, which Claude Code records wrapped in a tag naming the paste.
+export const unpasted = (text: string) => text.replace(/<pasted_content id="([^"]*)">\n*([\s\S]*?)\n*<\/pasted_content id="\1">/g, '$2');
 
 // The words a message sent to Claude has when the transcript records it as this item: a prompt's, or a
 // command's typed at the prompt. Null for anything a message cannot be.
@@ -261,7 +264,7 @@ function takenMidTurn(r: TranscriptRecord, at: string | undefined): ChatItem[] {
   if (origin?.kind === 'task-notification' || a.commandMode === 'task-notification')
     return taskNote(blocksText(a.prompt)).filter((i) => i.k === 'bg');
   if ((a.commandMode ?? 'prompt') !== 'prompt' || (origin && origin.kind !== 'human')) return [];
-  const text = blocksText(a.prompt).trim();
+  const text = unpasted(blocksText(a.prompt)).trim();
   return text ? [{ k: 'user', text, at }] : [];
 }
 
