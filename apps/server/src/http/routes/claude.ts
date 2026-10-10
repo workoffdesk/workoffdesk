@@ -5,6 +5,9 @@ import type { AppDeps } from '../app.js';
 import type { RouteModule } from './context.js';
 
 // The Claude conversations people had on this Mac lately, and where each is open now.
+// How old a look at the Mac's terminals the list may show: a page open on a conversation asks every few seconds.
+const MAC_SEEN_MS = 10_000;
+
 export async function recentClaude(deps: AppDeps) {
   const { machine } = deps;
   if (!deps.claudeProjectsRoot) return [];
@@ -12,7 +15,7 @@ export async function recentClaude(deps: AppDeps) {
     listRecentClaudeSessions(deps.claudeProjectsRoot),
     machine.listSessions(),
     deps.claudeJobsRoot ? heldInBackground(deps.claudeJobsRoot) : () => false,
-    machine.openOnMac(),
+    machine.openOnMac(MAC_SEEN_MS),
   ]);
   const open = new Map(sessions.filter((s) => s.claudeSessionId).map((s) => [s.claudeSessionId!, s.id]));
   return recent.map((r) => {

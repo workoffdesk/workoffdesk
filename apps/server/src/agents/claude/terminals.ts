@@ -26,13 +26,25 @@ const run = (bin: string, args: string[], env?: NodeJS.ProcessEnv) =>
 
 // Asked for again while a listing runs, the one running answers.
 const running = new Map<string, Promise<MacClaude[]>>();
+const made = new Map<string, { at: number; claudes: MacClaude[] }>();
 
 // None when Claude Code cannot say (too old for `agents`, not installed): then nothing is known to be open.
-export function listMacClaudes(claudeBin: string): Promise<MacClaude[]> {
-  const now = running.get(claudeBin);
-  if (now) return now;
+// recentMs: one made up to that long ago will do, and is answered at once while a new one is made; listing
+// starts Claude Code, which can take seconds.
+export function listMacClaudes(claudeBin: string, recentMs = 0): Promise<MacClaude[]> {
+  const last = made.get(claudeBin);
+  const listing = running.get(claudeBin) ?? listAgain(claudeBin);
+  return last && Date.now() - last.at < recentMs ? Promise.resolve(last.claudes) : listing;
+}
+
+function listAgain(claudeBin: string): Promise<MacClaude[]> {
+  const at = Date.now();
   const next = listNow(claudeBin)
     .catch(() => [])
+    .then((claudes) => {
+      made.set(claudeBin, { at, claudes });
+      return claudes;
+    })
     .finally(() => running.delete(claudeBin));
   running.set(claudeBin, next);
   return next;

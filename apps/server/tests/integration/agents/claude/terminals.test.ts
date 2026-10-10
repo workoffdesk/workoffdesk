@@ -110,6 +110,31 @@ describe('listMacClaudes', () => {
     await a;
     expect(listMacClaudes(fakeClaude)).not.toBe(a);
   });
+
+  describe('asked for one made lately', () => {
+    const SOON = 60_000;
+
+    it('answers the one made lately at once, and makes a new one meanwhile', async () => {
+      const [a, b] = [await runs(), await runs()];
+      lists([agent(a)]);
+      expect((await listMacClaudes(fakeClaude)).map((c) => c.pid)).toEqual([a]);
+      lists([agent(a), agent(b)]);
+      expect((await listMacClaudes(fakeClaude, SOON)).map((c) => c.pid)).toEqual([a]);
+      // The one made meanwhile is the one running now, which an ask for one made now joins.
+      expect((await listMacClaudes(fakeClaude)).map((c) => c.pid)).toEqual([a, b]);
+      expect((await listMacClaudes(fakeClaude, SOON)).map((c) => c.pid)).toEqual([a, b]);
+    });
+
+    it('waits for a new one when the last is older than asked for', async () => {
+      const [a, b] = [await runs(), await runs()];
+      lists([agent(a)]);
+      await listMacClaudes(fakeClaude);
+      lists([agent(b)]);
+      await new Promise((r) => setTimeout(r, 30));
+      expect((await listMacClaudes(fakeClaude, 10)).map((c) => c.pid)).toEqual([b]);
+    });
+
+  });
 });
 
 describe('stopMacProcess', () => {

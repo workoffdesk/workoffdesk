@@ -151,10 +151,11 @@ export class Lifecycle {
     return t?.holder?.at === 'terminal' ? (t.busy ? 'busy' : 'idle') : undefined;
   }
 
-  // Each session here learns from it whether its conversation is open on the Mac too.
-  async openOnMac(): Promise<Map<string, MacOpen>> {
+  // Each session here learns from it whether its conversation is open on the Mac too. recentMs: as
+  // listMacClaudes takes it, for what is only shown.
+  async openOnMac(recentMs = 0): Promise<Map<string, MacOpen>> {
     const open = new Map<string, MacClaude[]>();
-    for (const c of await listMacClaudes(this.d.claudeBin)) open.set(c.sessionId, [...(open.get(c.sessionId) ?? []), c]);
+    for (const c of await listMacClaudes(this.d.claudeBin, recentMs)) open.set(c.sessionId, [...(open.get(c.sessionId) ?? []), c]);
     for (const [id, meta] of Object.entries(this.d.store.get().sessions)) {
       if (meta.kind === 'claude' && meta.claudeSessionId) this.d.journal.onMac(id, open.get(meta.claudeSessionId)?.length ?? 0);
     }

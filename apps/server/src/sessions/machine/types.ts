@@ -47,7 +47,7 @@ export interface Machine {
   listSessions(): Promise<TermSession[]>;
   createSession(spec: CreateSpec): Promise<TermSession>;
   // The Claude conversations open in a terminal on this Mac outside every WorkOffDesk on it, by conversation id.
-  openOnMac(): Promise<Map<string, MacOpen>>;
+  openOnMac(recentMs?: number): Promise<Map<string, MacOpen>>;
   // The Codex conversations people had on this Mac, and where each is open now; none without Codex.
   codexOnMac(): Promise<CodexOnMac[]>;
   // A Codex thread's conversation so far, read without opening it.
