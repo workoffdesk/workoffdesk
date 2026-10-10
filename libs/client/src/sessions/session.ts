@@ -2,6 +2,8 @@ import { t } from '@workoffdesk/i18n';
 import { ApiError, errorText, isAgent, MACHINE, type Api, type ApiInit, type Queued, type TermSession } from '../base/api';
 import type { Answers } from '../chat/answered';
 import { hasDialog, type Choices, type ModelChoice, type OnScreen } from '../model/chat';
+import { anyOf, type Visibility } from '../base/platform';
+import { seenWhileInFront } from './seen';
 import type { Journals } from '../journal/journal';
 import type { JournalRow, SessionView } from '../journal/journalRows';
 import { ctrlChord, typedText } from '../composer/keys';
@@ -20,7 +22,7 @@ export const SHOWS_WITHIN_MS = 10_000;
 export type SessionDeps = {
   api: Api;
   journals: Pick<Journals, 'view' | 'subscribe' | 'follow' | 'refresh' | 'rereadScreen' | 'apply' | 'send'>;
-  links: { open(sessionId: string, onState: (s: LinkState) => void): SessionLink };
+  links: { open(sessionId: string, page: Visibility, onState: (s: LinkState) => void): SessionLink };
   list: Pick<SessionList, 'current' | 'ended' | 'subscribe' | 'drop'>;
   seen: { markSeen(id: string): void };
   answers: Pick<Answers, 'give'>;
@@ -68,7 +70,8 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
   const stops: (() => void)[] = [];
   let following: (() => void) | null = null;
   let modelsAsked = false;
-  let seenActivity: number | undefined | null = null;
+  // Looked at while any screen holding it is in front.
+  const onScreen = anyOf();
 
   const facts = (): SessionFacts => {
     const known = lastKnown ?? endedRecord ?? undefined;
@@ -127,7 +130,7 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
     publish();
     if (over || !running) return;
     const s = snapshot;
-    if (isAgent(s.kind) && !following) following = journals.follow(id);
+    if (isAgent(s.kind) && !following) following = journals.follow(id, onScreen);
     if (isAgent(s.kind) && !modelsAsked) {
       modelsAsked = true;
       api<{ models: ModelChoice[] }>(`${base}/models`).then(
@@ -135,16 +138,13 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
         () => {},
       );
     }
-    const activity = s.known?.lastActivity;
-    if (activity !== seenActivity) {
-      seenActivity = activity;
-      seen.markSeen(id);
-    }
+    happened();
   };
+  const happened = seenWhileInFront(seen, id, onScreen, () => snapshot.known?.lastActivity);
 
   const start = () => {
     running = true;
-    line = deps.links.open(id, (state) => {
+    line = deps.links.open(id, onScreen, (state) => {
       link = state;
       publish();
     });
@@ -162,7 +162,6 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
 
   const stop = () => {
     if (holders) return;
-    seen.markSeen(id);
     over = true;
     following?.();
     following = null;
@@ -275,15 +274,17 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
       return () => void listeners.delete(listener);
     },
     getSnapshot: (): SessionSnapshot => snapshot,
-    // Held while a screen shows it; let go of by every screen, it stops once nothing has held it again.
-    hold(): () => void {
+    // Held while a screen shows it (`page`: whether that screen is in front); it stops once none holds it.
+    hold(page: Visibility): () => void {
       holders++;
       clearTimeout(stopTimer);
+      const unhold = onScreen.add(page);
       if (!running && !over) start();
       let released = false;
       return () => {
         if (released) return;
         released = true;
+        unhold();
         if (--holders) return;
         stopTimer = setTimeout(stop, 0);
       };

@@ -5,6 +5,7 @@ import type { Choices, OnScreen } from '../../src/model/chat';
 import type { Message } from '../../src/journal/journalRows';
 import { SHIFT_TAB } from '../../src/composer/modes';
 import { createSessions, SHOWS_WITHIN_MS, TOAST_MS } from '../../src/sessions/session';
+import { inFront } from '../../src/base/platform';
 import { createSessionLinks } from '../../src/sessions/sessionLink';
 import { aSession, fakeApi, fakeJournals, fakeList, fakeServer, fakeVisibility, flush } from '../helpers/fakes';
 
@@ -16,9 +17,12 @@ const screen = (over: Partial<OnScreen>): OnScreen => ({ choices: null, panel: n
 const queued: Message = { id: 'm1', text: 'next', sentAt: 5, state: 'queued', ord: 1, item: null };
 const q = { id: 'm1', text: 'next', at: 5 };
 
-function setup(o: { list?: TermSession[] | null; ended?: TermSession[] } = {}) {
+// front: whether the screen that holds the session is the one in front of the app.
+function setup(o: { list?: TermSession[] | null; ended?: TermSession[]; front?: boolean } = {}) {
   const server = fakeServer();
-  const links = createSessionLinks({ open: server.open, visibility: fakeVisibility(), onSignedOut: () => {} });
+  const app = fakeVisibility();
+  const page = inFront(app, o.front ?? true);
+  const links = createSessionLinks({ open: server.open, visibility: app, onSignedOut: () => {} });
   const api = fakeApi();
   const journals = fakeJournals();
   const list = fakeList(o.list === undefined ? [aSession()] : o.list, o.ended ?? []);
@@ -26,10 +30,10 @@ function setup(o: { list?: TermSession[] | null; ended?: TermSession[] } = {}) {
   let clipboard: () => Promise<string> = async () => '';
   const sessions = createSessions({ api: api.api, journals, links, list, seen, answers: { give: (_id, post) => post().then(() => {}) }, readClipboard: () => clipboard() });
   const s = sessions.get('s1');
-  const release = s.hold();
+  const release = s.hold(page);
   const line = server.last();
   const typed = () => line.sent.filter((d) => typeof d !== 'string').map(decoded);
-  return { server, api, journals, list, seen, sessions, s, release, line, typed, snap: () => s.getSnapshot(), useClipboard: (f: () => Promise<string>) => (clipboard = f) };
+  return { server, app, page, api, journals, list, seen, sessions, s, release, line, typed, snap: () => s.getSnapshot(), useClipboard: (f: () => Promise<string>) => (clipboard = f) };
 }
 
 beforeEach(() => vi.useFakeTimers());
@@ -62,10 +66,49 @@ describe('createSessions', () => {
       expect(seen.markSeen).toHaveBeenCalledTimes(3);
     });
 
+    it('marks it seen only while its screen is in front: on coming in front, for what happens then, and on leaving the front', async () => {
+      const { seen, list, page, app, release } = setup({ front: false });
+      list.set([aSession({ lastActivity: 2 })]);
+      expect(seen.markSeen).not.toHaveBeenCalled();
+      page.setFront(true);
+      expect(seen.markSeen).toHaveBeenCalledTimes(1);
+      list.set([aSession({ lastActivity: 3 })]);
+      expect(seen.markSeen).toHaveBeenCalledTimes(2);
+      app.set(false);
+      expect(seen.markSeen).toHaveBeenCalledTimes(3);
+      list.set([aSession({ lastActivity: 4 })]);
+      expect(seen.markSeen).toHaveBeenCalledTimes(3);
+      page.setFront(false);
+      app.set(true);
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(seen.markSeen).toHaveBeenCalledTimes(3);
+    });
+
+    it('follows its journal and tells the Mac it is looked at only while some screen holding it is in front', async () => {
+      const { s, journals, line, page } = setup({ front: false });
+      line.opens();
+      const followed = journals.pages.get('s1')!;
+      expect(followed.visible()).toBe(false);
+      expect(line.sent.filter((d) => typeof d === 'string')).toEqual([JSON.stringify({ type: 'visible', visible: false })]);
+      const other = inFront(fakeVisibility(), true);
+      const release = s.hold(other);
+      expect(followed.visible()).toBe(true);
+      expect(line.sent.at(-1)).toBe(JSON.stringify({ type: 'visible', visible: true }));
+      other.setFront(false);
+      expect(followed.visible()).toBe(false);
+      page.setFront(true);
+      expect(followed.visible()).toBe(true);
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(followed.visible()).toBe(true);
+      expect(journals.asked).not.toContain('unfollow s1');
+    });
+
     it('keeps its line when held again at once (a screen mounted twice) and closes it when left', async () => {
       const { s, release, line, journals } = setup();
       release();
-      const again = s.hold();
+      const again = s.hold(inFront(fakeVisibility(), true));
       await vi.advanceTimersByTimeAsync(0);
       expect(line.closed).toBe(false);
       again();

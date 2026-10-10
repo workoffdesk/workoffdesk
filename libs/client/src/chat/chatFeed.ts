@@ -16,7 +16,6 @@ export type ChatStore = {
 
 export type ChatFeedConfig = {
   api: Api;
-  visibility: Visibility;
   store?: ChatStore;
 };
 
@@ -27,7 +26,7 @@ export type ChatFeed = {
 };
 
 export function createChatFeeds(config: ChatFeedConfig) {
-  const { api, visibility, store } = config;
+  const { api, store } = config;
   // Kept while the client runs, so going back to a chat shows it at once and reads on from there.
   const memory = new Map<string, ChatState>();
 
@@ -39,11 +38,13 @@ export function createChatFeeds(config: ChatFeedConfig) {
 
     // The chat as last shown here, then as kept on the device, then from the Mac; after that only what is
     // new is read. Earlier turns come a page at a time when asked for.
-    // sessionId: what the chat is kept under on this device; url: where it is read from.
+    // sessionId: what the chat is kept under on this device; url: where it is read from; page: whether the
+    // page showing it is in front, the only time it is read.
     follow(
       sessionId: string,
       url: string,
       on: { show(c: ChatState): void; failed(failed: boolean): void; loadingOlder(loading: boolean): void },
+      page: Visibility,
     ): ChatFeed {
       let latest = memory.get(sessionId) ?? null;
       let stopped = false;
@@ -60,7 +61,7 @@ export function createChatFeeds(config: ChatFeedConfig) {
 
       const read = async () => {
         timer = undefined;
-        if (visibility.visible()) {
+        if (page.visible()) {
           const s = latest ?? emptyChat;
           try {
             const r = await api<ChatRead>(`${url}?from=${s.next}&sid=${s.sid ?? ''}`);
@@ -95,8 +96,8 @@ export function createChatFeeds(config: ChatFeedConfig) {
         clearTimeout(timer);
         void read();
       };
-      const unlisten = visibility.onChange(() => {
-        if (visibility.visible()) readNow();
+      const unlisten = page.onChange(() => {
+        if (page.visible()) readNow();
       });
       void (async () => {
         if (!latest && store) {

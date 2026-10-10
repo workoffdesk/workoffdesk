@@ -8,8 +8,8 @@ const POLL_MS = 1200;
 // Reads failing for less than this are a blip and show nothing.
 const FAILED_AFTER_MS = 10_000;
 
-export function createJournals(config: { api: Api; visibility: Visibility; newId: () => string; store?: JournalStore }) {
-  const { api, visibility, store } = config;
+export function createJournals(config: { api: Api; newId: () => string; store?: JournalStore }) {
+  const { api, store } = config;
   type Session = Flags & {
     id: string;
     copy: Copy;
@@ -127,9 +127,9 @@ export function createJournals(config: { api: Api; visibility: Visibility; newId
       return () => s.listeners.delete(listener);
     },
 
-    // Keeps the copy up to date while the page is open: what the line pushes, and asking the Mac when the
-    // line is quiet, behind, or the page comes back to the front.
-    follow(id: string): () => void {
+    // Keeps the copy up to date while the page is open: what the line pushes, and, while the page is in
+    // front (`page`), asking the Mac when the line is quiet, behind, or the page comes back to the front.
+    follow(id: string, page: Visibility): () => void {
       const s = session(id);
       let stopped = false;
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -159,7 +159,7 @@ export function createJournals(config: { api: Api; visibility: Visibility; newId
           again = true;
           return;
         }
-        if (visibility.visible() && (asking || askDue(id, asked))) {
+        if (page.visible() && (asking || askDue(id, asked))) {
           reading = true;
           asked = Date.now();
           const hidden = s.screenHidden;
@@ -207,7 +207,7 @@ export function createJournals(config: { api: Api; visibility: Visibility; newId
           else reached();
         } else void read();
       });
-      const unlisten = visibility.onChange(() => visibility.visible() && void read());
+      const unlisten = page.onChange(() => page.visible() && void read());
       s.read = () => void read();
       void (async () => {
         if (store && !s.copy.epoch) {

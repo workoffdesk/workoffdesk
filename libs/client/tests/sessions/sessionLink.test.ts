@@ -1,16 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSessionLinks, DOWN_SAID_AFTER_MS, headerStatus, type LinkState } from '../../src/sessions/sessionLink';
 import { onPush } from '../../src/journal/pushes';
+import { inFront } from '../../src/base/platform';
 import { fakeServer, fakeVisibility } from '../helpers/fakes';
 
-function setup() {
+// front: whether the session's page is the one in front of the app.
+function setup(front = true) {
   const server = fakeServer();
   const visibility = fakeVisibility();
+  const page = inFront(visibility, front);
   const onSignedOut = vi.fn();
   const links = createSessionLinks({ open: server.open, visibility, onSignedOut });
   const states: LinkState[] = [];
-  const link = links.open('s1', (s) => states.push(s));
-  return { server, visibility, onSignedOut, link, states };
+  const link = links.open('s1', page, (s) => states.push(s));
+  return { server, visibility, page, onSignedOut, link, states };
 }
 type Setup = ReturnType<typeof setup>;
 
@@ -176,6 +179,17 @@ describe('createSessionLinks', () => {
     first.ends(1006);
     vi.advanceTimersByTime(60_000);
     expect(server.sockets).toHaveLength(2);
+  });
+
+  it('tells the Mac whether its page is in front, without making the line again', () => {
+    const { server, page } = setup(false);
+    const line = server.last();
+    line.opens();
+    expect(line.sent).toEqual([JSON.stringify({ type: 'visible', visible: false })]);
+    page.setFront(true);
+    page.setFront(false);
+    expect(line.sent.slice(1)).toEqual([JSON.stringify({ type: 'visible', visible: true }), JSON.stringify({ type: 'visible', visible: false })]);
+    expect(server.sockets).toHaveLength(1);
   });
 
   it('stays closed once closed, neither reconnecting nor listening', () => {

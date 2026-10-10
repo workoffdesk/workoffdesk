@@ -116,7 +116,7 @@ const open: OpenSocket = (path, on) => {
 // A socket says signed out only for the login in use (open, above).
 export const sessionList = createSessionList({ open, storage, visibility, onSignedOut: () => signedOut(login?.token), ask: () => api('/api/events/now') });
 export const sessionLinks = createSessionLinks({ open, visibility, onSignedOut: () => signedOut(login?.token), onSlow: (slow) => reportSlow(slow) });
-export const chatFeeds = createChatFeeds({ api, visibility, store: chatStore });
+export const chatFeeds = createChatFeeds({ api, store: chatStore });
 export const seen = createSeen(storage);
 export const drafts = createDrafts(storage);
 export const keyBar = createKeyBar(storage);
@@ -126,7 +126,7 @@ export const snippets = createSnippets(storage);
 
 const newMessageId = () => messageId(getRandomBytes(MESSAGE_ID_BYTES));
 // The phone's copy of each session's journal, in a file for the Mac signed in to.
-export const journals = createJournals({ api, visibility, newId: newMessageId, store: createJournalStore(() => login?.server) });
+export const journals = createJournals({ api, newId: newMessageId, store: createJournalStore(() => login?.server) });
 export const answers = createAnswers(storage, journals);
 export const sessions = createSessions({
   api,

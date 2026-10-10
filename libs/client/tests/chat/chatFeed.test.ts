@@ -26,7 +26,6 @@ function setup(o: { kept?: ChatState | null } = {}) {
   const keep = vi.fn();
   const feeds = createChatFeeds({
     api: mac.api as never,
-    visibility,
     store: { kept: async () => o.kept ?? null, keep },
   });
   const sessionId = `s${++sid}`;
@@ -34,8 +33,8 @@ function setup(o: { kept?: ChatState | null } = {}) {
   const failed: boolean[] = [];
   const loadingOlder: boolean[] = [];
   const url = `/api/claude/sessions/${sessionId}/chat`;
-  const follow = () =>
-    feeds.follow(sessionId, url, { show: (c) => shown.push(c), failed: (f) => failed.push(f), loadingOlder: (b) => loadingOlder.push(b) });
+  const follow = (page = visibility) =>
+    feeds.follow(sessionId, url, { show: (c) => shown.push(c), failed: (f) => failed.push(f), loadingOlder: (b) => loadingOlder.push(b) }, page);
   return { mac, visibility, keep, feeds, sessionId, url, shown, failed, loadingOlder, follow };
 }
 
@@ -99,6 +98,18 @@ describe('createChatFeeds', () => {
     expect(mac.asked).toHaveLength(1);
     visibility.set(true);
     expect(mac.asked).toHaveLength(2);
+  });
+
+  it('does not read while its page is behind another, and reads at once when the page comes back in front', async () => {
+    const { mac, follow } = setup();
+    const page = fakeVisibility(false);
+    follow(page);
+    await flush();
+    vi.advanceTimersByTime(60_000);
+    await flush();
+    expect(mac.asked).toHaveLength(0);
+    page.set(true);
+    expect(mac.asked).toHaveLength(1);
   });
 
   it('reports it cannot read the chat only after 10 s of failing, and clears that on the next good read', async () => {

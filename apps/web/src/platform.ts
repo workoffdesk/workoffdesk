@@ -34,9 +34,9 @@ const toLogin = () => navigate(`/login?next=${encodeURIComponent(location.pathna
 
 export const sessionList = createSessionList({ open, storage, visibility, onSignedOut: toLogin, ask: () => api('/api/events/now') });
 export const sessionLinks = createSessionLinks({ open, visibility, onSignedOut: toLogin });
-export const chatFeeds = createChatFeeds({ api, visibility, store: { kept: keptChat, keep: (id, c) => void keepChat(id, c) } });
+export const chatFeeds = createChatFeeds({ api, store: { kept: keptChat, keep: (id, c) => void keepChat(id, c) } });
 // The page's copy of each session's journal, kept as long as the page is open.
-export const journals = createJournals({ api, visibility, newId: () => messageId(crypto.getRandomValues(new Uint8Array(MESSAGE_ID_BYTES))) });
+export const journals = createJournals({ api, newId: () => messageId(crypto.getRandomValues(new Uint8Array(MESSAGE_ID_BYTES))) });
 export const answers = createAnswers(storage, journals);
 export const seen = createSeen(storage);
 export const drafts = createDrafts(storage);

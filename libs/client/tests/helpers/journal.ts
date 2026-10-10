@@ -1,3 +1,4 @@
+import type { Visibility } from '../../src/base/platform';
 import { createJournals } from '../../src/journal/journal';
 import type { JournalRow, JournalStore, Message } from '../../src/journal/journalRows';
 import { fakeApi, fakeVisibility, flush } from './fakes';
@@ -39,7 +40,9 @@ export const setup = (o: { store?: JournalStore; visible?: boolean } = {}) => {
   const api = fakeApi();
   const visibility = fakeVisibility(o.visible ?? true);
   let q = 0;
-  const journals = createJournals({ api: api.api, visibility, newId: () => `q${++q}`, store: o.store });
+  const made = createJournals({ api: api.api, newId: () => `q${++q}`, store: o.store });
+  // Followed from a page in front while `visibility` says so, unless another page is given.
+  const journals = { ...made, follow: (id: string, page: Visibility = visibility) => made.follow(id, page) };
   const id = `s${++n}`;
   return { api, visibility, journals, id, view: () => journals.view(id) };
 };

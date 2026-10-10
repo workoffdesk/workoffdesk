@@ -117,9 +117,12 @@ export function fakeJournals() {
   const listeners = new Map<string, Set<() => void>>();
   const asked: string[] = [];
   const sent: { id: string; text: string; ok: () => void; fail: (e: unknown) => void }[] = [];
+  // Whether each followed session's page is in front, as follow was told.
+  const pages = new Map<string, Visibility>();
   return {
     asked,
     sent,
+    pages,
     view: (id: string): SessionView => views.get(id) ?? emptyView,
     subscribe(id: string, listener: () => void): () => void {
       const set = listeners.get(id) ?? new Set();
@@ -127,8 +130,9 @@ export function fakeJournals() {
       listeners.set(id, set);
       return () => void set.delete(listener);
     },
-    follow(id: string): () => void {
+    follow(id: string, page: Visibility): () => void {
       asked.push(`follow ${id}`);
+      pages.set(id, page);
       return () => void asked.push(`unfollow ${id}`);
     },
     refresh: (id: string) => void asked.push(`refresh ${id}`),

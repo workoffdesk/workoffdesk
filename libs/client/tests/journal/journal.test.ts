@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/base/api';
 import { emptyView } from '../../src/journal/journalRows';
 import { journalHeads, onHaveJournal, pushed, type JournalAt } from '../../src/journal/pushes';
-import { flush } from '../helpers/fakes';
+import { fakeVisibility, flush } from '../helpers/fakes';
 import { ask, following, item, memoryStore, message, setup, state, sync } from '../helpers/journal';
 
 // A device's copy of a session's journal on the Mac, kept up to date by asking and by what the Mac pushes,
@@ -127,6 +127,25 @@ describe('createJournals', () => {
       expect(api.waiting()).toEqual([]);
       visibility.set(true);
       expect(api.waiting()).toEqual([ask(id)]);
+    });
+
+    it('asks nothing while its page is behind another, and asks at once when the page comes back in front', async () => {
+      const { api, journals, id } = setup();
+      const page = fakeVisibility(false);
+      journals.follow(id, page);
+      await flush();
+      vi.advanceTimersByTime(60_000);
+      expect(api.waiting()).toEqual([]);
+      page.set(true);
+      expect(api.waiting()).toEqual([ask(id)]);
+    });
+
+    it('still takes what the line pushes while its page is behind another', async () => {
+      const { journals, id, view } = setup();
+      journals.follow(id, fakeVisibility(false));
+      await flush();
+      pushed(id, { type: 'journal', from: 0, v: 1, rows: [state('conv', { conv: 'c1' }), item('a', 1)], epoch: 'e1', reset: true });
+      expect(view().items.map((i) => i.itemId)).toEqual(['a']);
     });
 
     it.each([

@@ -15,6 +15,73 @@ export type Visibility = {
   onChange(listener: () => void): () => void;
 };
 
+// A screen's own Visibility: visible while the app is and the screen is the one in front of it, not one with
+// another pushed over it. Its listeners are told each time that changes.
+export function inFront(app: Visibility, front: boolean): Visibility & { setFront(front: boolean): void } {
+  const listeners = new Set<() => void>();
+  const visible = () => front && app.visible();
+  let was = visible();
+  let stopApp: (() => void) | null = null;
+  const check = () => {
+    if (visible() === was) return;
+    was = !was;
+    for (const l of [...listeners]) l();
+  };
+  return {
+    visible,
+    onChange(listener) {
+      if (!listeners.size) {
+        was = visible();
+        stopApp = app.onChange(check);
+      }
+      listeners.add(listener);
+      return () => {
+        if (!listeners.delete(listener) || listeners.size) return;
+        stopApp?.();
+        stopApp = null;
+      };
+    },
+    setFront(now) {
+      front = now;
+      check();
+    },
+  };
+}
+
+// Visible while any page added to it is, as a thing shown by several screens at once; its listeners are
+// told each time that changes.
+export function anyOf(): Visibility & { add(page: Visibility): () => void } {
+  const pages: Visibility[] = [];
+  const listeners = new Set<() => void>();
+  const visible = () => pages.some((p) => p.visible());
+  let was = false;
+  const check = () => {
+    if (visible() === was) return;
+    was = !was;
+    for (const l of [...listeners]) l();
+  };
+  return {
+    visible,
+    onChange(listener) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    add(page) {
+      pages.push(page);
+      const stop = page.onChange(check);
+      check();
+      let removed = false;
+      return () => {
+        if (removed) return;
+        removed = true;
+        stop();
+        pages.splice(pages.indexOf(page), 1);
+        check();
+      };
+    },
+  };
+}
+
 export type SocketEvents = {
   open(): void;
   message(data: unknown): void;

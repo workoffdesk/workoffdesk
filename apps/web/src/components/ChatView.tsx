@@ -12,7 +12,7 @@ import { isLimit, type ChatState, type Panel, panelName } from '@workoffdesk/cli
 import { chatEntries, type ChatEntry } from '@workoffdesk/client/chat/chatEntries';
 import type { ChatFeed } from '@workoffdesk/client/chat/chatFeed';
 import type { Session, SessionSnapshot } from '@workoffdesk/client/sessions/session';
-import { answers, chatFeeds, journals } from '../platform';
+import { answers, chatFeeds, journals, visibility } from '../platform';
 import { duration } from '@workoffdesk/client/model/format';
 import { IconDown } from '../icons';
 import { ChoiceCard } from './cards/ChoiceCard';
@@ -44,7 +44,7 @@ export function useChat(sessionId: string, url: string) {
   const feed = useRef<ChatFeed | null>(null);
 
   useEffect(() => {
-    const f = chatFeeds.follow(sessionId, url, { show: setChat, failed: setFailed, loadingOlder: setLoadingOlder });
+    const f = chatFeeds.follow(sessionId, url, { show: setChat, failed: setFailed, loadingOlder: setLoadingOlder }, visibility);
     feed.current = f;
     return () => {
       f.stop();

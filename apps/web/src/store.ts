@@ -1,5 +1,6 @@
 import { sessionHooks } from '@workoffdesk/react/store';
-import { sessions } from './platform';
+import { sessions, visibility } from './platform';
 
 export { useStore } from '@workoffdesk/react/store';
-export const { useSession } = sessionHooks(sessions);
+// One page shows at a time: the page in front is the one shown while the browser tab is.
+export const { useSession } = sessionHooks(sessions, () => visibility);

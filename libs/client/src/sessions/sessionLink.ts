@@ -36,10 +36,11 @@ export const DOWN_SAID_AFTER_MS = 8000;
 const encoder = new TextEncoder();
 
 // The line to a session that carries what is typed: it reconnects on its own, tells the Mac whether the
-// session is being looked at, hands on what the Mac pushes (pushes.ts), and says when the session is gone.
+// session is being looked at (its page is in front: `page`), hands on what the Mac pushes (pushes.ts), and
+// says when the session is gone.
 export function createSessionLinks(config: SessionLinkConfig) {
   return {
-    open(sessionId: string, onState: (s: LinkState) => void): SessionLink {
+    open(sessionId: string, page: Visibility, onState: (s: LinkState) => void): SessionLink {
       let ws: Socket | null = null;
       let delay = 1000;
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -51,7 +52,7 @@ export function createSessionLinks(config: SessionLinkConfig) {
         ws.send(data);
         return true;
       };
-      const reportVisible = () => sendRaw(JSON.stringify({ type: 'visible', visible: config.visibility.visible() }));
+      const reportVisible = () => sendRaw(JSON.stringify({ type: 'visible', visible: page.visible() }));
       // Where the session's journal copy is, for the Mac to send what follows it; said again on each new line.
       let journal: JournalAt | null = null;
       const reportJournal = () => journal && sendRaw(JSON.stringify({ type: 'journal', ...journal }));
@@ -119,10 +120,9 @@ export function createSessionLinks(config: SessionLinkConfig) {
         ws = sock;
       };
 
-      const onVisibility = () => {
-        reportVisible();
-        // A socket can stay open while nothing comes through it any more: back in front, the line is made
-        // again.
+      // A socket can stay open while nothing comes through it any more: with the app back in front, the line
+      // is made again.
+      const onAppVisibility = () => {
         if (config.visibility.visible() && !ended) {
           delay = 1000;
           const old = ws;
@@ -131,7 +131,8 @@ export function createSessionLinks(config: SessionLinkConfig) {
           connect();
         }
       };
-      const stopListening = config.visibility.onChange(onVisibility);
+      const stopListening = config.visibility.onChange(onAppVisibility);
+      const stopPage = page.onChange(reportVisible);
       const stopJournal = onHaveJournal(sessionId, (at) => {
         journal = at;
         reportJournal();
@@ -146,6 +147,7 @@ export function createSessionLinks(config: SessionLinkConfig) {
         close: () => {
           stopTimers();
           stopListening();
+          stopPage();
           stopJournal();
           stopText();
           stopAsk();

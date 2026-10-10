@@ -3,6 +3,7 @@ import type { ChatState } from '@workoffdesk/client/model/chat';
 import type { ChatFeed } from '@workoffdesk/client/chat/chatFeed';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { auth, chatFeeds, sessionList } from './client';
+import { usePage } from './store';
 
 export const useLogin = () => useSyncExternalStore(auth.subscribe, auth.current);
 export const useAccounts = () => useSyncExternalStore(auth.subscribe, auth.accounts);
@@ -16,14 +17,15 @@ export function useChat(sessionId: string, url: string) {
   const [failed, setFailed] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const feed = useRef<ChatFeed | null>(null);
+  const page = usePage();
   useEffect(() => {
-    const f = chatFeeds.follow(sessionId, url, { show: setChat, failed: setFailed, loadingOlder: setLoadingOlder });
+    const f = chatFeeds.follow(sessionId, url, { show: setChat, failed: setFailed, loadingOlder: setLoadingOlder }, page);
     feed.current = f;
     return () => {
       f.stop();
       feed.current = null;
     };
-  }, [sessionId, url]);
+  }, [sessionId, url, page]);
   const loadOlder = useCallback(async () => feed.current?.older(() => {}), []);
   return { chat, failed, loadingOlder, loadOlder };
 }
