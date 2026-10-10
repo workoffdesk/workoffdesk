@@ -1,4 +1,4 @@
-import { request, createServer, type Server } from 'node:http';
+import { request, createServer, type Server, type ServerResponse } from 'node:http';
 import type { AccountsView } from '../agents/claude/accounts.js';
 import { listenOwnerOnly } from '../agents/claude/hooks/hooks.js';
 import { errorReply } from '../system/errors.js';
@@ -13,6 +13,14 @@ export type ControlAccounts = {
   view(): Promise<AccountsView>;
   pick(id: string): Promise<AccountsView>;
   move(): Promise<AccountsView>;
+};
+
+// How many sessions are working, for the menu bar app: asked again on each change and every recheckMs, which
+// catches a change nobody was told of.
+export type ControlActivity = {
+  working(): number;
+  onChange(cb: () => void): () => void;
+  recheckMs?: number;
 };
 
 // An environment's whole size is bounded by what exec takes on macOS, 1 MiB.
@@ -35,7 +43,29 @@ function openSession(open: (r: OpenRequest) => Promise<string>, body: unknown): 
   );
 }
 
-export function startControlServer(sockPath: string, o: { open: (r: OpenRequest) => Promise<string>; accounts: ControlAccounts }): Promise<Server> {
+// The working count as a line of JSON at once, then again each time it changes, until the client goes away.
+function streamActivity(activity: ControlActivity, res: ServerResponse): void {
+  res.writeHead(200, { 'content-type': 'application/x-ndjson' });
+  let last = -1;
+  const check = () => {
+    const working = activity.working();
+    if (working === last) return;
+    last = working;
+    res.write(`${JSON.stringify({ working })}\n`);
+  };
+  check();
+  const unwatch = activity.onChange(check);
+  const timer = setInterval(check, activity.recheckMs ?? 2000).unref();
+  res.on('close', () => {
+    unwatch();
+    clearInterval(timer);
+  });
+}
+
+export function startControlServer(
+  sockPath: string,
+  o: { open: (r: OpenRequest) => Promise<string>; accounts: ControlAccounts; activity: ControlActivity },
+): Promise<Server> {
   const answered = (view: Promise<AccountsView>): Promise<Reply> =>
     view.then(
       (body) => ({ status: 200, body }),
@@ -67,6 +97,7 @@ export function startControlServer(sockPath: string, o: { open: (r: OpenRequest)
         res.writeHead(status, { 'content-type': 'application/json' });
         res.end(JSON.stringify(body));
       };
+      if (req.method === 'GET' && req.url === '/activity') return streamActivity(o.activity, res);
       const route = routes[`${req.method} ${req.url}`];
       if (!route) return reply({ status: 404, body: { error: 'not found' } });
       let body: unknown;
@@ -114,3 +145,47 @@ export async function askToOpen(sockPath: string, r: OpenRequest): Promise<strin
 export const askAccounts = (sockPath: string) => ask<AccountsView>(sockPath, 'GET', '/accounts');
 export const askToPick = (sockPath: string, id: string) => ask<AccountsView>(sockPath, 'PUT', '/account', { id });
 export const askToMove = (sockPath: string) => ask<AccountsView>(sockPath, 'POST', '/account/move');
+
+// Each working count the server sends, until stop() or the server ends the stream; done fails when no server
+// answers.
+const readCount = (line: string): number | undefined => {
+  try {
+    const working = (JSON.parse(line) as { working?: unknown }).working;
+    return typeof working === 'number' ? working : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+export function watchActivity(sockPath: string, onCount: (working: number) => void): { done: Promise<void>; stop(): void } {
+  let stopped = false;
+  let req: ReturnType<typeof request> | undefined;
+  const done = new Promise<void>((resolve, reject) => {
+    req = request({ socketPath: sockPath, method: 'GET', path: '/activity' }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`server answered ${res.statusCode}`));
+      }
+      let rest = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk: string) => {
+        const lines = (rest + chunk).split('\n');
+        rest = lines.pop()!;
+        for (const line of lines) {
+          const working = readCount(line);
+          if (working !== undefined) onCount(working);
+        }
+      });
+      res.on('close', () => resolve());
+    });
+    req.on('error', (e) => (stopped ? resolve() : reject(e)));
+    req.end();
+  });
+  return {
+    done,
+    stop: () => {
+      stopped = true;
+      req?.destroy();
+    },
+  };
+}

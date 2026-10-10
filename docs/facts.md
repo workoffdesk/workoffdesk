@@ -13,7 +13,7 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   `workoffdesk doctor`, and never calls `sudo`. It stops on anything but macOS and without Homebrew. Run in
   a terminal on a Mac with no `config.json` yet, it goes on to `workoffdesk setup --web`; otherwise it prints
   the commands. (`install.sh`, `apps/server/tests/integration/install.sh.test.ts`)
-- Commands: `setup [--web]`, `serve`, `doctor`, `status --json`, `start`, `stop`, `restart`, `claude [--resume <id>]`,
+- Commands: `setup [--web]`, `serve`, `doctor`, `status --json`, `activity --json`, `start`, `stop`, `restart`, `claude [--resume <id>]`,
   `attach [id]`, `install`, `deploy <build folder>`, `rollback`; `--version` prints the installed version.
   (`apps/server/src/cli.ts`)
 - `setup --web` serves the setup in the browser from a second server on `127.0.0.1` at a free port, opens it,
@@ -127,7 +127,9 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   `apps/server/tests/integration/http/app.claude.test.ts`)
 - The menu bar app (`apps/mac`, macOS 13 or later) runs `workoffdesk status --json` when its menu opens and
   every minute, and `start`, `stop` and `restart` when asked. It finds the command in `~/.local/bin`, then
-  `/opt/homebrew/bin` and `/usr/local/bin`. Its icon shows running, a problem, or stopped; the menu shows
+  `/opt/homebrew/bin` and `/usr/local/bin`. Its icon shows running, a problem, or stopped; while running, it is
+  the app's mark, with a bar across its screen while any session is working or compacting, followed through
+  `workoffdesk activity --json` (`docs/design/2026-10-11-menu-bar-working.md`); the menu shows
   the failed checks with their fixes (copied on a click), the three newest errors, the address as a QR code,
   Open in Browser, Open Logs Folder, Open at Login; with two or more Claude accounts and the service running,
   the accounts (`workoffdesk account --json`), a click picking one, and moving the open sessions to it.

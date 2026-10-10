@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { account } from './commands/account.js';
+import { activity } from './commands/activity.js';
 import { attach } from './commands/attach.js';
 import { doctor } from './commands/doctor.js';
 import { install } from './commands/install.js';
@@ -36,6 +37,7 @@ const commands = {
   serve,
   doctor,
   status,
+  activity,
   attach,
   account,
   claude: (args) => openHere('claude', args),

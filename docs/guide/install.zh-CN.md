@@ -103,10 +103,10 @@ workoffdesk doctor
 
 ## 菜单栏 App
 
-仓库里的 `apps/mac` 是 Mac 的菜单栏 App:图标显示服务在运行、有问题还是停了;菜单里列出没通过的检查和修复命令
+仓库里的 `apps/mac` 是 Mac 的菜单栏 App:图标显示服务在运行、有问题还是停了，有会话在干活时图标上走进度条;菜单里列出没通过的检查和修复命令
 (点一下复制)、最近的错误、启动/停止/重启、在浏览器中打开、地址的二维码、打开日志文件夹和登录时打开;
 有不止一个 Claude 账号时，还能选会话用哪个账号，并把开着的会话搬过去。它的
-一切都读自 `workoffdesk status --json`、都通过 `workoffdesk` 命令去做，所以要先装好服务。用 Xcode 命令行工具构建：
+一切都通过 `workoffdesk` 命令去读、去做(`status --json`、`activity --json`、`account --json`)，所以要先装好服务。用 Xcode 命令行工具构建：
 
 ```bash
 apps/mac/scripts/build-app.sh      # 生成 apps/mac/build/WorkOffDesk.app

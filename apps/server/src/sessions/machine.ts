@@ -293,6 +293,14 @@ export class LocalMachine implements Machine {
     return this.d.store.get().sessions[id];
   }
 
+  // How many sessions are running a turn or compacting.
+  working(): number {
+    return Object.keys(this.d.store.get().sessions).filter((id) => {
+      const status = this.getStatus(id);
+      return status === 'working' || status === 'compacting';
+    }).length;
+  }
+
   onChange(cb: () => void): () => void {
     this.s.listeners.add(cb);
     return () => this.s.listeners.delete(cb);

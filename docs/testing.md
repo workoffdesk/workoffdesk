@@ -210,7 +210,8 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/unit/agents/claude/hooks/asks.test.ts`, `apps/server/tests/unit/sessions/machine.watch.test.ts`,
   `apps/server/tests/unit/sessions/events.test.ts`, `apps/server/tests/integration/agents/claude/hooks/hooks.test.ts`,
   `apps/server/tests/integration/sessions/machine.test.ts`, `apps/server/tests/integration/sessions/machine.quit.test.ts`,
-  `apps/server/tests/integration/sessions/machine.moves.test.ts`
+  `apps/server/tests/integration/sessions/machine.moves.test.ts`, `apps/server/tests/unit/sessions/machine.working.test.ts`,
+  `apps/server/tests/integration/commands/activity.test.ts`
 - Client: `libs/client/tests/sessions/sessionState.test.ts`, `libs/client/tests/sessions/sessionLink.test.ts`,
   `libs/client/tests/model/chat.test.ts`
 
@@ -261,7 +262,8 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/integration/http/app.push.test.ts`, `apps/mobile/tests/openSession.test.mjs`
 - The This Mac page and the menu bar app: `libs/client/tests/mac/macPage.test.ts`,
   `apps/mac/Tests/WorkOffDeskKitTests/CLITests.swift`, `apps/mac/Tests/WorkOffDeskKitTests/StatusTests.swift`,
-  `apps/mac/Tests/WorkOffDeskKitTests/QRTests.swift`, `apps/mac/Tests/WorkOffDeskKitTests/AccountsTests.swift`
+  `apps/mac/Tests/WorkOffDeskKitTests/QRTests.swift`, `apps/mac/Tests/WorkOffDeskKitTests/AccountsTests.swift`,
+  `apps/mac/Tests/WorkOffDeskKitTests/ActivityWatchTests.swift`, `apps/mac/Tests/WorkOffDeskUITests/MenuBarMarkTests.swift`
 
 ### What the person reads and touches
 

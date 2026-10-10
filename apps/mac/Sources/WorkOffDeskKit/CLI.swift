@@ -31,7 +31,8 @@ public struct CLI {
     }
   }
 
-  private func runNow(_ args: [String], timeout: TimeInterval) -> Result {
+  // A run of it, not yet started.
+  func process(_ args: [String]) -> Process {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: path)
     process.arguments = args
@@ -40,11 +41,16 @@ public struct CLI {
     // The CLI picks its words from LC_ALL before anything else.
     env["LC_ALL"] = lang == .zh ? "zh_CN.UTF-8" : "en_US.UTF-8"
     process.environment = env
+    process.standardInput = FileHandle.nullDevice
+    return process
+  }
+
+  private func runNow(_ args: [String], timeout: TimeInterval) -> Result {
+    let process = process(args)
     let out = Pipe()
     let err = Pipe()
     process.standardOutput = out
     process.standardError = err
-    process.standardInput = FileHandle.nullDevice
     do {
       try process.run()
     } catch {

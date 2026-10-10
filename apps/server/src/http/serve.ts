@@ -127,6 +127,7 @@ export async function startServer(o: ServerOptions) {
         return view;
       },
     },
+    activity: { working: () => machine.working(), onChange: (cb) => machine.onChange(cb) },
   });
   const stopWatch = machine.watch(o.watchMs ?? 2000);
 
@@ -161,6 +162,8 @@ export async function startServer(o: ServerOptions) {
       // Prompts held for the phone go back to the Mac's dialog alone.
       hooks.closeAllConnections();
       control.close();
+      // The menu bar app's watch ends, and it asks again of the next server.
+      control.closeAllConnections();
       machine.closeJournal();
     },
   };

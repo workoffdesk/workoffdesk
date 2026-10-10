@@ -1,9 +1,9 @@
-import { request, type Server } from 'node:http';
+import { createServer, request, type Server } from 'node:http';
 import { mkdtempSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AccountsView } from '../../../src/agents/claude/accounts.js';
-import { askAccounts, askToMove, askToOpen, askToPick, startControlServer, type ControlAccounts, type OpenRequest } from '../../../src/sessions/control.js';
+import { askAccounts, askToMove, askToOpen, askToPick, startControlServer, watchActivity, type ControlAccounts, type OpenRequest } from '../../../src/sessions/control.js';
 import { Conflict } from '../../../src/system/errors.js';
 import { socketDir } from '../../helpers/socketDir.js';
 
@@ -26,13 +26,26 @@ const start = async (open: (r: OpenRequest) => Promise<string> = async () => 'ab
   const asked: OpenRequest[] = [];
   const picked: string[] = [];
   let moves = 0;
-  servers.push(
-    await startControlServer(sock, {
-      open: (r) => (asked.push(r), open(r)),
-      accounts: { view: async () => VIEW, pick: async (id) => (picked.push(id), VIEW), move: async () => (moves++, VIEW), ...accounts },
-    }),
-  );
-  return { sock, asked, picked, moves: () => moves };
+  // The machine's working count, and who it tells of a change.
+  let working = 0;
+  const listeners = new Set<() => void>();
+  const server = await startControlServer(sock, {
+    open: (r) => (asked.push(r), open(r)),
+    accounts: { view: async () => VIEW, pick: async (id) => (picked.push(id), VIEW), move: async () => (moves++, VIEW), ...accounts },
+    activity: { working: () => working, onChange: (cb) => (listeners.add(cb), () => listeners.delete(cb)), recheckMs: 50 },
+  });
+  servers.push(server);
+  const setWorking = (n: number, told = true) => {
+    working = n;
+    if (told) listeners.forEach((cb) => cb());
+  };
+  return { sock, asked, picked, moves: () => moves, server, setWorking, listeners };
+};
+
+const counts = () => {
+  const seen: number[] = [];
+  const next = (n: number) => vi.waitFor(() => expect(seen.length).toBeGreaterThanOrEqual(n));
+  return { seen, add: (n: number) => void seen.push(n), next };
 };
 
 const raw = (sock: string, o: { method?: string; path?: string; body?: string | Buffer }) =>
@@ -129,5 +142,71 @@ describe('startControlServer and askToOpen', () => {
   it("listens on a socket only this Mac's user can open", async () => {
     const s = await start();
     expect(statSync(s.sock).mode & 0o777).toBe(0o600);
+  });
+});
+
+describe('watchActivity', () => {
+  it('tells how many sessions are working at once, then each time that number changes', async () => {
+    const s = await start();
+    s.setWorking(1, false);
+    const c = counts();
+    const w = watchActivity(s.sock, c.add);
+    await c.next(1);
+    s.setWorking(2);
+    await c.next(2);
+    s.setWorking(2);
+    s.setWorking(0);
+    await c.next(3);
+    expect(c.seen).toEqual([1, 2, 0]);
+    w.stop();
+    await w.done;
+  });
+
+  it('sees a change no one was told of within a moment', async () => {
+    const s = await start();
+    const c = counts();
+    const w = watchActivity(s.sock, c.add);
+    await c.next(1);
+    s.setWorking(3, false);
+    await c.next(2);
+    expect(c.seen).toEqual([0, 3]);
+    w.stop();
+    await w.done;
+  });
+
+  it('stops listening to the machine once the watcher goes away', async () => {
+    const s = await start();
+    const c = counts();
+    const w = watchActivity(s.sock, c.add);
+    await c.next(1);
+    expect(s.listeners.size).toBe(1);
+    w.stop();
+    await w.done;
+    await vi.waitFor(() => expect(s.listeners.size).toBe(0));
+  });
+
+  it('ends when the server goes, so the watcher can start again', async () => {
+    const s = await start();
+    const c = counts();
+    const w = watchActivity(s.sock, c.add);
+    await c.next(1);
+    s.server.closeAllConnections();
+    await w.done;
+  });
+
+  it('skips a line it cannot read', async () => {
+    const sock = join(mkdtempSync(join(dir, 'b-')), 'sock');
+    const server = createServer((_req, res) => res.end('nope\n{"working":2}\n'));
+    await new Promise<void>((r) => server.listen(sock, r));
+    servers.push(server);
+    const c = counts();
+    const w = watchActivity(sock, c.add);
+    await w.done;
+    expect(c.seen).toEqual([2]);
+  });
+
+  it('fails when no server listens', async () => {
+    const w = watchActivity(join(mkdtempSync(join(dir, 'n-')), 'sock'), () => {});
+    await expect(w.done).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });

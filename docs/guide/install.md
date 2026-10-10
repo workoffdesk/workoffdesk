@@ -109,12 +109,13 @@ When your HTTPS address reaches the service, it prints the QR code again.
 
 ## The menu bar app
 
-`apps/mac` in the repository is a menu bar app for the Mac: its icon shows whether the service runs, has a
-problem, or is stopped, and its menu shows the failed checks with their fixes (a click copies one), the newest
-errors, Start, Stop and Restart, Open in Browser, the address as a QR code, Open Logs Folder and Open at Login.
+`apps/mac` in the repository is a menu bar app for the Mac. Its icon shows whether the service runs, has a
+problem, or is stopped, with a bar across it while a session is working. Its menu shows the failed checks with
+their fixes (a click copies one), the newest errors, Start, Stop and Restart, Open in Browser, the address as a
+QR code, Open Logs Folder and Open at Login.
 With more than one Claude account, it also picks the account sessions run on and moves the open ones to it.
-It reads everything from `workoffdesk status --json` and does everything with the `workoffdesk` command, so
-it needs the service installed first. Build it with Xcode's command line tools:
+It reads and does everything with the `workoffdesk` command (`status --json`, `activity --json`,
+`account --json`), so it needs the service installed first. Build it with Xcode's command line tools:
 
 ```bash
 apps/mac/scripts/build-app.sh      # makes apps/mac/build/WorkOffDesk.app

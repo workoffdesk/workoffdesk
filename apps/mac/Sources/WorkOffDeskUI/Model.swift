@@ -13,11 +13,15 @@ public final class Model: ObservableObject {
   // The start, stop or restart under way.
   @Published private(set) var working = false
   @Published private(set) var openAtLogin = SMAppService.mainApp.status == .enabled
+  // How many sessions are working.
+  @Published public private(set) var sessionsWorking = 0
 
   let words: Words
   private let find: () -> CLI?
   private var cli: CLI?
   private var timer: Timer?
+  private var watching = false
+  private var activity: ActivityWatch?
 
   // find: where the CLI is, asked again until it is there (it may be installed while the app runs).
   public init(find: @escaping () -> CLI? = { CLI.find() }, words: Words = .current) {
@@ -26,8 +30,10 @@ public final class Model: ObservableObject {
     cli = find()
   }
 
-  // Asked now and every minute after.
+  // Asked now and every minute after; the working sessions followed as they change.
   public func watch() {
+    watching = true
+    followActivity()
     timer?.invalidate()
     timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
       Task { await self?.refresh() }
@@ -37,17 +43,18 @@ public final class Model: ObservableObject {
 
   var installed: Bool { cli != nil }
 
-  public var symbol: String {
-    guard installed, let status else { return "questionmark.circle" }
+  public var mark: Mark {
+    guard installed, let status else { return .symbol("questionmark.circle") }
     switch status.health {
-    case .ok: return "apple.terminal"
-    case .problems: return "exclamationmark.triangle"
-    case .stopped: return "stop.circle"
+    case .ok: return sessionsWorking > 0 ? .working : .plain
+    case .problems: return .symbol("exclamationmark.triangle")
+    case .stopped: return .symbol("stop.circle")
     }
   }
 
   public func refresh() async {
     cli = cli ?? find()
+    followActivity()
     guard let cli else { return }
     do {
       let status = try await cli.status()
@@ -57,6 +64,24 @@ public final class Model: ObservableObject {
     } catch {
       self.error = error.localizedDescription.isEmpty ? words.couldNotRead : error.localizedDescription
     }
+  }
+
+  // The stream ending is the service stopping or restarting, so the status is asked again then. Quitting does
+  // not let go of the watch, so it is stopped then, or its CLI would be left running.
+  private func followActivity() {
+    guard watching, activity == nil, let cli else { return }
+    let activity = ActivityWatch(cli: cli) { [weak self] n in
+      DispatchQueue.main.async {
+        MainActor.assumeIsolated { if self?.sessionsWorking != n { self?.sessionsWorking = n } }
+      }
+    } onEnd: { [weak self] in
+      DispatchQueue.main.async {
+        MainActor.assumeIsolated { if let self { Task { await self.refresh() } } }
+      }
+    }
+    NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: nil) { _ in activity.stop() }
+    activity.start()
+    self.activity = activity
   }
 
   // start, stop or restart, each waiting until the service answers or says why not.

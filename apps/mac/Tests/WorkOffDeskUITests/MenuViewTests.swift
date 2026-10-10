@@ -8,15 +8,19 @@ import WorkOffDeskKit
 // in the language LC_ALL names. With MENU_SNAPSHOTS set to a folder, each drawing is saved there as a PNG.
 @MainActor
 final class MenuViewTests: XCTestCase {
-  // accounts: what `account --json` prints; log: a file each run's arguments are written to, a line each.
-  private func cli(running: Bool, failing: Bool, lang: Lang = .en, accounts: String? = nil, log: String? = nil) throws -> CLI {
+  // accounts: what `account --json` prints; working: the count `activity --json` prints, before it waits
+  // (writing its pid to `pid`) or, with `ends`, ends; log: a file each run's arguments are written to, a line each.
+  private func cli(running: Bool, failing: Bool, lang: Lang = .en, accounts: String? = nil, working: Int? = nil, ends: Bool = false,
+    pid: String? = nil, log: String? = nil) throws -> CLI {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let path = dir.appendingPathComponent("workoffdesk").path
     let answer = { (lang: Lang) in "cat <<'J'\n\(self.status(running: running, failing: failing, lang: lang))\nJ\n" }
     let logged = log.map { "echo \"$*\" >> '\($0)'\n" } ?? ""
     let listed = accounts.map { "[ \"$*\" = 'account --json' ] && { cat <<'J'\n\($0)\nJ\nexit 0; }\n" } ?? ""
-    try "#!/bin/sh\n\(logged)\(listed)[ \"$1\" = status ] || exit 0\nif [ \"$LC_ALL\" = zh_CN.UTF-8 ]; then\n\(answer(.zh))else\n\(answer(.en))fi\n"
+    let wait = ends ? "exit 0" : "echo $$ > '\(pid ?? "/dev/null")'; exec sleep 30"
+    let counted = working.map { "[ \"$*\" = 'activity --json' ] && { echo '{\"working\":\($0)}'; \(wait); }\n" } ?? ""
+    try "#!/bin/sh\n\(logged)\(listed)\(counted)[ \"$1\" = status ] || exit 0\nif [ \"$LC_ALL\" = zh_CN.UTF-8 ]; then\n\(answer(.zh))else\n\(answer(.en))fi\n"
       .write(toFile: path, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
     return CLI(path: path, lang: lang)
@@ -104,13 +108,58 @@ final class MenuViewTests: XCTestCase {
   }
 
   func testTheIconSaysHowTheServiceIs() async throws {
-    let cases: [(Bool, Bool, String)] = [(true, false, "apple.terminal"), (true, true, "exclamationmark.triangle"), (false, false, "stop.circle")]
-    for (running, failing, symbol) in cases {
+    let cases: [(Bool, Bool, Mark)] = [(true, false, .plain), (true, true, .symbol("exclamationmark.triangle")), (false, false, .symbol("stop.circle"))]
+    for (running, failing, mark) in cases {
       let fake = try cli(running: running, failing: failing)
       let model = Model(find: { fake }, words: .en)
       await model.refresh()
-      XCTAssertEqual(model.symbol, symbol)
+      XCTAssertEqual(model.mark, mark)
     }
-    XCTAssertEqual(Model(find: { nil }, words: .en).symbol, "questionmark.circle")
+    XCTAssertEqual(Model(find: { nil }, words: .en).mark, .symbol("questionmark.circle"))
+  }
+
+  // The bar shows while sessions work, and only on a service that is fine: trouble says so first.
+  func testTheIconShowsTheBarWhileSessionsWork() async throws {
+    let cases: [(Bool, Int, Mark)] = [(false, 2, .working), (false, 0, .plain), (true, 2, .symbol("exclamationmark.triangle"))]
+    for (failing, working, mark) in cases {
+      let fake = try cli(running: true, failing: failing, working: working)
+      let model = Model(find: { fake }, words: .en)
+      model.watch()
+      let end = Date().addingTimeInterval(5)
+      while model.status == nil || model.sessionsWorking != working || model.mark != mark {
+        guard Date() < end else { return XCTFail("\(failing) \(working): \(model.mark)") }
+        try await Task.sleep(nanoseconds: 20_000_000)
+      }
+    }
+  }
+
+  private func until(_ what: String, _ done: () -> Bool) async throws {
+    let end = Date().addingTimeInterval(5)
+    while !done() {
+      guard Date() < end else { return XCTFail("not in 5s: \(what)") }
+      try await Task.sleep(nanoseconds: 20_000_000)
+    }
+  }
+
+  // Quitting does not run deinit: the CLI it keeps running would be left behind.
+  func testQuittingEndsTheActivityRun() async throws {
+    let pidFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+    let fake = try cli(running: true, failing: false, working: 1, pid: pidFile)
+    let model = Model(find: { fake }, words: .en)
+    model.watch()
+    try await until("the run") { model.sessionsWorking == 1 }
+    let pid = try XCTUnwrap(pid_t((try String(contentsOfFile: pidFile, encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines)))
+    NotificationCenter.default.post(name: NSApplication.willTerminateNotification, object: NSApp)
+    try await until("its end") { kill(pid, 0) != 0 }
+  }
+
+  // The stream ending is the service stopping or restarting: the status is asked again then, not a minute later.
+  func testAsksTheStatusAgainWhenTheActivityStreamEnds() async throws {
+    let log = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+    let fake = try cli(running: true, failing: false, working: 1, ends: true, log: log)
+    let model = Model(find: { fake }, words: .en)
+    model.watch()
+    let asked = { ((try? String(contentsOfFile: log, encoding: .utf8)) ?? "").split(separator: "\n").filter { $0 == "status --json" }.count }
+    try await until("asked twice") { asked() >= 2 }
   }
 }

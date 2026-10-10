@@ -138,6 +138,7 @@ workoffdesk attach        # 从列表里挑一个会话接上
 | `restart` | 重启服务。会话继续跑。 |
 | `doctor` | 跑全部检查，每项没过都给出修复方法;有任何一项没过就以 1 退出。 |
 | `status --json` | 检查结果、版本、保留的各个版本、地址、服务在不在跑，以及最近 20 条警告和错误。 |
+| `activity --json` | 几个会话正在干活：现在输出一行，之后每次变化再输出一行，直到服务停下。菜单栏 App 读的就是它。 |
 | `claude [--resume <session id>]` | 在当前目录开一个 Claude 会话并接上;加 `--resume` 就接着那段对话。 |
 | `codex [--resume <thread id>]` | Codex 同理。 |
 | `attach [id]` | 在当前终端接上一个会话;不给 id 就列出来让你挑。 |

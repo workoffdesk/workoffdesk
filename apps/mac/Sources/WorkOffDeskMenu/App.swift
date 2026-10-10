@@ -16,7 +16,7 @@ struct WorkOffDeskMenuApp: App {
     MenuBarExtra {
       MenuView(model: model)
     } label: {
-      Image(systemName: model.symbol)
+      MenuBarLabel(mark: model.mark)
     }
     .menuBarExtraStyle(.window)
   }
