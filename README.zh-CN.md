@@ -1,4 +1,4 @@
-# workoffdesk
+# <img src="apps/web/public/icon.svg" alt="" width="40" align="top"> workoffdesk
 
 **用手机和你 Mac 上的 Claude Code、Codex 会话聊天。**
 

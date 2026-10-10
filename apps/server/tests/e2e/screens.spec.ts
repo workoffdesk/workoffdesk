@@ -277,11 +277,12 @@ test('wide', async ({ page }) => {
 test('social preview', async ({ browser }) => {
   test.skip(test.info().project.name !== 'en', 'one preview, in English');
   const img = (name: string) => `data:image/png;base64,${readFileSync(join(OUT, `${name}.png`)).toString('base64')}`;
+  const icon = `data:image/svg+xml;base64,${readFileSync(new URL('../../../web/public/icon.svg', import.meta.url)).toString('base64')}`;
   const page = await browser.newPage({ viewport: { width: 1280, height: 640 }, deviceScaleFactor: 1 });
   await page.setContent(`<!doctype html>
 <body style="margin:0;width:1280px;height:640px;background:#0d1117;color:#e6edf3;font:16px -apple-system,system-ui,sans-serif;display:flex;align-items:center;gap:56px;padding:0 64px;box-sizing:border-box">
   <div style="flex:1">
-    <div style="font-size:56px;font-weight:700;letter-spacing:-1px">workoffdesk</div>
+    <div style="display:flex;align-items:center;gap:20px"><img src="${icon}" style="width:76px;height:76px"><div style="font-size:56px;font-weight:700;letter-spacing:-1px">workoffdesk</div></div>
     <div style="font-size:26px;line-height:1.35;margin-top:16px;color:#c9d1d9">Your Mac's Claude Code and Codex sessions, on your phone.</div>
     <div style="font-size:20px;line-height:1.5;margin-top:20px;color:#8b949e">Chat, answer prompts, pick up<br>where the terminal left off.<br>Self-hosted, no account.</div>
   </div>

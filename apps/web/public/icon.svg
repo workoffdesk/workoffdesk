@@ -1,6 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#0d1117"/>
-  <rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#2f81f7" stroke-opacity=".35" stroke-width="4"/>
-  <path d="M140 176l92 80-92 80" fill="none" stroke="#e6edf3" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="268" y="316" width="112" height="40" rx="20" fill="#3fb950"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#2f81f7"/>
+<defs>
+  <mask id="gap"><rect width="512" height="512" fill="#fff"/><rect x="48" y="206" width="148" height="240" rx="44"/>
+    </mask>
+</defs>
+<g transform="translate(0 -16)">
+  <g mask="url(#gap)">
+    <path d="M208 112h184a40 40 0 0 1 40 40v92a40 40 0 0 1-40 40H236l-48 38v-40a40 40 0 0 1-20-36v-94a40 40 0 0 1 40-40z" fill="#fff"/>
+    <path d="M160 352h288v6a22 22 0 0 1-22 22H182a22 22 0 0 1-22-22z" fill="#fff"/>
+  </g>
+  <rect x="212" y="180" width="172" height="34" rx="17" fill="#d6e4fb"/><rect x="212" y="180" width="106" height="34" rx="17" fill="#f0b429"/>
+  <rect x="68" y="226" width="108" height="200" rx="24" fill="none" stroke="#fff" stroke-width="18"/>
+  <rect x="104" y="240" width="36" height="14" rx="7" fill="#fff"/>
+</g></svg>

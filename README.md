@@ -1,4 +1,4 @@
-# workoffdesk
+# <img src="apps/web/public/icon.svg" alt="" width="40" align="top"> workoffdesk
 
 **Chat with the Claude Code and Codex sessions on your Mac from your phone.**
 
