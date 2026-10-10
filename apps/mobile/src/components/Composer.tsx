@@ -45,7 +45,7 @@ export function Composer(props: {
     </Pressable>
   );
 
-  const { at, wrap, onPressIn, onMove, onLetGo, measure } = useVoice(composer, field);
+  const { at, wrap, onPressIn, onMove, onLetGo, measure, fieldTouches } = useVoice(composer, field, !!box.hold);
 
   const showBar = !box.text && !box.focused;
   return (
@@ -167,7 +167,7 @@ export function Composer(props: {
           >
             <SymbolView name="plus" tintColor={c.muted} size={22} />
           </Pressable>
-          <View style={s.field}>
+          <View style={s.field} {...fieldTouches(() => box.speech && box.focused && !box.text)}>
             {/* Each message sent makes a new input: iOS keeps an unfocused multiline input as tall as it was
                 once emptied, until the keyboard comes up again. */}
             <TextInput
