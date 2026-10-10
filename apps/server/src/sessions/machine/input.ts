@@ -147,6 +147,7 @@ export class Input {
   private async typeCommand(id: string, command: string): Promise<boolean> {
     if (!(await this.p.status.agentRuns(id)) || (await this.dialogOpen(id))) return false;
     await this.d.tmux.leaveCopyMode(tmuxName(id));
+    if (!(await this.promptCleared(id))) return false;
     await this.d.tmux.sendRaw(tmuxName(id), `${command}\r`);
     return true;
   }
@@ -198,9 +199,15 @@ export class Input {
     return meta?.kind === 'codex' && !meta.codexThreadId;
   }
 
+  // What is already typed at Claude's prompt is put aside first: pasted after it, the two would go as one.
   async paste(id: string, text: string): Promise<void> {
     await this.d.tmux.leaveCopyMode(tmuxName(id));
+    if (!(await this.promptCleared(id))) throw new Error('what is typed at the prompt would not go aside');
     await this.d.tmux.paste(tmuxName(id), text.replace(CONTROL, ''));
+  }
+
+  private promptCleared(id: string): Promise<boolean> {
+    return this.d.store.get().sessions[id]?.kind === 'claude' ? this.d.claude.clearPrompt(tmuxName(id)) : Promise.resolve(true);
   }
 
   async fitForChat(id: string): Promise<void> {

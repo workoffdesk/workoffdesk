@@ -22,8 +22,25 @@ describe('LocalMachine', () => {
         "    with open(log, 'ab') as f: f.write(os.read(0, 4096))",
       ].join('\n'),
     );
-    const reading = async () => {
-      const { m, store } = make({ claudeArgs: ['--run', `exec python3 ${READER} ${dir}/got-$WORKOFFDESK_SESSION.log`] });
+    // The reader with a draft typed at a prompt like Claude Code's, which a Ctrl+S puts aside when `stashes`.
+    const DRAFTED = join(dir, 'drafted.py');
+    writeFileSync(
+      DRAFTED,
+      [
+        'import os, sys, tty',
+        'log, stashes = sys.argv[1], sys.argv[2] == "1"',
+        'tty.setraw(0)',
+        String.raw`rule = '\u2500' * 20`,
+        String.raw`prompt = lambda typed: os.write(1, ('\x1b[2J\x1b[H\x1b[?2004hreader-ready\r\n' + rule + '\r\n\u276f\u00a0' + typed + '\r\n' + rule + '\r\n').encode())`,
+        "prompt('a draft')",
+        'while True:',
+        '    got = os.read(0, 4096)',
+        "    with open(log, 'ab') as f: f.write(got)",
+        String.raw`    if stashes and b'\x13' in got: prompt('')`,
+      ].join('\n'),
+    );
+    const reading = async (run = `${READER} ${dir}/got-$WORKOFFDESK_SESSION.log`) => {
+      const { m, store } = make({ claudeArgs: ['--run', `exec python3 ${run}`] });
       const s = await m.createSession({ kind: 'claude', cwd: dir });
       const log = join(dir, `got-${s.id}.log`);
       writeFileSync(log, '');
@@ -48,6 +65,33 @@ describe('LocalMachine', () => {
       m.setStatus(id, 'idle');
       expect(await m.sendMessage(id, 'x\x1b[201~\x03y')).toBeNull();
       expect(await until(() => got() === paste('line a\nline b', 'x[201~y'))).toBe(true);
+    });
+
+    describe('with something already typed at the prompt', () => {
+      const drafted = (stashes: boolean) => reading(`${DRAFTED} ${dir}/got-$WORKOFFDESK_SESSION.log ${stashes ? 1 : 0}`);
+
+      it('puts it aside before the message goes, so the two are not sent as one', async () => {
+        const { m, id, got } = await drafted(true);
+        expect(await m.sendMessage(id, 'hi')).toBeNull();
+        expect(await until(() => got() === `\x13${paste('hi')}`)).toBe(true);
+      });
+
+      it('holds the message when it will not go aside', async () => {
+        const { m, id, got } = await drafted(false);
+        expect(await m.sendMessage(id, 'hi')).toMatchObject({ text: 'hi' });
+        expect(got()).toBe('\x13');
+        expect(waiting(m, id)).toEqual(['hi']);
+      });
+
+      it.each([
+        [true, { ran: true, typed: '\x13/effort high\r' }],
+        [false, { ran: false, typed: '\x13' }],
+      ])('types a command after it only once it went aside (it goes aside: %s)', async (stashes, after) => {
+        const { m, id, got } = await drafted(stashes);
+        const { ran } = await m.runCommand(id, '/effort high');
+        expect(await until(() => got() === after.typed)).toBe(true);
+        expect(ran).toBe(after.ran);
+      });
     });
 
     it("sends a second one while Claude works at once, into Claude's own queue", async () => {

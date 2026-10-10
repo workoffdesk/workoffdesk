@@ -15,7 +15,7 @@ const DOWN = '\x1b[B';
 const COLS = 80;
 
 // What is on screen can be changed between reads (`shown`); `did` is what was read beyond the screen, and sent.
-const tmux = (o: { screen?: string; styled?: string | Error; joined?: string; cols?: number | Error } = {}) => {
+const tmux = (o: { screen?: string; styled?: string | Error | (() => string); joined?: string; cols?: number | Error } = {}) => {
   const did: string[] = [];
   const t = {
     did,
@@ -24,7 +24,7 @@ const tmux = (o: { screen?: string; styled?: string | Error; joined?: string; co
     screenAndAbove: async (_: string, lines: number) => (did.push(`above ${lines}`), { screen: t.shown, above: '' }),
     screenStyled: async () => {
       if (o.styled instanceof Error) throw o.styled;
-      return o.styled ?? '';
+      return typeof o.styled === 'function' ? o.styled() : (o.styled ?? '');
     },
     screenJoined: async () => (did.push('joined'), o.joined ?? ''),
     windowSize: async () => {
@@ -211,5 +211,57 @@ describe('ClaudeScreen', () => {
         expect(c.screen.choices).not.toHaveProperty('plan');
       });
     });
+  });
+});
+
+// The prompt as Claude Code v2.1.296 draws it, styled as tmux captures it: what is typed is plain, a hint or
+// a suggestion dimmed.
+const RULE = `\x1b[38;5;245m${'─'.repeat(40)}`;
+const promptShowing = (...lines: string[]) =>
+  ['\x1b[38;5;241m\x1b[48;5;255m❯ \x1b[38;5;16man earlier prompt\x1b[39m', '', RULE, ...lines, RULE, '\x1b[39m  \x1b[38;5;241mOpus 5.5\x1b[39m', ''].join('\n');
+const EMPTY = promptShowing('\x1b[39m❯\xa0');
+const HINT = promptShowing('\x1b[39m❯\xa0\x1b[2mTry\x1b[0m \x1b[2m"how\x1b[0m \x1b[2mdoes\x1b[0m \x1b[2mit\x1b[0m \x1b[2mwork?"\x1b[0m');
+const SUGGESTED = promptShowing('\x1b[39m❯\xa0\x1b[2m给列表也加上上报\x1b[0m');
+const TYPED = promptShowing('\x1b[39m❯\xa015301765876 这个');
+const TYPED_LINES = promptShowing('\x1b[39m❯\xa0draft one', '  second line');
+
+describe('clearPrompt', () => {
+  const STASH = '\x13';
+  // The screen as tmux gives it plain and styled, both from what `shown` says now.
+  const prompt = (shown: () => string) => {
+    const t = tmux({ styled: shown });
+    t.screen = async () => shown().replace(/\x1b\[[0-9;]*m/g, '');
+    return t;
+  };
+
+  it.each([
+    ['empty', EMPTY],
+    ['showing the hint of a fresh one', HINT],
+    ['showing a suggestion', SUGGESTED],
+  ])('presses nothing at a prompt %s: ctrl+s there would bring back what was put aside before', async (_, styled) => {
+    const t = prompt(() => styled);
+    expect(await claude(t).clearPrompt('s1')).toBe(true);
+    expect(t.did).toEqual([]);
+  });
+
+  it.each([
+    ['a line', TYPED],
+    ['lines', TYPED_LINES],
+  ])('puts %s typed at the prompt aside, and says so once the prompt is empty', async (_, typed) => {
+    let shown = typed;
+    const t = prompt(() => shown);
+    t.sendRaw = async (name, keys) => {
+      t.did.push(`keys ${name} ${JSON.stringify(keys)}`);
+      if (keys === STASH) setTimeout(() => (shown = EMPTY), 30);
+    };
+    expect(await claude(t).clearPrompt('s1')).toBe(true);
+    expect(t.did).toEqual(['leave s1', `keys s1 ${JSON.stringify(STASH)}`]);
+    expect(shown, 'precondition: the prompt emptied after the key').toBe(EMPTY);
+  });
+
+  it('says so when what is typed does not go aside, pressing once', async () => {
+    const t = prompt(() => TYPED);
+    expect(await claude(t).clearPrompt('s1')).toBe(false);
+    expect(t.did.filter((d) => d.startsWith('keys'))).toEqual([`keys s1 ${JSON.stringify(STASH)}`]);
   });
 });

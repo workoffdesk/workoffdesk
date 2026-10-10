@@ -39,6 +39,7 @@ function setup(transcript: string[] | null, queued: { id: string; text: string; 
   const tmux = {
     listSessions: async () => [{ name: 'wod-abc', created: 1, activity: 1, attached: 0, panePid: claudePane.pid }],
     panePid: async () => claudePane.pid,
+    screen: async () => AT_PROMPT,
     screenAndAbove: async () => ({ screen: AT_PROMPT, above: '' }),
     screenStyled: unread,
     screenJoined: unread,

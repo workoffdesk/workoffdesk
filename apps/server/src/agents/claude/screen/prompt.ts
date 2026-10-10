@@ -26,9 +26,12 @@ export function modeOn(screen: string): string | null {
 }
 
 // What is typed at the prompt (❯ at the edge, right under the prompt's rule), or null when nothing is: text
-// there that is all dimmed is Claude's suggestion or example.
+// there that is all dimmed, if word by word, is Claude's suggestion or example.
 // eslint-disable-next-line no-control-regex -- the dimming is an escape sequence
-const DIMMED = new RegExp('❯[\\u00a0 ]\\x1b\\[2m[^\\x1b\\n]*\\x1b\\[0m\\s*$');
+const DIMMED = /\x1b\[2m[^\x1b\n]*\x1b\[0m/g;
+// eslint-disable-next-line no-control-regex -- so is any other style
+const STYLE = /\x1b\[[0-9;]*m/g;
+const allDimmed = (promptLine: string) => !promptLine.slice(promptLine.indexOf('❯') + 1).replace(DIMMED, '').replace(STYLE, '').replace(/\u00a0/g, ' ').trim();
 
 export function typedOn(screen: string, styled: string): string | null {
   const lines = screen.replace(/\n+$/, '').split('\n');
@@ -36,5 +39,5 @@ export function typedOn(screen: string, styled: string): string | null {
   const typed = at < 0 ? '' : lines[at].slice(1).replace(/\u00a0/g, ' ').trim();
   if (!typed) return null;
   const promptLine = styled.split('\n').findLast((l) => l.includes('❯'));
-  return promptLine && DIMMED.test(promptLine) ? null : typed;
+  return promptLine && allDimmed(promptLine) ? null : typed;
 }

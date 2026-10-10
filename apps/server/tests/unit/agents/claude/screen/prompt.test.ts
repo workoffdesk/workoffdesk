@@ -18,11 +18,17 @@ describe('typedOn', () => {
     expect(typedOn(withPrompt('half a thought'), '\x1b[39m❯\u00a0half a thought\n')).toBe('half a thought');
   });
 
+  // Claude Code 2.1.296 dims the example word by word, the spaces between left plain.
   it.each([
-    ['what Claude suggests saying next', 'commit this'],
-    ['the example on a fresh prompt', 'Try "fix lint errors"'],
-  ])('does not take %s, dimmed, for text typed', (_, dimmed) => {
-    expect(typedOn(withPrompt(dimmed), `\x1b[39m❯\u00a0\x1b[2m${dimmed}\x1b[0m\n`)).toBeNull();
+    ['what Claude suggests saying next', 'commit this', '\x1b[2mcommit this\x1b[0m'],
+    ['the example on a fresh prompt', 'Try "fix lint errors"', '\x1b[2mTry "fix lint errors"\x1b[0m'],
+    ['the example dimmed word by word', 'Try "how does it work?"', '\x1b[2mTry\x1b[0m \x1b[2m"how\x1b[0m \x1b[2mdoes\x1b[0m \x1b[2mit\x1b[0m \x1b[2mwork?"\x1b[0m'],
+  ])('does not take %s, dimmed, for text typed', (_, dimmed, styled) => {
+    expect(typedOn(withPrompt(dimmed), `\x1b[39m❯\u00a0${styled}\n`)).toBeNull();
+  });
+
+  it('finds text typed in front of a dimmed word', () => {
+    expect(typedOn(withPrompt('fix it'), '\x1b[39m❯\u00a0fix \x1b[2mit\x1b[0m\n')).toBe('fix it');
   });
 
   // Not knowing which, it is taken as typed: what is typed then waits rather than going after someone's words.

@@ -15,6 +15,10 @@ export type ScreenRead = { choices: Choices | null; panel: Panel | null; suggest
 
 // How far above the screen to look for the top edge of a dialog taller than it.
 const PANEL_ABOVE = 200;
+// Ctrl+S, and how long what it puts aside is given to leave the prompt, looked at this often.
+const STASH = '\x13';
+const STASH_SHOWS_MS = 1000;
+const STASH_LOOK_MS = 50;
 // How much of a plan file is sent to be read on the phone.
 const PLAN_MAX = 20_000;
 
@@ -45,6 +49,20 @@ export class ClaudeScreen {
   async typed(name: string): Promise<string | null> {
     const [screen, styled] = await Promise.all([this.tmux.screen(name), this.tmux.screenStyled(name).catch(() => '')]);
     return typedOn(screen, styled);
+  }
+
+  // Puts what is typed at the prompt aside with Claude Code's stash (ctrl+s), which it puts back once the
+  // next prompt is sent, so what is sent next goes in on its own. Pressed only over typed text: over an empty
+  // prompt the key brings back what was put aside before. False when it did not go aside.
+  async clearPrompt(name: string): Promise<boolean> {
+    if ((await this.typed(name)) === null) return true;
+    await this.tmux.leaveCopyMode(name);
+    await this.tmux.sendRaw(name, STASH);
+    for (let waited = 0; waited < STASH_SHOWS_MS; waited += STASH_LOOK_MS) {
+      await new Promise((r) => setTimeout(r, STASH_LOOK_MS));
+      if ((await this.typed(name)) === null) return true;
+    }
+    return false;
   }
 
   async choices(name: string, parse = parseChoices): Promise<Choices | null> {
