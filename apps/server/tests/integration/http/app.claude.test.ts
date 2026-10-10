@@ -26,11 +26,9 @@ mkdirSync(join(dir, '.claude', 'commands'), { recursive: true });
 writeFileSync(join(dir, '.claude', 'commands', 'release.md'), 'Cut a release\n');
 
 describe('GET /api/claude/recent', () => {
-  it('lists recent claude sessions and project dirs', async () => {
+  it('lists recent claude sessions', async () => {
     const recent = await (await api('/api/claude/recent')).json();
     expect(recent.find((r: any) => r.sessionId === RESUME_ID)).toMatchObject({ title: 'Earlier chat', cwd: PROJECT, openIn: null, background: false });
-    const projects = await (await api('/api/claude/projects')).json();
-    expect(projects).toEqual(['/pinned/dir', PROJECT]);
   });
 
   it('marks a conversation a Claude background session holds, and will not resume it', async () => {
@@ -80,6 +78,30 @@ describe('GET /api/claude/recent', () => {
       }
       const r = await api('/api/m/local/sessions', { method: 'POST', body: JSON.stringify({ kind: 'claude', cwd: PROJECT, resumeId: RESUME_ID }) });
       expect([r.status, ((await r.json()) as { code: string }).code]).toEqual([400, 'folder-gone']);
+    } finally {
+      rmSync(join(claudeRoot, '-proj', `${here}.jsonl`));
+    }
+  });
+
+  it('takes a conversation resumed in another folder to be there, though the one it started in is gone', async () => {
+    const moved = '0b9c2a7e-5555-4222-8333-944445555aaa';
+    const record = (cwd: string, content: string) => `${JSON.stringify({ type: 'user', cwd, message: { content } })}\n`;
+    writeFileSync(join(claudeRoot, '-proj', `${moved}.jsonl`), record(PROJECT, 'started where it is gone') + record(process.cwd(), 'resumed here'));
+    try {
+      for (const route of ['/api/claude/recent', '/api/recent']) {
+        const recent = (await (await api(route)).json()) as { sessionId: string; cwd: string; folderGone: boolean }[];
+        expect(recent.find((r) => r.sessionId === moved)).toMatchObject({ cwd: process.cwd(), folderGone: false });
+      }
+    } finally {
+      rmSync(join(claudeRoot, '-proj', `${moved}.jsonl`));
+    }
+  });
+
+  it('offers to start in the folders of recent conversations that are still there, and every pinned one', async () => {
+    const here = '0b9c2a7e-6666-4222-8333-944445555bbb';
+    writeFileSync(join(claudeRoot, '-proj', `${here}.jsonl`), `${JSON.stringify({ type: 'user', cwd: process.cwd(), message: { content: 'still here' } })}\n`);
+    try {
+      expect(await (await api('/api/claude/projects')).json()).toEqual(['/pinned/dir', process.cwd()]);
     } finally {
       rmSync(join(claudeRoot, '-proj', `${here}.jsonl`));
     }

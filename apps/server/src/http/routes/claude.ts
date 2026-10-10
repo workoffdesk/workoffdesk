@@ -73,5 +73,10 @@ export const register: RouteModule = (app, ctx) => {
     return view;
   });
 
-  app.get('/api/claude/projects', async () => listProjectDirs(await recentClaude(deps), deps.pinnedDirs ?? []));
+  app.get('/api/claude/projects', async () =>
+    listProjectDirs(
+      (await recentClaude(deps)).filter((r) => !r.folderGone),
+      deps.pinnedDirs ?? [],
+    ),
+  );
 };

@@ -111,6 +111,12 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   the web say so and offer no way to go on with it, and a request that comes anyway is refused with `folder-gone`.
   (`apps/server/src/http/routes/claude.ts`, `libs/client/src/sessions/newSession.ts` `pickUpOf`,
   `apps/server/tests/integration/http/app.claude.test.ts`, `apps/server/tests/e2e/sessions.spec.ts`)
+- A Claude conversation's folder is the one it last ran in: resumed in another folder, it is listed, judged and
+  picked up there, and a `cd` into a folder inside it does not change it. The folders offered to start a session
+  in leave out recent ones that are gone. (`apps/server/src/agents/claude/transcript/transcripts.ts`,
+  `docs/design/2026-10-10-conversation-folder.md`,
+  `apps/server/tests/unit/agents/claude/transcript/transcripts.test.ts`,
+  `apps/server/tests/integration/http/app.claude.test.ts`)
 - The menu bar app (`apps/mac`, macOS 13 or later) runs `workoffdesk status --json` when its menu opens and
   every minute, and `start`, `stop` and `restart` when asked. It finds the command in `~/.local/bin`, then
   `/opt/homebrew/bin` and `/usr/local/bin`. Its icon shows running, a problem, or stopped; the menu shows
@@ -215,6 +221,8 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   audio is sent to the Mac. (`apps/web/src/voice.ts`, `libs/client/src/composer/talk.ts`)
 - Typing `/` lists the slash commands Claude has in that session, read from local files.
   (`apps/server/src/agents/claude/offers/commands.ts`)
+- A command typed after `!` shows as that command, and what it printed as a note under it.
+  (`apps/server/src/agents/claude/transcript/chat.ts`, `apps/server/tests/unit/agents/claude/transcript/chat.test.ts`)
 - The interface is English or Chinese, following the phone. (`libs/i18n`)
 - Stop, shown in place of send while Claude works and the composer is empty, sends Esc.
   (`apps/web/src/pages/Session.tsx` `onStop`)

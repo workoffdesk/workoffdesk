@@ -42,6 +42,12 @@ describe('chatItems', () => {
     ],
     ['a slash command', user('<command-name>/clear</command-name>\n<command-message>clear</command-message>\n<command-args></command-args>'), [{ k: 'note', text: '/clear', command: true, at }]],
     ['what a slash command printed', user('<local-command-stdout>Compacted</local-command-stdout>'), [{ k: 'note', text: 'Compacted' }]],
+    // As Claude Code 2.1.215 to 2.1.295 record a command typed after `!`, and what it printed.
+    ['a shell command typed at the prompt', user('<bash-input>git log -1 &gt; out.txt</bash-input>'), [{ k: 'note', text: '!git log -1 > out.txt', command: true, at }]],
+    ['what a shell command printed', user('<bash-stdout>/Users/me/proj</bash-stdout><bash-stderr></bash-stderr>'), [{ k: 'note', text: '/Users/me/proj' }]],
+    ['what a shell command printed, then its errors', user('<bash-stdout>a -&gt; b</bash-stdout><bash-stderr>warning: x\n</bash-stderr>'), [{ k: 'note', text: 'a -> b\nwarning: x' }]],
+    ['what a failed shell command printed', user("<bash-stdout></bash-stdout><bash-stderr>bash: syntax error near unexpected token `)'\n</bash-stderr>"), [{ k: 'note', text: "bash: syntax error near unexpected token `)'" }]],
+    ['nothing of a shell command that printed nothing', user('<bash-stdout></bash-stdout><bash-stderr></bash-stderr>'), []],
     ['an interruption', user([{ type: 'text', text: '[Request interrupted by user]' }]), [{ k: 'note', event: { e: 'interrupted' }, retry: true }]],
     ['the summary that replaces compacted history', user('This session is being continued…', { isCompactSummary: true }), [{ k: 'note', event: { e: 'compacted' } }]],
     [

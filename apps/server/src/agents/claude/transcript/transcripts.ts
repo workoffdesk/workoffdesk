@@ -116,14 +116,14 @@ async function parsedOnce(f: { path: string; size: number; mtimeMs: number }) {
 async function parseTranscript(path: string, size: number): Promise<Omit<RecentClaudeSession, 'sessionId' | 'lastActivity'> | null> {
   const records = await readRecords(path, size);
   if (!records.length) return null;
-  let cwd: string | null = null;
+  const cwds: string[] = [];
   let customTitle: string | null = null;
   let aiTitle: string | null = null;
   let firstPrompt: string | null = null;
   let lastPrompt: string | null = null;
   let automated = false;
   for (const r of records) {
-    if (!cwd && typeof r.cwd === 'string' && r.cwd) cwd = r.cwd;
+    if (typeof r.cwd === 'string' && r.cwd) cwds.push(r.cwd);
     if (r.entrypoint === 'sdk-cli') automated = true;
     if (r.type === 'custom-title' && typeof r.customTitle === 'string' && r.customTitle.trim()) customTitle = truncate(r.customTitle.replace(/\s+/g, ' ').trim());
     if (r.type === 'ai-title' && typeof r.aiTitle === 'string' && r.aiTitle.trim()) aiTitle = r.aiTitle.trim();
@@ -133,8 +133,21 @@ async function parseTranscript(path: string, size: number): Promise<Omit<RecentC
     if (!firstPrompt && r.type === 'user') firstPrompt = promptText(r.message?.content);
   }
   const title = customTitle ?? aiTitle ?? (firstPrompt ? truncate(firstPrompt) : basename(path, '.jsonl').slice(0, 8));
-  return { cwd, title, lastPrompt: lastPrompt && truncate(lastPrompt, LAST_PROMPT_MAX), automated };
+  return { cwd: conversationFolder(cwds), title, lastPrompt: lastPrompt && truncate(lastPrompt, LAST_PROMPT_MAX), automated };
 }
+
+// The folder a conversation last ran in, from the folders its records were written in, oldest first. Within a
+// run each is the run's folder or one inside it (a cd); one that is neither starts an earlier run elsewhere.
+function conversationFolder(cwds: string[]): string | null {
+  let folder: string | null = null;
+  for (const cwd of cwds.toReversed()) {
+    if (folder === null || within(folder, cwd)) folder = cwd;
+    else if (!within(cwd, folder)) break;
+  }
+  return folder;
+}
+
+const within = (inner: string, outer: string) => inner === outer || inner.startsWith(outer.endsWith('/') ? outer : `${outer}/`);
 
 async function readRecords(path: string, size: number): Promise<TranscriptRecord[]> {
   const fh = await open(path, 'r');

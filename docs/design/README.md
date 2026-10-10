@@ -20,3 +20,4 @@ in each are the code's at that time; the code as it is now is mapped in [archite
 - 2026-10-08: [Going on with a session whose agent quit](2026-10-08-resume-ended-sessions.md)
 - 2026-10-09: [The server's layout, and the rules that keep it](2026-10-09-server-layout.md)
 - 2026-10-09: [The apps' and libraries' layout, and the rules that keep it](2026-10-09-client-layout.md)
+- 2026-10-10: [A conversation's folder is the one it last ran in](2026-10-10-conversation-folder.md)

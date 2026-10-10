@@ -228,6 +228,43 @@ describe('listRecentClaudeSessions', () => {
     });
   });
 
+  // Each record's cwd is the folder Claude's shell was in; `claude --resume` from another folder keeps writing
+  // the same file from there (Claude Code 2.1.295 and 2.1.296).
+  describe('the folder a conversation is in', () => {
+    const folderOf = async (...cwds: (string | null)[]) => {
+      const root = mkdtempSync(join(tmpdir(), 'ts-claude-'));
+      mkdirSync(join(root, '-p'));
+      const body = cwds.map((cwd) => line(cwd === null ? { type: 'ai-title', aiTitle: 't' } : { type: 'user', cwd, message: { content: 'x' } })).join('');
+      writeFileSync(join(root, '-p', `${U1}.jsonl`), body);
+      return (await listRecentClaudeSessions(root))[0].cwd;
+    };
+
+    it.each<[string, (string | null)[], string]>([
+      ['only ever in one', ['/a', '/a'], '/a'],
+      ['in its own folder after a cd into one inside it', ['/a', '/a/sub', '/a'], '/a'],
+      ['in its own folder while the last records come from one inside it', ['/a', '/a/sub', '/a/sub/deep'], '/a'],
+      ['the one it was resumed in', ['/a', '/a', '/b'], '/b'],
+      ['the one it was resumed in, from records inside it', ['/a', '/b', '/b/sub'], '/b'],
+      ['the one it was resumed in last, after one in between', ['/a', '/b', '/a', '/a/sub'], '/a'],
+      ['the one it was resumed in, when that holds the one before', ['/a/sub', '/a/sub/deep', '/a'], '/a'],
+      ['the one it was resumed in, inside one it ran in before another', ['/a', '/c', '/a/b'], '/a/b'],
+      ['the root, when it ran there', ['/', '/x'], '/'],
+      ['named by the last record that names one', ['/a', '/b', null], '/b'],
+      ['not a folder that only starts like the one before', ['/a', '/ab'], '/ab'],
+    ])('is %s', async (_, cwds, folder) => {
+      expect(await folderOf(...cwds)).toBe(folder);
+    });
+
+    it('is the one it was resumed in when that is past the start of a transcript too long to read whole', async () => {
+      const filler = { type: 'assistant', message: { content: 'y'.repeat(2000) } };
+      const root = mkdtempSync(join(tmpdir(), 'ts-claude-'));
+      mkdirSync(join(root, '-p'));
+      const records = [{ type: 'user', cwd: '/a', message: { content: 'x' } }, ...Array(800).fill(filler), { type: 'user', cwd: '/b/sub', message: { content: 'y' } }, { type: 'user', cwd: '/b', message: { content: 'z' } }];
+      writeFileSync(join(root, '-p', `${U1}.jsonl`), records.map(line).join(''));
+      expect((await listRecentClaudeSessions(root))[0].cwd).toBe('/b');
+    });
+  });
+
   describe('with throwaway runs and repeated reads', () => {
     const at = (cwd: string) => {
       const root = mkdtempSync(join(tmpdir(), 'ts-claude-'));

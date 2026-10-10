@@ -169,6 +169,11 @@ function userItems(r: TranscriptRecord, at: string | undefined): ChatItem[] {
     const args = /<command-args>([^<]*)<\/command-args>/.exec(text)?.[1].trim();
     return [{ k: 'note', text: [command[1].trim(), args].filter(Boolean).join(' '), command: true, at }];
   }
+  if (text.startsWith('<bash-input>')) return [{ k: 'note', text: `!${tagText(text, 'bash-input')}`, command: true, at }];
+  if (text.startsWith('<bash-stdout>')) {
+    const printed = [tagText(text, 'bash-stdout'), tagText(text, 'bash-stderr')].filter(Boolean).join('\n');
+    return printed ? [{ k: 'note', text: clip(printed, RESULT_MAX) }] : [];
+  }
   const stdout = /^<local-command-std(?:out|err)>([\s\S]*)<\/local-command-std(?:out|err)>$/.exec(text);
   if (stdout) {
     const shown = stdout[1].split('\n').filter((l) => !ownHookLine(l)).join('\n').trim();
