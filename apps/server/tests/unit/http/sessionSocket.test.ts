@@ -50,7 +50,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const serve = async (o: { there?: () => Promise<boolean>; source?: JournalSource; withJournal?: boolean } = {}) => {
+const serve = async (o: { there?: () => Promise<boolean>; fit?: () => Promise<void>; source?: JournalSource; withJournal?: boolean } = {}) => {
   const line = new Line();
   lines.push(line);
   const journal = new Journal({ file: ':memory:', log: () => {} });
@@ -69,7 +69,7 @@ const serve = async (o: { there?: () => Promise<boolean>; source?: JournalSource
   };
   const machine = {
     exists: o.there ?? (async () => m.there),
-    fitForChat: async () => {},
+    fitForChat: o.fit ?? (async () => {}),
     onChange: (cb: () => void) => {
       m.changed.push(cb);
       return () => (m.changed = m.changed.filter((c) => c !== cb));
@@ -141,6 +141,32 @@ describe('serveSession', () => {
     await vi.waitFor(() => expect(line.closedWith).toBe(1000));
     expect(line.of('exit')).toHaveLength(1);
     expect(m.changed).toEqual([]);
+  });
+
+  it.each(['while it is looked for', 'while it is fitted for the chat'])('tells the page a session that ends %s, and closes the line', async (when) => {
+    const looked = deferred();
+    const fitted = deferred();
+    let there = true;
+    let first = true;
+    const { line, m, served } = await serve({
+      there: async () => {
+        if (!first) return there;
+        first = false;
+        if (when === 'while it is looked for') await looked.p;
+        return true;
+      },
+      fit: async () => {
+        if (when === 'while it is fitted for the chat') await fitted.p;
+      },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    there = false;
+    for (const cb of [...m.changed]) cb();
+    looked.resolve();
+    fitted.resolve();
+    await served;
+    await vi.waitFor(() => expect(line.closedWith).not.toBeNull());
+    expect(line.of('exit')).toHaveLength(1);
   });
 
   it('passes over what it cannot read', async () => {

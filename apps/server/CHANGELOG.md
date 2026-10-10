@@ -2,7 +2,9 @@
 
 ## 1.0.1
 
-The first release published from GitHub Actions, with npm provenance. It does what 1.0.0 does.
+The first release published from GitHub Actions, with npm provenance.
+
+- A session that ends just as the phone opens it now closes on the phone, instead of staying open on nothing.
 
 ## 1.0.0
 

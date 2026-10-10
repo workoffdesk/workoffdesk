@@ -41,15 +41,22 @@ export async function serveSession(
   let closed = false;
   let cleanup = () => {};
   socket.on('message', (data: Buffer, isBinary: boolean) => (handle ? handle(data, isBinary) : early.push([data, isBinary])));
-  socket.on('close', () => {
-    closed = true;
-    onVisibility?.(id, connId, false);
-    cleanup();
-  });
-
   const ended = () => {
     if (socket.readyState === socket.OPEN) socket.send(JSON.stringify({ type: 'exit' }));
   };
+  // Watched before it is first looked for, so a session that ends while it is being found is not missed.
+  const unwatch = machine.onChange(async () => {
+    if (closed || (await machine.exists(id).catch(() => true))) return;
+    ended();
+    socket.close(1000);
+  });
+  socket.on('close', () => {
+    closed = true;
+    onVisibility?.(id, connId, false);
+    unwatch();
+    cleanup();
+  });
+
   if (!(await machine.exists(id))) {
     ended();
     socket.close(4404, 'no such session');
@@ -66,11 +73,6 @@ export async function serveSession(
     lastSent = Date.now();
   };
   const ping = setInterval(() => socket.ping(), 25_000);
-  const unwatch = machine.onChange(async () => {
-    if (closed || (await machine.exists(id).catch(() => true))) return;
-    ended();
-    socket.close(1000);
-  });
   // Where the page's copy of the journal is, once it has said and been caught up; a page behind a change
   // is sent nothing until it says where it is again.
   let journalAt: number | null = null;
@@ -158,7 +160,6 @@ export async function serveSession(
     clearInterval(ping);
     clearTimeout(screenTimer);
     clearTimeout(textTimer);
-    unwatch();
     unwatchJournal();
   };
 
