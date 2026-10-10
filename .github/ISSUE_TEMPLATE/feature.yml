@@ -1,0 +1,19 @@
+name: Feature request
+description: Something you want to do from your phone that you cannot do yet.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The situation and what gets in the way, rather than the button you would add.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today instead
+  - type: textarea
+    id: idea
+    attributes:
+      label: An idea for how it could work

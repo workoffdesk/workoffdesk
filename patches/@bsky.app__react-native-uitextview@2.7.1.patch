@@ -1,0 +1,521 @@
+diff --git a/ios/RNUITextView.mm b/ios/RNUITextView.mm
+index 7dabee7a6713aa56d19b6cde4357e748a2ec2b64..90fb146af607b3574719070c1b3cfeae45c50e9b 100644
+--- a/ios/RNUITextView.mm
++++ b/ios/RNUITextView.mm
+@@ -2,6 +2,7 @@
+ #import "RNUITextViewShadowNode.h"
+ #import "RNUITextViewComponentDescriptor.h"
+ #import "RNUITextViewChild.h"
++#import "RNUITextViewParagraphs.h"
+ #import <React/RCTConversions.h>
+ 
+ #import <react/renderer/textlayoutmanager/RCTAttributedTextUtils.h>
+@@ -11,6 +12,7 @@
+ #import "RCTFabricComponentsPlugins.h"
+ 
+ #include <cmath>
++#include <vector>
+ 
+ using namespace facebook::react;
+ 
+@@ -107,6 +109,47 @@ - (BOOL)canBePreventedByGestureRecognizer:(UIGestureRecognizer *)preventingGestu
+ 
+ @end
+ 
++// TextKit 1 fills a background that wraps to the next line out to the edges of
++// both lines, over a paragraph's indent too. Fill only under the glyphs.
++@interface RNUITextViewLayoutManager : NSLayoutManager
++@end
++
++@implementation RNUITextViewLayoutManager
++
++- (void)fillBackgroundRectArray:(const CGRect *)rectArray
++                          count:(NSUInteger)rectCount
++              forCharacterRange:(NSRange)charRange
++                          color:(UIColor *)color
++{
++  __block std::vector<CGRect> rects(rectArray, rectArray + rectCount);
++  const NSRange glyphs = [self glyphRangeForCharacterRange:charRange actualCharacterRange:NULL];
++  [self enumerateLineFragmentsForGlyphRange:glyphs
++                                 usingBlock:^(CGRect line,
++                                              __unused CGRect used,
++                                              NSTextContainer *container,
++                                              NSRange lineGlyphs,
++                                              __unused BOOL *stop) {
++                                   const CGRect inked =
++                                       [self boundingRectForGlyphRange:NSIntersectionRange(lineGlyphs, glyphs)
++                                                       inTextContainer:container];
++                                   for (auto &rect : rects) {
++                                     const CGFloat middle = CGRectGetMidY(rect);
++                                     if (middle < CGRectGetMinY(line) || middle >= CGRectGetMaxY(line)) {
++                                       continue;
++                                     }
++                                     const CGFloat left = MAX(CGRectGetMinX(rect), CGRectGetMinX(inked));
++                                     const CGFloat right = MIN(CGRectGetMaxX(rect), CGRectGetMaxX(inked));
++                                     if (right > left) {
++                                       rect.origin.x = left;
++                                       rect.size.width = right - left;
++                                     }
++                                   }
++                                 }];
++  [super fillBackgroundRectArray:rects.data() count:rects.size() forCharacterRange:charRange color:color];
++}
++
++@end
++
+ @interface RNUITextView () <RCTRNUITextViewViewProtocol, UIGestureRecognizerDelegate, UITextViewDelegate>
+ 
+ @end
+@@ -155,14 +198,18 @@ - (instancetype)initWithFrame:(CGRect)frame
+     // attachments to paint outside the measured text bounds. Explicit
+     // `overflow: hidden` styles are still handled by RCTViewComponentView.
+ 
+-    if (@available(iOS 16.0, *)) {
+-      // This component relies on NSLayoutManager for measurement, hit-testing,
+-      // and press-highlight geometry. Opt into TextKit 1 up front instead of
+-      // making UITextView create TextKit 2 and fall back on first access.
+-      _textView = [UITextView textViewUsingTextLayoutManager:NO];
+-    } else {
+-      _textView = [[UITextView alloc] init];
+-    }
++    // This component relies on NSLayoutManager for measurement, hit-testing,
++    // and press-highlight geometry, so the text view is built on a TextKit 1
++    // stack from the start, with RNUITextViewLayoutManager in it. UITextView
++    // keeps the layout manager it was made with: one swapped in afterwards
++    // draws, while `layoutManager` still answers with the old one, which no
++    // longer holds the text container.
++    NSTextStorage *textStorage = [NSTextStorage new];
++    NSLayoutManager *layoutManager = [RNUITextViewLayoutManager new];
++    [textStorage addLayoutManager:layoutManager];
++    NSTextContainer *textContainer = [NSTextContainer new];
++    [layoutManager addTextContainer:textContainer];
++    _textView = [[UITextView alloc] initWithFrame:CGRectZero textContainer:textContainer];
+     _textView.scrollEnabled = false;
+     _textView.editable = false;
+     _textView.selectable = false;
+@@ -251,8 +298,8 @@ - (void)drawRect:(CGRect)rect
+ 
+   const auto &props = *std::static_pointer_cast<RNUITextViewProps const>(_props);
+ 
+-  const auto attrString = _state->getData().attributedString;
+-  const auto convertedAttrString = RCTNSAttributedStringFromAttributedString(attrString);
++  const auto &data = _state->getData();
++  NSAttributedString *convertedAttrString = RNUITextViewNSAttributedString(data.attributedString, data.paragraphs);
+ 
+   // Setting attributedText clears any active text selection. Bail out entirely
+   // when neither the text nor its layout changed so a JS-side state update made
+diff --git a/ios/RNUITextViewParagraphs.h b/ios/RNUITextViewParagraphs.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..5dddc1cd22b0087247e33e4ef44fd6f9473f42ff
+--- /dev/null
++++ b/ios/RNUITextViewParagraphs.h
+@@ -0,0 +1,28 @@
++#pragma once
++
++#include "RNUITextViewShadowNode.h"
++#include <react/renderer/attributedstring/AttributedStringBox.h>
++
++#include <vector>
++
++namespace facebook::react {
++
++// What the text layout manager measures: the attributed string itself when no
++// child lays out a paragraph, so measurements stay cached, or else the same
++// NSAttributedString the view draws.
++AttributedStringBox RNUITextViewMeasurableString(
++    const AttributedString &attributedString,
++    const std::vector<RNUITextViewParagraph> &paragraphs);
++
++} // namespace facebook::react
++
++#ifdef __OBJC__
++#import <Foundation/Foundation.h>
++
++// The text as the view draws it: React Native's conversion, each paragraph a
++// child lays out, and every line's extra height split above and below it as
++// React Native's own Text does.
++NSAttributedString *RNUITextViewNSAttributedString(
++    const facebook::react::AttributedString &attributedString,
++    const std::vector<facebook::react::RNUITextViewParagraph> &paragraphs);
++#endif
+diff --git a/ios/RNUITextViewParagraphs.mm b/ios/RNUITextViewParagraphs.mm
+new file mode 100644
+index 0000000000000000000000000000000000000000..2db70bcda259ca8a33c61810598f157e4f321f9d
+--- /dev/null
++++ b/ios/RNUITextViewParagraphs.mm
+@@ -0,0 +1,105 @@
++#import "RNUITextViewParagraphs.h"
++
++#import <UIKit/UIKit.h>
++#import <react/renderer/textlayoutmanager/RCTAttributedTextUtils.h>
++#include <react/utils/ManagedObjectWrapper.h>
++
++using namespace facebook::react;
++
++static void layOutParagraph(
++    NSMutableAttributedString *text,
++    NSRange paragraph,
++    const RNUITextViewParagraph &layout)
++{
++  [text enumerateAttribute:NSParagraphStyleAttributeName
++                   inRange:paragraph
++                   options:0
++                usingBlock:^(NSParagraphStyle *style, NSRange range, __unused BOOL *stop) {
++                  NSMutableParagraphStyle *laidOut = style ? [style mutableCopy] : [NSMutableParagraphStyle new];
++                  laidOut.firstLineHeadIndent = layout.firstLineHeadIndent;
++                  laidOut.headIndent = layout.headIndent;
++                  laidOut.paragraphSpacing = layout.paragraphSpacing;
++                  if (layout.headIndent > layout.firstLineHeadIndent) {
++                    laidOut.tabStops = @[ [[NSTextTab alloc] initWithTextAlignment:NSTextAlignmentNatural
++                                                                          location:layout.headIndent
++                                                                           options:@{}] ];
++                  }
++                  [text addAttribute:NSParagraphStyleAttributeName value:laidOut range:range];
++                }];
++}
++
++// As RCTApplyBaselineOffset, per paragraph, so a heading's taller lines do not
++// move the lines of the paragraphs around it.
++static void centerLines(NSMutableAttributedString *text, NSRange paragraph)
++{
++  __block CGFloat lineHeight = 0;
++  [text enumerateAttribute:NSParagraphStyleAttributeName
++                   inRange:paragraph
++                   options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
++                usingBlock:^(NSParagraphStyle *style, __unused NSRange range, __unused BOOL *stop) {
++                  lineHeight = MAX(lineHeight, style.maximumLineHeight);
++                }];
++  if (lineHeight == 0) {
++    return;
++  }
++  __block CGFloat fontHeight = 0;
++  [text enumerateAttribute:NSFontAttributeName
++                   inRange:paragraph
++                   options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
++                usingBlock:^(UIFont *font, __unused NSRange range, __unused BOOL *stop) {
++                  fontHeight = MAX(fontHeight, font.lineHeight);
++                }];
++  if (lineHeight < fontHeight) {
++    return;
++  }
++  [text addAttribute:NSBaselineOffsetAttributeName value:@((lineHeight - fontHeight) / 2) range:paragraph];
++}
++
++NSAttributedString *RNUITextViewNSAttributedString(
++    const AttributedString &attributedString,
++    const std::vector<RNUITextViewParagraph> &paragraphs)
++{
++  NSMutableAttributedString *text = [RCTNSAttributedStringFromAttributedString(attributedString) mutableCopy];
++
++  if (!paragraphs.empty()) {
++    // The conversion holds each fragment's text in turn, an attachment as one character.
++    const auto &fragments = attributedString.getFragments();
++    std::vector<NSUInteger> starts;
++    starts.reserve(fragments.size());
++    NSUInteger at = 0;
++    for (const auto &fragment : fragments) {
++      starts.push_back(at);
++      at += [NSString stringWithUTF8String:fragment.string.c_str()].length;
++    }
++    if (at == text.length) {
++      for (const auto &paragraph : paragraphs) {
++        const NSRange start = NSMakeRange(starts[paragraph.fragmentIndex], 0);
++        layOutParagraph(text, [text.string paragraphRangeForRange:start], paragraph);
++      }
++    }
++  }
++
++  [text.string enumerateSubstringsInRange:NSMakeRange(0, text.length)
++                                  options:NSStringEnumerationByParagraphs | NSStringEnumerationSubstringNotRequired
++                               usingBlock:^(__unused NSString *substring,
++                                            __unused NSRange substringRange,
++                                            NSRange enclosingRange,
++                                            __unused BOOL *stop) {
++                                 centerLines(text, enclosingRange);
++                               }];
++  return text;
++}
++
++namespace facebook::react {
++
++AttributedStringBox RNUITextViewMeasurableString(
++    const AttributedString &attributedString,
++    const std::vector<RNUITextViewParagraph> &paragraphs)
++{
++  if (paragraphs.empty()) {
++    return AttributedStringBox{attributedString};
++  }
++  return AttributedStringBox{wrapManagedObject(RNUITextViewNSAttributedString(attributedString, paragraphs))};
++}
++
++} // namespace facebook::react
+diff --git a/ios/RNUITextViewShadowNode.cpp b/ios/RNUITextViewShadowNode.cpp
+index 88843d86d592006a2bf562d952796a0fbcdbf777..b535ee11d6dd81843a23397b111a94d35f849b5d 100644
+--- a/ios/RNUITextViewShadowNode.cpp
++++ b/ios/RNUITextViewShadowNode.cpp
+@@ -1,5 +1,6 @@
+ #include "RNUITextViewShadowNode.h"
+ #include "RNUITextViewChildShadowNode.h"
++#include "RNUITextViewParagraphs.h"
+ #include <react/debug/react_native_assert.h>
+ #include <react/renderer/components/view/ViewShadowNode.h>
+ #include <react/renderer/graphics/rounding.h>
+@@ -55,7 +56,7 @@ Size RNUITextViewShadowNode::measureContent(
+     const auto textLayoutManager = std::make_shared<const TextLayoutManager>(getContextContainer());
+ 
+     return textLayoutManager->measure(
+-      AttributedStringBox{content.attributedString},
++      RNUITextViewMeasurableString(content.attributedString, content.paragraphs),
+       paragraphAttributes,
+       textLayoutContext,
+       layoutConstraints
+@@ -67,13 +68,15 @@ RNUITextViewContent RNUITextViewShadowNode::getContentWithMeasuredAttachments(
+     const LayoutConstraints& layoutConstraints,
+     std::vector<RNUITextViewHighlightMetadata> *highlightMetadata) const {
+   auto attachments = std::vector<RNUITextViewAttachment>{};
+-  auto attributedString =
+-      getAttributedString(layoutContext, highlightMetadata, &attachments);
++  auto paragraphs = std::vector<RNUITextViewParagraph>{};
++  auto attributedString = getAttributedString(
++      layoutContext, highlightMetadata, &attachments, &paragraphs);
+ 
+   if (attachments.empty()) {
+     return RNUITextViewContent{
+       std::move(attributedString),
+       std::move(attachments),
++      std::move(paragraphs),
+     };
+   }
+ 
+@@ -104,13 +107,15 @@ RNUITextViewContent RNUITextViewShadowNode::getContentWithMeasuredAttachments(
+   return RNUITextViewContent{
+     std::move(attributedString),
+     std::move(attachments),
++    std::move(paragraphs),
+   };
+ }
+ 
+ AttributedString RNUITextViewShadowNode::getAttributedString(
+   const LayoutContext& layoutContext,
+   std::vector<RNUITextViewHighlightMetadata> *highlightMetadata,
+-  std::vector<RNUITextViewAttachment> *attachments) const {
++  std::vector<RNUITextViewAttachment> *attachments,
++  std::vector<RNUITextViewParagraph> *paragraphs) const {
+     const auto &baseProps = getConcreteProps();
+     auto baseTextAttributes = TextAttributes::defaultTextAttributes();
+     baseTextAttributes.backgroundColor = baseProps.backgroundColor;
+@@ -210,6 +215,16 @@ AttributedString RNUITextViewShadowNode::getAttributedString(
+         }
+ 
+         baseAttributedString.appendFragment(std::move(fragment));
++        if (paragraphs != nullptr &&
++            (props.firstLineHeadIndent != 0 || props.headIndent != 0 ||
++             props.paragraphSpacing != 0)) {
++          paragraphs->push_back(RNUITextViewParagraph{
++            baseAttributedString.getFragments().size() - 1,
++            props.firstLineHeadIndent,
++            props.headIndent,
++            props.paragraphSpacing,
++          });
++        }
+       } else if (attachments != nullptr) {
+         auto fragment = AttributedString::Fragment{};
+         fragment.string = AttributedString::Fragment::AttachmentCharacter();
+@@ -242,6 +257,7 @@ void RNUITextViewShadowNode::layout(LayoutContext layoutContext) {
+   setStateData(RNUITextViewStateReal{
+     content.attributedString,
+     std::move(highlightMetadata),
++    content.paragraphs,
+   });
+ 
+   if (content.attachments.empty()) {
+@@ -257,7 +273,7 @@ void RNUITextViewShadowNode::layout(LayoutContext layoutContext) {
+   const auto textLayoutManager =
+       std::make_shared<const TextLayoutManager>(getContextContainer());
+   const auto measurement = textLayoutManager->measure(
+-      AttributedStringBox{content.attributedString},
++      RNUITextViewMeasurableString(content.attributedString, content.paragraphs),
+       paragraphAttributes,
+       textLayoutContext,
+       layoutConstraints);
+diff --git a/ios/RNUITextViewShadowNode.h b/ios/RNUITextViewShadowNode.h
+index 2174c067675c459f6dd38836953a85834d28af93..cad60d69683b36e2c55409a90ef56e703a91ea50 100644
+--- a/ios/RNUITextViewShadowNode.h
++++ b/ios/RNUITextViewShadowNode.h
+@@ -24,6 +24,14 @@ struct RNUITextViewHighlightMetadata {
+   Float pressRetentionOffsetLeft;
+ };
+ 
++// A child's paragraph layout, applied to the paragraph its fragment starts in.
++struct RNUITextViewParagraph {
++  size_t fragmentIndex;
++  Float firstLineHeadIndent;
++  Float headIndent;
++  Float paragraphSpacing;
++};
++
+ struct RNUITextViewAttachment {
+   const ShadowNode *shadowNode;
+   size_t fragmentIndex;
+@@ -32,12 +40,14 @@ struct RNUITextViewAttachment {
+ struct RNUITextViewContent {
+   AttributedString attributedString;
+   std::vector<RNUITextViewAttachment> attachments;
++  std::vector<RNUITextViewParagraph> paragraphs;
+ };
+ 
+ class RNUITextViewStateReal final {
+  public:
+   AttributedString attributedString;
+   std::vector<RNUITextViewHighlightMetadata> highlightMetadata;
++  std::vector<RNUITextViewParagraph> paragraphs;
+ };
+ 
+ class RNUITextViewShadowNode final : public ConcreteViewShadowNode<
+@@ -75,6 +85,7 @@ private:
+   AttributedString getAttributedString(
+       const LayoutContext& layoutContext,
+       std::vector<RNUITextViewHighlightMetadata> *highlightMetadata = nullptr,
+-      std::vector<RNUITextViewAttachment> *attachments = nullptr) const;
++      std::vector<RNUITextViewAttachment> *attachments = nullptr,
++      std::vector<RNUITextViewParagraph> *paragraphs = nullptr) const;
+ };
+ } // namespace facebook::React
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/RNUITextViewSpec/RNUITextViewSpec-generated.mm b/ios/generated/build/generated/ios/ReactCodegen/RNUITextViewSpec/RNUITextViewSpec-generated.mm
+deleted file mode 100644
+index 8b9c0deb77bcd55f1c68fa283254a0c2331cff56..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/RNUITextViewSpec/RNUITextViewSpec.h b/ios/generated/build/generated/ios/ReactCodegen/RNUITextViewSpec/RNUITextViewSpec.h
+deleted file mode 100644
+index 70e2ae8e46cbe31b9fe4942cfd789009c7d9155e..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/RNUITextViewSpecJSI.h b/ios/generated/build/generated/ios/ReactCodegen/RNUITextViewSpecJSI.h
+deleted file mode 100644
+index ec162608dab14196709ed33a62f486beeebdce2d..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/ComponentDescriptors.cpp b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/ComponentDescriptors.cpp
+deleted file mode 100644
+index 2c5398e4d4d587586101b567078d5cce6f2f052d..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/ComponentDescriptors.h b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/ComponentDescriptors.h
+deleted file mode 100644
+index 38e9348d8701fde84f27bb40485fe5d67c12e6a8..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/EventEmitters.cpp b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/EventEmitters.cpp
+deleted file mode 100644
+index 08ad113a6316f818fa78de1563f719dd85e80089..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/EventEmitters.h b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/EventEmitters.h
+deleted file mode 100644
+index 6829e6c4df8cfa48d388577d71d6a48054ec6037..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/Props.cpp b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/Props.cpp
+deleted file mode 100644
+index 5de8e6bd7fbdc551fa23572032e7b0d7d7d50810..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/Props.h b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/Props.h
+deleted file mode 100644
+index 3c5089d63eb15c7a88b21670b0e9c1d778b61e60..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/RCTComponentViewHelpers.h b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/RCTComponentViewHelpers.h
+deleted file mode 100644
+index d840b256948a78ff72f650e2e910eedc665a720f..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/ShadowNodes.cpp b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/ShadowNodes.cpp
+deleted file mode 100644
+index 1679a95a028298dc8a980d7c7acd0b8381e67109..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/ShadowNodes.h b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/ShadowNodes.h
+deleted file mode 100644
+index 3407dff40c08eed3edf4207395d5768718f4a617..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/States.cpp b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/States.cpp
+deleted file mode 100644
+index 7c102c2ec883280a5d9352cfad14c9209a999b3a..0000000000000000000000000000000000000000
+diff --git a/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/States.h b/ios/generated/build/generated/ios/ReactCodegen/react/renderer/components/RNUITextViewSpec/States.h
+deleted file mode 100644
+index 5418f0b04087d3787f9d3f20bdd711d16fbc025d..0000000000000000000000000000000000000000
+diff --git a/lib/commonjs/RNUITextViewChildNativeComponent.ts b/lib/commonjs/RNUITextViewChildNativeComponent.ts
+index 0a4d0dbbfe948409b6777ca324d94549dc0dc6e4..cef0ebe7964634bdb6d17053ecbdce3235dfefef 100644
+--- a/lib/commonjs/RNUITextViewChildNativeComponent.ts
++++ b/lib/commonjs/RNUITextViewChildNativeComponent.ts
+@@ -40,6 +40,10 @@ interface NativeProps extends ViewProps {
+   textDecorationColor?: ColorValue
+   textAlign?: CodegenTypes.WithDefault<TextAlign, 'auto'>
+   shadowRadius?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
++  /** Paragraph layout, for the paragraph this text starts in: where its first line and the lines after start, and the space after it. */
++  firstLineHeadIndent?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
++  headIndent?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
++  paragraphSpacing?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
+   /** Internal identifier used to highlight all fragments in a pressable Text. */
+   highlightGroup?: string
+   /** Internal copy of Text's suppressHighlighting prop. */
+diff --git a/lib/module/RNUITextViewChildNativeComponent.ts b/lib/module/RNUITextViewChildNativeComponent.ts
+index 0a4d0dbbfe948409b6777ca324d94549dc0dc6e4..cef0ebe7964634bdb6d17053ecbdce3235dfefef 100644
+--- a/lib/module/RNUITextViewChildNativeComponent.ts
++++ b/lib/module/RNUITextViewChildNativeComponent.ts
+@@ -40,6 +40,10 @@ interface NativeProps extends ViewProps {
+   textDecorationColor?: ColorValue
+   textAlign?: CodegenTypes.WithDefault<TextAlign, 'auto'>
+   shadowRadius?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
++  /** Paragraph layout, for the paragraph this text starts in: where its first line and the lines after start, and the space after it. */
++  firstLineHeadIndent?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
++  headIndent?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
++  paragraphSpacing?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
+   /** Internal identifier used to highlight all fragments in a pressable Text. */
+   highlightGroup?: string
+   /** Internal copy of Text's suppressHighlighting prop. */
+diff --git a/lib/typescript/commonjs/src/Text.d.ts b/lib/typescript/commonjs/src/Text.d.ts
+index 8fea174d3efdf1d0efbaf970f93d7864be3c77f9..b26d0b42462fdba096161fa4c0b2301cb751f161 100644
+--- a/lib/typescript/commonjs/src/Text.d.ts
++++ b/lib/typescript/commonjs/src/Text.d.ts
+@@ -12,6 +12,12 @@ export type SelectionChangeEvent = {
+ };
+ type UITextViewProps = TextProps & {
+     uiTextView?: boolean;
++    /** Where the first line of the paragraph this text starts in begins, in points (iOS). */
++    firstLineHeadIndent?: number;
++    /** Where that paragraph's other lines begin; a tab in the first line stops here (iOS). */
++    headIndent?: number;
++    /** The space after that paragraph (iOS). */
++    paragraphSpacing?: number;
+     /**
+      * Fired when the native text selection changes. Only fires on iOS when
+      * `uiTextView` is true. Note: fires on every selection-edge adjustment
+diff --git a/lib/typescript/module/src/Text.d.ts b/lib/typescript/module/src/Text.d.ts
+index 8fea174d3efdf1d0efbaf970f93d7864be3c77f9..b26d0b42462fdba096161fa4c0b2301cb751f161 100644
+--- a/lib/typescript/module/src/Text.d.ts
++++ b/lib/typescript/module/src/Text.d.ts
+@@ -12,6 +12,12 @@ export type SelectionChangeEvent = {
+ };
+ type UITextViewProps = TextProps & {
+     uiTextView?: boolean;
++    /** Where the first line of the paragraph this text starts in begins, in points (iOS). */
++    firstLineHeadIndent?: number;
++    /** Where that paragraph's other lines begin; a tab in the first line stops here (iOS). */
++    headIndent?: number;
++    /** The space after that paragraph (iOS). */
++    paragraphSpacing?: number;
+     /**
+      * Fired when the native text selection changes. Only fires on iOS when
+      * `uiTextView` is true. Note: fires on every selection-edge adjustment
+diff --git a/src/RNUITextViewChildNativeComponent.ts b/src/RNUITextViewChildNativeComponent.ts
+index 0a4d0dbbfe948409b6777ca324d94549dc0dc6e4..cef0ebe7964634bdb6d17053ecbdce3235dfefef 100644
+--- a/src/RNUITextViewChildNativeComponent.ts
++++ b/src/RNUITextViewChildNativeComponent.ts
+@@ -40,6 +40,10 @@ interface NativeProps extends ViewProps {
+   textDecorationColor?: ColorValue
+   textAlign?: CodegenTypes.WithDefault<TextAlign, 'auto'>
+   shadowRadius?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
++  /** Paragraph layout, for the paragraph this text starts in: where its first line and the lines after start, and the space after it. */
++  firstLineHeadIndent?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
++  headIndent?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
++  paragraphSpacing?: CodegenTypes.WithDefault<CodegenTypes.Float, 0>
+   /** Internal identifier used to highlight all fragments in a pressable Text. */
+   highlightGroup?: string
+   /** Internal copy of Text's suppressHighlighting prop. */
+diff --git a/src/Text.tsx b/src/Text.tsx
+index 05b03b6b6e2a1347f4d443190b7bac19473951b6..dc79cf0a0937473748290ee284415c4113f8071e 100644
+--- a/src/Text.tsx
++++ b/src/Text.tsx
+@@ -38,6 +38,12 @@ export type SelectionChangeEvent = {
+ 
+ type UITextViewProps = TextProps & {
+   uiTextView?: boolean
++  /** Where the first line of the paragraph this text starts in begins, in points (iOS). */
++  firstLineHeadIndent?: number
++  /** Where that paragraph's other lines begin; a tab in the first line stops here (iOS). */
++  headIndent?: number
++  /** The space after that paragraph (iOS). */
++  paragraphSpacing?: number
+   /**
+    * Fired when the native text selection changes. Only fires on iOS when
+    * `uiTextView` is true. Note: fires on every selection-edge adjustment

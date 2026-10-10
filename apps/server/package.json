@@ -1,0 +1,75 @@
+{
+  "name": "workoffdesk",
+  "version": "3.0.0",
+  "description": "Your Mac's Claude Code and Codex sessions, on your phone: chat, answer prompts, pick up where the terminal left off. Self-hosted, no account.",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "tmux",
+    "pwa",
+    "remote",
+    "remote-control",
+    "chat"
+  ],
+  "homepage": "https://github.com/workoffdesk/workoffdesk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/workoffdesk/workoffdesk.git",
+    "directory": "apps/server"
+  },
+  "bugs": "https://github.com/workoffdesk/workoffdesk/issues",
+  "type": "module",
+  "bin": {
+    "workoffdesk": "dist/server/cli.js"
+  },
+  "files": [
+    "dist",
+    "scripts/smoke.mjs",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "prepack": "node scripts/check-build.mjs && node scripts/npm-docs.mjs ../.. . README.md LICENSE SECURITY.md",
+    "build": "rm -rf dist && pnpm --filter @workoffdesk/web build && tsc -p tsconfig.json && cp -R ../web/dist dist/web && node scripts/build-app-update.mjs && node scripts/stamp-build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "screens": "playwright test -c playwright.screens.config.ts",
+    "demo": "sh tests/e2e/demo/make.sh",
+    "start": "node dist/server/cli.js serve",
+    "test:pack": "node scripts/pack-test.mjs",
+    "check": "pnpm run lint && pnpm run typecheck && vitest run"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.5",
+    "@fastify/websocket": "^11.3.1",
+    "@simplewebauthn/server": "^14.0.3",
+    "bsdiff-wasm": "^0.1.4",
+    "fastify": "^5.12.5",
+    "pino": "^10.3.1",
+    "qrcode-generator": "2.0.4",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.3",
+    "@playwright/test": "1.58.2",
+    "@types/node": "20.19.9",
+    "@types/web-push": "^3.6.4",
+    "@types/ws": "^8.18.1",
+    "eslint": "^9.39.3",
+    "eslint-import-resolver-typescript": "3.10.1",
+    "eslint-plugin-import": "2.32.0",
+    "globals": "^16.5.0",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.56.1",
+    "vitest": "3.2.4",
+    "ws": "8.19.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@workoffdesk/client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "What the web app and the iPhone app share besides the words: the API, the chat model, formatting.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "pnpm run lint && pnpm run typecheck && vitest run"
+  },
+  "dependencies": {
+    "@workoffdesk/i18n": "workspace:*",
+    "highlight.js": "^11.12.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.3",
+    "@types/node": "20.19.9",
+    "eslint": "^9.39.3",
+    "eslint-import-resolver-typescript": "3.10.1",
+    "eslint-plugin-import": "2.32.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.56.1",
+    "vitest": "3.2.4"
+  }
+}

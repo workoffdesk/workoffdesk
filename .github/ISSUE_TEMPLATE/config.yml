@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/workoffdesk/workoffdesk/security/advisories/new
+    about: Anything that lets someone sign in, read files or run commands without the password. Report it privately.
+  - name: Troubleshooting guide
+    url: https://github.com/workoffdesk/workoffdesk/blob/main/docs/guide/troubleshooting.md
+    about: Common problems and where to look first.

@@ -1,0 +1,33 @@
+
+  ⎿  Kept model as Opus 5.5 (default)
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔ ◐ medium · /effort ▔
+   Settings  Status   Config   Usage   Stats
+
+   ╭─────────────────────────────────────────╮
+   │ ⌕ Search settings…                      │
+   ╰─────────────────────────────────────────╯
+
+   ❯ Auto-compact
+       false
+     Continue automatically at usage limit
+       true
+     Switch models when a message is flagged
+       Not asked yet ›
+     Show tips
+       true
+     Claude-drafted feedback
+       notify
+     Reduce motion
+       false
+     Thinking mode
+       true
+     Thinking can't be turned off for Opus
+     5.5
+     Prompt suggestions
+       true
+     Session recap
+       true
+     ↓ 37 more
+
+   Enter/Space to change · / to search · Esc
+   to close

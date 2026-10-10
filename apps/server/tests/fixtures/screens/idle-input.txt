@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.288
+▝▜██████▀  Opus 5.5 · Claude Team
+ ▝▝   ▝▝   /private/tmp/claude-503/probe-rh3n
+
+
+❯ /model
+  ⎿  Kept model as Opus 5.5 (default)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                  ◐ medium · /effort
+──────────────────────────────────────────────────────────────────────
+❯ 
+──────────────────────────────────────────────────────────────────────
+  Alice  Opus 5.5  5h:31%
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent

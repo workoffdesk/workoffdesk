@@ -1,0 +1,7 @@
+{
+  "NSCameraUsageDescription": "WorkOffDesk 用相机拍照，发送到你的会话。",
+  "NSMicrophoneUsageDescription": "按住说话时，WorkOffDesk 用麦克风把你说的话变成消息。",
+  "NSSpeechRecognitionUsageDescription": "按住说话时，WorkOffDesk 把你说的话转成消息文字。",
+  "NSPhotoLibraryUsageDescription": "只有在你选择要发到会话里的图片时，WorkOffDesk 才会打开你的相册。",
+  "NSFaceIDUsageDescription": "WorkOffDesk 把你的登录信息存在 iPhone 钥匙串里，不使用面容 ID。"
+}

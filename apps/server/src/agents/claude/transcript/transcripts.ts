@@ -1,0 +1,212 @@
+import { open, readdir, readFile, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
+import type { TranscriptRecord } from './chat.js';
+
+// Claude Code's transcript format is undocumented: every field read here is
+// optional, and a file that yields nothing parseable is skipped, never thrown.
+
+// `automated`: started through the SDK by a program (an agent runner such as Paperclip), not by a person.
+// lastPrompt: what the person said last, which tells the conversation apart better than a title Claude
+// gave it from the first words.
+export type RecentClaudeSession = { sessionId: string; cwd: string | null; title: string; lastPrompt: string | null; lastActivity: number; automated: boolean };
+
+const HEAD_BYTES = 256 * 1024;
+const TAIL_BYTES = 64 * 1024;
+const TITLE_MAX = 60;
+const LAST_PROMPT_MAX = 200;
+
+// Up to `limit` of the latest sessions people started, and as many of those programs started, newest
+// first: a busy agent runner does not push a person's sessions off the list.
+// Asked for again while a listing runs (several pages and phones open at once), the one running answers.
+const running = new Map<string, Promise<RecentClaudeSession[]>>();
+
+export function listRecentClaudeSessions(root: string, limit = 50): Promise<RecentClaudeSession[]> {
+  const key = `${limit}:${root}`;
+  const now = running.get(key);
+  if (now) return now;
+  const next = listRecent(root, limit).finally(() => running.delete(key));
+  running.set(key, next);
+  return next;
+}
+
+async function listRecent(root: string, limit: number): Promise<RecentClaudeSession[]> {
+  const files = await transcriptFiles(root);
+  files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  const out: RecentClaudeSession[] = [];
+  const count = { people: 0, programs: 0 };
+  for (const f of files.slice(0, limit * 6)) {
+    if (count.people >= limit && count.programs >= limit) break;
+    const parsed = await parsedOnce(f);
+    if (!parsed || isScratch(parsed.cwd)) continue;
+    const kind = parsed.automated ? 'programs' : 'people';
+    if (count[kind] >= limit) continue;
+    count[kind]++;
+    out.push({ sessionId: basename(f.path, '.jsonl'), ...parsed, lastActivity: Math.round(f.mtimeMs) });
+  }
+  return out;
+}
+
+// A conversation in a temporary folder is a throwaway run (a test, a probe), not work to come back to.
+const SCRATCH_ROOTS = ['/tmp/', '/private/tmp/', '/var/folders/', '/private/var/folders/', join(tmpdir(), '/')];
+
+function isScratch(cwd: string | null): boolean {
+  return cwd !== null && SCRATCH_ROOTS.some((r) => cwd.startsWith(r));
+}
+
+export function listProjectDirs(recent: RecentClaudeSession[], pinned: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const d of [...pinned, ...recent.map((r) => r.cwd)]) {
+    if (d && !seen.has(d)) {
+      seen.add(d);
+      out.push(d);
+    }
+  }
+  return out;
+}
+
+async function transcriptFiles(root: string) {
+  let dirs: string[];
+  try {
+    dirs = await readdir(root);
+  } catch {
+    return [];
+  }
+  const files: { path: string; mtimeMs: number; size: number }[] = [];
+  for (const d of dirs) {
+    let names: string[];
+    try {
+      names = await readdir(join(root, d));
+    } catch {
+      continue;
+    }
+    for (const n of names) {
+      if (!n.endsWith('.jsonl')) continue;
+      const p = join(root, d, n);
+      try {
+        const s = await stat(p);
+        if (s.isFile()) files.push({ path: p, mtimeMs: s.mtimeMs, size: s.size });
+      } catch {
+        // vanished between readdir and stat
+      }
+    }
+  }
+  return files;
+}
+
+// What a transcript was read as, kept while the file stays as it was: the list is asked for often, and
+// reading the head and tail of hundreds of files each time took seconds.
+const parsedCache = new Map<string, { size: number; mtimeMs: number; parsed: Awaited<ReturnType<typeof parseTranscript>> }>();
+const PARSED_KEPT = 2000;
+
+async function parsedOnce(f: { path: string; size: number; mtimeMs: number }) {
+  const kept = parsedCache.get(f.path);
+  if (kept && kept.size === f.size && kept.mtimeMs === f.mtimeMs) return kept.parsed;
+  const parsed = await parseTranscript(f.path, f.size).catch(() => null);
+  parsedCache.delete(f.path);
+  parsedCache.set(f.path, { size: f.size, mtimeMs: f.mtimeMs, parsed });
+  for (const old of parsedCache.keys()) {
+    if (parsedCache.size <= PARSED_KEPT) break;
+    parsedCache.delete(old);
+  }
+  return parsed;
+}
+
+async function parseTranscript(path: string, size: number): Promise<Omit<RecentClaudeSession, 'sessionId' | 'lastActivity'> | null> {
+  const records = await readRecords(path, size);
+  if (!records.length) return null;
+  let cwd: string | null = null;
+  let customTitle: string | null = null;
+  let aiTitle: string | null = null;
+  let firstPrompt: string | null = null;
+  let lastPrompt: string | null = null;
+  let automated = false;
+  for (const r of records) {
+    if (!cwd && typeof r.cwd === 'string' && r.cwd) cwd = r.cwd;
+    if (r.entrypoint === 'sdk-cli') automated = true;
+    if (r.type === 'custom-title' && typeof r.customTitle === 'string' && r.customTitle.trim()) customTitle = truncate(r.customTitle.replace(/\s+/g, ' ').trim());
+    if (r.type === 'ai-title' && typeof r.aiTitle === 'string' && r.aiTitle.trim()) aiTitle = r.aiTitle.trim();
+    const said =
+      r.type === 'user' && !r.isMeta && !r.isCompactSummary ? promptText(r.message?.content) : r.type === 'last-prompt' ? promptText(r.lastPrompt) : null;
+    if (said) lastPrompt = said;
+    if (!firstPrompt && r.type === 'user') firstPrompt = promptText(r.message?.content);
+  }
+  const title = customTitle ?? aiTitle ?? (firstPrompt ? truncate(firstPrompt) : basename(path, '.jsonl').slice(0, 8));
+  return { cwd, title, lastPrompt: lastPrompt && truncate(lastPrompt, LAST_PROMPT_MAX), automated };
+}
+
+async function readRecords(path: string, size: number): Promise<TranscriptRecord[]> {
+  const fh = await open(path, 'r');
+  try {
+    if (size <= HEAD_BYTES + TAIL_BYTES) {
+      return parseLines((await fh.readFile()).toString('utf8'));
+    }
+    const head = Buffer.alloc(HEAD_BYTES);
+    await fh.read(head, 0, HEAD_BYTES, 0);
+    const tail = Buffer.alloc(TAIL_BYTES);
+    await fh.read(tail, 0, TAIL_BYTES, size - TAIL_BYTES);
+    return [...parseLines(head.toString('utf8')), ...parseLines(tail.toString('utf8'))];
+  } finally {
+    await fh.close();
+  }
+}
+
+// A line cut by the head/tail window is never valid JSON on its own, so the
+// parse below discards it without special handling.
+function parseLines(text: string): TranscriptRecord[] {
+  const out: TranscriptRecord[] = [];
+  for (const l of text.split('\n')) {
+    if (!l.startsWith('{')) continue;
+    try {
+      const v = JSON.parse(l);
+      if (v && typeof v === 'object') out.push(v);
+    } catch {
+      // partial or foreign line
+    }
+  }
+  return out;
+}
+
+function promptText(content: unknown): string | null {
+  const raw =
+    typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? content.filter((b) => b?.type === 'text' && typeof b.text === 'string').map((b) => b.text).join(' ')
+        : '';
+  // An agent runner's wake names its issue on a line of its own; that, not its template, says what it is.
+  const issue = /^- issue:\s*(.+)$/m.exec(raw)?.[1];
+  const text = (issue ?? raw.replace(/^#{1,6}\s+/gm, '')).replace(/\s+/g, ' ').trim();
+  return text && !text.startsWith('<') ? text : null;
+}
+
+function truncate(s: string, max = TITLE_MAX): string {
+  return [...s].slice(0, max).join('');
+}
+
+// The conversations Claude Code's background sessions hold (~/.claude/jobs: a folder per session, named by
+// the first eight characters of its conversation, its state.json naming the transcript it follows). One
+// held there must not also be resumed here: two Claudes would write the same conversation.
+export async function heldInBackground(jobsRoot: string): Promise<(sessionId: string) => boolean> {
+  let names: string[];
+  try {
+    names = await readdir(jobsRoot);
+  } catch {
+    return () => false;
+  }
+  const followed = new Set<string>();
+  const named = new Set<string>();
+  for (const name of names) {
+    let state: unknown;
+    try {
+      state = JSON.parse(await readFile(join(jobsRoot, name, 'state.json'), 'utf8'));
+    } catch {
+      continue;
+    }
+    named.add(name);
+    const path = state && typeof state === 'object' ? (state as { linkScanPath?: unknown }).linkScanPath : undefined;
+    if (typeof path === 'string') followed.add(basename(path, '.jsonl'));
+  }
+  return (sessionId) => followed.has(sessionId) || named.has(sessionId.slice(0, 8));
+}

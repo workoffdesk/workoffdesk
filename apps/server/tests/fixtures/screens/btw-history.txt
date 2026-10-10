@@ -1,0 +1,40 @@
+ ▝▝   ▝▝   /work/btwtest
+
+
+❯ /btw list 40 animals, one per line, numbered
+
+  /btw what is 2+2
+  /btw list 40 animals, one per line, numbered
+
+    1. 狗 (Dog)
+    2. 猫 (Cat)
+    3. 马 (Horse)
+    4. 牛 (Cow)
+    5. 羊 (Sheep)
+    6. 猪 (Pig)
+    7. 鸡 (Chicken)
+    8. 鸭 (Duck)
+    9. 兔子 (Rabbit)
+    10. 老虎 (Tiger)
+    11. 狮子 (Lion)
+    12. 大象 (Elephant)
+    13. 长颈鹿 (Giraffe)
+    14. 斑马 (Zebra)
+    15. 熊猫 (Panda)
+    16. 熊 (Bear)
+    17. 狼 (Wolf)
+    18. 狐狸 (Fox)
+    19. 猴子 (Monkey)
+    20. 大猩猩 (Gorilla)
+    21. 袋鼠 (Kangaroo)
+    22. 考拉 (Koala)
+    23. 河马 (Hippopotamus)
+    24. 犀牛 (Rhinoceros)
+    25. 骆驼 (Camel)
+    26. 鹿 (Deer)
+    27. 松鼠 (Squirrel)
+    28. 老鼠 (Mouse)
+
+  ⇧←/→ to browse · c to copy · f to fork · x to clear
+  history · Esc to close
+

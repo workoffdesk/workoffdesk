@@ -1,0 +1,29 @@
+  24m 37s ago — likely cause: idle
+  past the 1h TTL, 204.9k tokens
+  re-cached) · 1 expected rebuild
+  (compaction or tool-result
+  clearing) · warm (1h TTL, last
+  activity 6m 11s ago)
+
+
+  Plugin skill-listing footprint
+  What each plugin's skill
+  descriptions add to the system
+  prompt (cached input after the
+  first turn). Agents and MCP tools
+  not yet counted.
+
+  superset          1 skill · ~35
+                    tok/turn
+
+  Total                  ~35
+                         tok/turn
+
+  Current session · Resets 2am
+  (Europe/Rome)
+  ███████▎
+
+  9% used
+
+  Current week (all models) ·
+  Resets Oct 8 at 9am

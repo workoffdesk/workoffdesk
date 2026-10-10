@@ -1,0 +1,81 @@
+export const common = {
+  // Times and statuses
+  justNow: 'just now',
+  minutesAgo: (m: number) => `${m} min ago`,
+  hoursAgo: (h: number) => `${h} h ago`,
+  daysAgo: (d: number) => `${d} d ago`,
+  yesterday: 'Yesterday',
+  seconds: (s: number) => `${s}s`,
+  minutesSeconds: (m: number, s: number) => `${m}m ${s}s`,
+  status: {
+    starting: 'Starting',
+    working: 'Working',
+    waiting: 'Needs you',
+    idle: 'Idle',
+    ended: 'Ended',
+    compacting: 'Compacting',
+  },
+  previewStarting: 'Starting…',
+  previewWorking: 'Working…',
+  compactingContext: 'Compacting context…',
+
+  // Common
+  close: 'Close',
+  back: 'Back',
+  save: 'Save',
+  delete: 'Delete',
+  edit: 'Edit',
+  copy: 'Copy',
+  copied: 'Copied',
+  appError: 'Something went wrong',
+  reopen: 'Reopen',
+  loading: 'Loading…',
+  reading: 'Loading…',
+  refresh: 'Refresh',
+  open: 'Open',
+  showScreen: 'Screen',
+  session: 'Session',
+  settings: 'Settings',
+  sent: 'Sent',
+  sentMessage: 'Sent message',
+  sending: 'Sending…',
+  sendingMessage: 'Message being sent',
+  tryAgain: 'Try again',
+  device: 'Device',
+
+  // Errors the server names by code
+  serverErrors: {
+    'dialog-open': 'A menu is open above. Pick an option or press Esc first.',
+    'background-session': 'This conversation is in a Claude background session and cannot be resumed here.',
+    'open-on-mac': 'This conversation is still open in a terminal on the Mac.',
+    'mac-would-not-quit': 'It did not quit on the Mac, so nothing was resumed.',
+    'open-elsewhere': 'This conversation is open in another Codex app (an editor or the Codex app). Close it there first.',
+    'not-an-image': 'Only images can be uploaded (PNG, JPEG, GIF, WebP, HEIC).',
+    'upload-incomplete': 'The file did not all reach the Mac. Send it again.',
+    'upload-offset': 'The Mac has a different part of this file. It is being sent again from where the Mac is.',
+    'not-managed': 'This server was started by hand, not as the service, so it cannot be restarted from here.',
+    'op-busy': 'A restart or rollback is already running.',
+    'rollback-moved': 'The releases changed in the meantime. Look again before rolling back.',
+    'account-unusable': 'That account cannot be used now.',
+    'account-none-picked': 'Pick an account first.',
+    'folder-gone': 'Its folder is not on the Mac any more.',
+    'terminal-busy': 'Something is running in this session’s terminal on the Mac. Quit it there first, or start another conversation.',
+  } as Record<string, string>,
+
+  // Chat notes the server sends as events
+  noteCompacted: 'Earlier conversation compacted',
+  noteInterrupted: 'Interrupted',
+  toolStopped: (who: string) => `Not run: ${who} was stopped (Esc) before it ran this.`,
+  noteFailed: 'Something went wrong',
+  noteLimit: 'Usage limit reached',
+  noteTask: (status: string, what: string) =>
+    `${status === 'completed' ? 'Background task done' : status === 'failed' ? 'Background task failed' : 'Background task'}: ${what}`,
+  notePeer: (from: string) => `Message from ${from || 'another session'}`,
+
+  // Claude Code's own slash commands, by name; the server describes them in English.
+  builtinCommands: {} as Record<string, string>,
+
+  // Push notifications
+  push: { waiting: 'Needs your confirmation', idle: 'Done with this turn' },
+
+};

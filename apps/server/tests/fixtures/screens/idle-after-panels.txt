@@ -1,0 +1,33 @@
+
+ ▐▛███▛█   Claude Code v2.1.288
+▝▜██████▀  Opus 5.5 · Claude Team
+ ▝▝   ▝▝   /…/scratchpad/probe-cwd
+
+
+❯ /model
+  ⎿  Kept model as Opus 5.5 (default)
+
+❯ /config
+  ⎿  Disabled auto-compact
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                             ◐ medium · /effort
+─────────────────────────────────────────────────
+❯ 
+─────────────────────────────────────────────────
+  Alice  Opus 5.5  5h:9%
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 a…
