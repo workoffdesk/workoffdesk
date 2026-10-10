@@ -179,7 +179,7 @@ export function Composer(props: {
               onSelectionChange={(e) => composer.setCaret(e.nativeEvent.selection.end)}
               onFocus={() => composer.focus()}
               onBlur={() => composer.blur()}
-              placeholder={showBar ? '' : t.placeholder}
+              placeholder={showBar ? '' : box.speech ? t.placeholderSpeech : t.placeholder}
               placeholderTextColor={c.muted}
               accessibilityLabel={t.input}
               testID="composer"
