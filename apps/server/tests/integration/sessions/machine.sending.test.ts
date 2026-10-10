@@ -1,0 +1,139 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { LocalMachine } from '../../../src/sessions/machine.js';
+import { machineSetup } from '../../helpers/machine.js';
+import { until } from '../../helpers/until.js';
+
+const { dir, tmux, make, restarted } = machineSetup('send');
+
+describe('LocalMachine', () => {
+  describe('sendMessage', () => {
+    // Takes input raw with bracketed paste on, the way Claude Code does, and appends every byte it gets to a file.
+    const READER = join(dir, 'reader.py');
+    writeFileSync(
+      READER,
+      [
+        'import os, sys, tty',
+        'log = sys.argv[1]',
+        'tty.setraw(0)',
+        "os.write(1, b'\\x1b[?2004hreader-ready\\r\\n')",
+        'while True:',
+        "    with open(log, 'ab') as f: f.write(os.read(0, 4096))",
+      ].join('\n'),
+    );
+    const reading = async () => {
+      const { m, store } = make({ claudeArgs: ['--run', `exec python3 ${READER} ${dir}/got-$WORKOFFDESK_SESSION.log`] });
+      const s = await m.createSession({ kind: 'claude', cwd: dir });
+      const log = join(dir, `got-${s.id}.log`);
+      writeFileSync(log, '');
+      expect(await until(async () => (await m.screenText(s.id)).includes('reader-ready'))).toBe(true);
+      // What SessionStart says of a real Claude: it is at its prompt, and what is sent goes in.
+      m.setStatus(s.id, 'idle');
+      return { m, store, id: s.id, got: () => readFileSync(log, 'latin1') };
+    };
+    const paste = (...texts: string[]) => texts.map((t) => `\x1b[200~${t}\x1b[201~\r`).join('');
+    // The messages waiting for Claude as the journal has them for the page, in the order they go.
+    const waiting = (machine: LocalMachine, id: string) =>
+      machine.journal
+        .messages(id)
+        .filter((q) => q.state === 'queued')
+        .sort((a, b) => (a.ord ?? 0) - (b.ord ?? 0))
+        .map((q) => q.text);
+
+    it('sends them as a paste and an Enter, with no control bytes of their own', async () => {
+      const { m, id, got } = await reading();
+      expect(await m.sendMessage(id, 'line a\nline b')).toBeNull();
+      expect(await until(() => got() === paste('line a\nline b'))).toBe(true);
+      m.setStatus(id, 'idle');
+      expect(await m.sendMessage(id, 'x\x1b[201~\x03y')).toBeNull();
+      expect(await until(() => got() === paste('line a\nline b', 'x[201~y'))).toBe(true);
+    });
+
+    it("sends a second one while Claude works at once, into Claude's own queue", async () => {
+      const { m, id, got } = await reading();
+      expect(await m.sendMessage(id, 'first')).toBeNull();
+      expect(await until(() => got() === paste('first'))).toBe(true);
+      // What UserPromptSubmit says once Claude has the first.
+      m.setStatus(id, 'working');
+      expect(await m.sendMessage(id, 'second')).toBeNull();
+      expect(await until(() => got() === paste('first', 'second'))).toBe(true);
+      expect(m.journal.messages(id).map((q) => [q.text, q.state])).toEqual([
+        ['first', 'delivered'],
+        ['second', 'enqueued'],
+      ]);
+    });
+
+    // Each send reads the screen first; the first read here is the slow one.
+    it('queues ones sent one after another without waiting, in the order they were sent', async () => {
+      const { m, id } = await reading();
+      m.compactStarted(id);
+      const read = tmux.screenAndAbove.bind(tmux);
+      let reads = 0;
+      tmux.screenAndAbove = async (...args) => {
+        if (reads++ === 0) await new Promise((r) => setTimeout(r, 300));
+        return read(...args);
+      };
+      try {
+        await Promise.all(['one', 'two', 'three'].map((t) => m.sendMessage(id, t)));
+      } finally {
+        tmux.screenAndAbove = read;
+      }
+      expect(waiting(m, id)).toEqual(['one', 'two', 'three']);
+    });
+
+    it('holds them while Claude compacts, through a restart, and then sends them in the order they were sent', async () => {
+      const { m, store, id, got } = await reading();
+      m.compactStarted(id);
+      expect(await m.sendMessage(id, 'one')).toMatchObject({ text: 'one' });
+      await m.sendMessage(id, 'two');
+      expect(waiting(m, id)).toEqual(['one', 'two']);
+      await new Promise((r) => setTimeout(r, 500));
+      expect(got()).toBe('');
+
+      const again = restarted(store);
+      again.compactStarted(id);
+      expect(waiting(again, id)).toEqual(['one', 'two']);
+      // The program has the text before tmux returns; a slow tmux shows it.
+      const pasteNow = tmux.paste.bind(tmux);
+      tmux.paste = async (...args) => {
+        await pasteNow(...args);
+        await new Promise((r) => setTimeout(r, 300));
+      };
+      try {
+        again.compactEnded(id, false);
+        expect(await until(() => got() === paste('one'))).toBe(true);
+        // Claude takes one message a turn: the next goes in once it stops, which it does only after it has the first.
+        expect(await until(() => again.getStatus(id) === 'working')).toBe(true);
+        again.setStatus(id, 'idle');
+        expect(await until(() => got() === paste('one', 'two'))).toBe(true);
+      } finally {
+        tmux.paste = pasteNow;
+      }
+      expect(await until(() => waiting(again, id).length === 0)).toBe(true);
+    });
+
+    it('notes one that goes in at once in the journal as delivered, not waiting, through a restart', async () => {
+      const { m, store, id, got } = await reading();
+      expect(await m.sendMessage(id, 'meanwhile')).toBeNull();
+      expect(await until(() => got() === paste('meanwhile'))).toBe(true);
+      const went = (machine: LocalMachine) => machine.journal.messages(id).map((q) => ({ text: q.text, state: q.state }));
+      expect(await until(() => went(m)[0]?.state === 'delivered')).toBe(true);
+      expect(went(m)).toEqual([{ text: 'meanwhile', state: 'delivered' }]);
+      const again = restarted(store);
+      expect(went(again)).toEqual([{ text: 'meanwhile', state: 'delivered' }]);
+      expect(waiting(again, id)).toEqual([]);
+    });
+
+    it('lets a held message be taken back before it goes', async () => {
+      const { m, id, got } = await reading();
+      m.compactStarted(id);
+      const q = (await m.sendMessage(id, 'never'))!;
+      await m.sendMessage(id, 'kept');
+      expect(m.unsend(id, q.id)).toBe('never');
+      m.compactEnded(id, false);
+      expect(await until(() => got() === paste('kept')), JSON.stringify(got())).toBe(true);
+    });
+  });
+
+});

@@ -1,0 +1,8 @@
+packages:
+  - 'apps/*'
+  - 'libs/*'
+allowBuilds:
+  esbuild: true
+  unrs-resolver: false
+patchedDependencies:
+  '@bsky.app/react-native-uitextview@2.7.1': patches/@bsky.app__react-native-uitextview@2.7.1.patch

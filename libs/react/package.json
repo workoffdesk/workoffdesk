@@ -1,0 +1,31 @@
+{
+  "name": "@workoffdesk/react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The React hooks and context the web app and the mobile app share.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "check": "pnpm run lint && pnpm run typecheck"
+  },
+  "dependencies": {
+    "@workoffdesk/client": "workspace:*",
+    "@workoffdesk/i18n": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.3",
+    "@types/node": "20.19.9",
+    "@types/react": "19.2.18",
+    "eslint": "^9.39.3",
+    "react": "19.2.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.56.1"
+  }
+}

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+**/tests/e2e/__screens__/
+.DS_Store
+# Copied from the repository root when the package is packed.
+apps/server/README.md
+apps/server/LICENSE
+apps/server/SECURITY.md
+
+# Notes kept on this machine only: never committed, never published.
+docs/private/
+CLAUDE.local.md
+**/tests/e2e/demo/out/

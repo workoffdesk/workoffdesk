@@ -1,0 +1,40 @@
+ ▐▛███▛█   Claude Code v2.1.288
+▝▜██████▀  Opus 5.5 · Claude Team
+ ▝▝   ▝▝   /private/tmp/claude-503/probe-bfR8
+
+
+❯ Use the AskUserQuestion tool once to ask me which deploy
+  plan I prefer, with three options: "Run tests first"
+  (description: safest), "Ship now" (description: fastest),
+  "Wait until Monday". Do nothing else.
+────────────────────────────────────────────────────────────
+ ☐ 部署方案
+
+你更倾向哪个部署方案？
+
+❯ 1. Run tests first
+     safest
+  2. Ship now
+     fastest
+  3. Wait until Monday
+     Wait until Monday
+  4. Type something.
+────────────────────────────────────────────────────────────
+  5. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

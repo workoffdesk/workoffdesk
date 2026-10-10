@@ -1,0 +1,42 @@
+name: Bug
+description: Something does not work the way the docs say it does.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: workoffdesk --version
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: workoffdesk doctor
+      description: The whole output. Remove your address if you do not want it public.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: Where you use it
+      options:
+        - Web app in a phone browser
+        - Web app added to the home screen
+        - iPhone app
+        - Desktop browser
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log lines
+      description: The lines around the problem from ~/.workoffdesk/logs/workoffdesk.log or server.log.
+      render: text
