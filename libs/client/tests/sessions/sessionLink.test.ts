@@ -2,15 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSessionLinks, DOWN_SAID_AFTER_MS, headerStatus, type LinkState } from '../../src/sessions/sessionLink';
 import { onPush } from '../../src/journal/pushes';
 import { inFront } from '../../src/base/platform';
-import { fakeServer, fakeVisibility } from '../helpers/fakes';
+import { SLOW_MS, type Slow } from '../../src/base/api';
+import { fakeServer, fakeVisibility, type FakeSocket } from '../helpers/fakes';
 
 // front: whether the session's page is the one in front of the app.
-function setup(front = true) {
+function setup(front = true, onSlow?: (slow: Slow) => void) {
   const server = fakeServer();
   const visibility = fakeVisibility();
   const page = inFront(visibility, front);
   const onSignedOut = vi.fn();
-  const links = createSessionLinks({ open: server.open, visibility, onSignedOut });
+  const links = createSessionLinks({ open: server.open, visibility, onSignedOut, onSlow });
   const states: LinkState[] = [];
   const link = links.open('s1', page, (s) => states.push(s));
   return { server, visibility, page, onSignedOut, link, states };
@@ -200,6 +201,31 @@ describe('createSessionLinks', () => {
     server.last().ends(1006);
     vi.advanceTimersByTime(60_000);
     expect(server.sockets).toHaveLength(1);
+  });
+
+  describe('a slow socket', () => {
+    it.each([
+      ['one that opened', (s: FakeSocket) => s.opens(), 101],
+      ['one that failed to', (s: FakeSocket) => s.ends(1006), 'network'],
+    ])('tells %s slowly, once', (_, settle, outcome) => {
+      const onSlow = vi.fn();
+      const { server } = setup(true, onSlow);
+      const sock = server.last();
+      vi.advanceTimersByTime(SLOW_MS);
+      settle(sock);
+      if (sock.isOpen()) sock.ends(1006);
+      expect(onSlow.mock.calls).toEqual([[{ method: 'WS', path: '/api/m/local/sessions/s1/ws', ms: SLOW_MS, outcome }]]);
+    });
+
+    it('tells nothing of a socket that opened in time', () => {
+      const onSlow = vi.fn();
+      const { server } = setup(true, onSlow);
+      vi.advanceTimersByTime(SLOW_MS - 1);
+      server.last().opens();
+      vi.advanceTimersByTime(SLOW_MS);
+      server.last().ends(1006);
+      expect(onSlow).not.toHaveBeenCalled();
+    });
   });
 });
 

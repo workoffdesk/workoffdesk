@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { caughtUp, journalHeads } from '../../src/journal/pushes';
 import { createSessionList, SESSIONS_KEY } from '../../src/sessions/sessionList';
-import type { TermSession } from '../../src/base/api';
-import { brokenStorage, fakeServer, fakeVisibility, memoryStorage } from '../helpers/fakes';
+import { SLOW_MS, type Slow, type TermSession } from '../../src/base/api';
+import { brokenStorage, fakeServer, fakeVisibility, memoryStorage, type FakeSocket } from '../helpers/fakes';
 
 const session = (id: string): TermSession => ({
   id,
@@ -15,11 +15,11 @@ const session = (id: string): TermSession => ({
 });
 const listOf = (...ids: string[]) => ({ type: 'sessions', machine: 'local', sessions: ids.map(session) });
 
-function setup(storage = memoryStorage(), ask?: () => Promise<unknown>) {
+function setup(storage = memoryStorage(), ask?: () => Promise<unknown>, onSlow?: (slow: Slow) => void) {
   const server = fakeServer();
   const visibility = fakeVisibility();
   const onSignedOut = vi.fn();
-  const list = createSessionList({ open: server.open, storage, visibility, onSignedOut, ask });
+  const list = createSessionList({ open: server.open, storage, visibility, onSignedOut, ask, onSlow });
   return { server, visibility, onSignedOut, list, storage };
 }
 
@@ -398,6 +398,39 @@ describe('createSessionList', () => {
       expect(() => list.forget()).not.toThrow();
       expect(list.current()).toBeNull();
       expect(list.ended('a')).toBeNull();
+    });
+  });
+
+  describe('a slow socket', () => {
+    it.each([
+      ['one that opened', (s: FakeSocket) => s.opens(), 101],
+      ['one that failed to', (s: FakeSocket) => s.ends(1006), 'network'],
+    ])('tells %s slowly, once', (_, settle, outcome) => {
+      const onSlow = vi.fn();
+      const { server } = (() => {
+        const t = setup(memoryStorage(), undefined, onSlow);
+        t.list.subscribe(vi.fn());
+        return t;
+      })();
+      const sock = server.last();
+      vi.advanceTimersByTime(SLOW_MS);
+      settle(sock);
+      if (sock.isOpen()) sock.ends(1006);
+      expect(onSlow.mock.calls).toEqual([[{ method: 'WS', path: '/api/events', ms: SLOW_MS, outcome }]]);
+    });
+
+    it('tells nothing of a socket that opened in time', () => {
+      const onSlow = vi.fn();
+      const { server } = (() => {
+        const t = setup(memoryStorage(), undefined, onSlow);
+        t.list.subscribe(vi.fn());
+        return t;
+      })();
+      vi.advanceTimersByTime(SLOW_MS - 1);
+      server.last().opens();
+      vi.advanceTimersByTime(SLOW_MS);
+      server.last().ends(1006);
+      expect(onSlow).not.toHaveBeenCalled();
     });
   });
 });

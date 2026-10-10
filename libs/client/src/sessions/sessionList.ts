@@ -1,4 +1,4 @@
-import { MACHINE, type TermSession } from '../base/api';
+import { MACHINE, socketOpening, type Slow, type TermSession } from '../base/api';
 import { CLOSE_RESTARTING, CLOSE_SIGNED_OUT, type KeyValue, type OpenSocket, type Socket, type Visibility } from '../base/platform';
 import { journalHeads } from '../journal/pushes';
 import { restartDelay } from '../base/retry';
@@ -27,6 +27,8 @@ export type SessionListConfig = {
   onSignedOut: () => void;
   // What /api/events sends, asked for on its own (/api/events/now).
   ask?: () => Promise<unknown>;
+  // A socket that took SLOW_MS or more to open or to fail, told as a request is (api.ts).
+  onSlow?: (slow: Slow) => void;
 };
 
 export type SessionList = ReturnType<typeof createSessionList>;
@@ -137,8 +139,9 @@ export function createSessionList(config: SessionListConfig) {
     heard = false;
     journalHeads(null);
     askLater();
+    const settle = socketOpening('/api/events', config.onSlow);
     const sock: Socket = config.open('/api/events', {
-      open: () => {},
+      open: () => settle(101),
       message: (data) => {
         if (ws !== sock) return;
         delay = 1000;
@@ -146,6 +149,7 @@ export function createSessionList(config: SessionListConfig) {
         take(JSON.parse(String(data)));
       },
       close: (code) => {
+        settle('network');
         if (ws !== sock) return;
         ws = null;
         heard = false;

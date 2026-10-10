@@ -52,6 +52,19 @@ export const SLOW_MS = 2000;
 // outcome: the status the server answered, or 'network' when no answer came (a timeout among them).
 export type Slow = { method: string; path: string; ms: number; outcome: number | 'network' };
 
+// A socket opening from now, told as a request is when it took SLOW_MS or more: settle it once it opened
+// (101) or closed before it did ('network'); only the first settling counts.
+export function socketOpening(path: string, onSlow: ((slow: Slow) => void) | undefined): (outcome: Slow['outcome']) => void {
+  const started = Date.now();
+  let settled = false;
+  return (outcome) => {
+    if (settled) return;
+    settled = true;
+    const ms = Date.now() - started;
+    if (ms >= SLOW_MS) onSlow?.({ method: 'WS', path, ms, outcome });
+  };
+}
+
 // idempotent: a write the server takes once however often it arrives (a message under its id), so one
 // that hangs can be given up on and sent again like a read.
 export type ApiInit = RequestInit & { json?: unknown; idempotent?: boolean };

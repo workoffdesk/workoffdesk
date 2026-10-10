@@ -114,7 +114,7 @@ const open: OpenSocket = (path, on) => {
 };
 
 // A socket says signed out only for the login in use (open, above).
-export const sessionList = createSessionList({ open, storage, visibility, onSignedOut: () => signedOut(login?.token), ask: () => api('/api/events/now') });
+export const sessionList = createSessionList({ open, storage, visibility, onSignedOut: () => signedOut(login?.token), ask: () => api('/api/events/now'), onSlow: (slow) => reportSlow(slow) });
 export const sessionLinks = createSessionLinks({ open, visibility, onSignedOut: () => signedOut(login?.token), onSlow: (slow) => reportSlow(slow) });
 export const chatFeeds = createChatFeeds({ api, store: chatStore });
 export const seen = createSeen(storage);

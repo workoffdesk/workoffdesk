@@ -1,4 +1,4 @@
-import { MACHINE, SLOW_MS, type Slow, type TermSession } from '../base/api';
+import { MACHINE, socketOpening, type Slow, type TermSession } from '../base/api';
 import { CLOSE_GONE, CLOSE_RESTARTING, CLOSE_SIGNED_OUT, type OpenSocket, type Socket, type Visibility } from '../base/platform';
 import { onAskScreen, onHaveJournal, onWatchScreenText, pushed, screenTextWatched, type JournalAt, type Push } from '../journal/pushes';
 import { restartDelay } from '../base/retry';
@@ -75,14 +75,7 @@ export function createSessionLinks(config: SessionLinkConfig) {
       const connect = () => {
         clearTimeout(timer);
         const path = `/api/m/${MACHINE}/sessions/${sessionId}/ws`;
-        const started = Date.now();
-        let settled = false;
-        const settle = (outcome: Slow['outcome']) => {
-          if (settled) return;
-          settled = true;
-          const ms = Date.now() - started;
-          if (ms >= SLOW_MS) config.onSlow?.({ method: 'WS', path, ms, outcome });
-        };
+        const settle = socketOpening(path, config.onSlow);
         const sock: Socket = config.open(path, {
           open: () => {
             settle(101);
