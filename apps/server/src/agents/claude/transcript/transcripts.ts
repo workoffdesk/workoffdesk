@@ -33,18 +33,21 @@ export function listRecentClaudeSessions(root: string, limit = 50): Promise<Rece
 async function listRecent(root: string, limit: number): Promise<RecentClaudeSession[]> {
   const files = await transcriptFiles(root);
   files.sort((a, b) => b.mtimeMs - a.mtimeMs);
-  const out: RecentClaudeSession[] = [];
-  const count = { people: 0, programs: 0 };
+  const kept = { people: [] as RecentClaudeSession[], programs: [] as RecentClaudeSession[] };
+  // Nothing was said in a file after it was last written, so once a file was written before the limit-th
+  // latest message of each kind, no file after it can be among them.
+  const latest = (list: RecentClaudeSession[]) => (list.length < limit ? -Infinity : list[limit - 1].lastActivity);
   for (const f of files.slice(0, limit * 6)) {
-    if (count.people >= limit && count.programs >= limit) break;
+    if (f.mtimeMs < latest(kept.people) && f.mtimeMs < latest(kept.programs)) break;
     const parsed = await parsedOnce(f);
     if (!parsed || isScratch(parsed.cwd)) continue;
-    const kind = parsed.automated ? 'programs' : 'people';
-    if (count[kind] >= limit) continue;
-    count[kind]++;
-    out.push({ sessionId: basename(f.path, '.jsonl'), ...parsed, lastActivity: Math.round(f.mtimeMs) });
+    const { saidAt, ...shown } = parsed;
+    const list = kept[parsed.automated ? 'programs' : 'people'];
+    list.push({ sessionId: basename(f.path, '.jsonl'), ...shown, lastActivity: saidAt ?? Math.round(f.mtimeMs) });
+    list.sort((a, b) => b.lastActivity - a.lastActivity);
+    list.splice(limit);
   }
-  return out;
+  return [...kept.people, ...kept.programs].sort((a, b) => b.lastActivity - a.lastActivity);
 }
 
 // A conversation in a temporary folder is a throwaway run (a test, a probe), not work to come back to.
@@ -113,7 +116,8 @@ async function parsedOnce(f: { path: string; size: number; mtimeMs: number }) {
   return parsed;
 }
 
-async function parseTranscript(path: string, size: number): Promise<Omit<RecentClaudeSession, 'sessionId' | 'lastActivity'> | null> {
+// saidAt: when the last message was said, by the person or Claude; null when no message carries a time.
+async function parseTranscript(path: string, size: number): Promise<(Omit<RecentClaudeSession, 'sessionId' | 'lastActivity'> & { saidAt: number | null }) | null> {
   const records = await readRecords(path, size);
   if (!records.length) return null;
   const cwds: string[] = [];
@@ -122,7 +126,12 @@ async function parseTranscript(path: string, size: number): Promise<Omit<RecentC
   let firstPrompt: string | null = null;
   let lastPrompt: string | null = null;
   let automated = false;
+  let saidAt: number | null = null;
   for (const r of records) {
+    if ((r.type === 'user' || r.type === 'assistant') && r.isMeta !== true && typeof r.timestamp === 'string') {
+      const at = Date.parse(r.timestamp);
+      if (Number.isFinite(at) && at > (saidAt ?? -Infinity)) saidAt = at;
+    }
     if (typeof r.cwd === 'string' && r.cwd) cwds.push(r.cwd);
     if (r.entrypoint === 'sdk-cli') automated = true;
     if (r.type === 'custom-title' && typeof r.customTitle === 'string' && r.customTitle.trim()) customTitle = truncate(r.customTitle.replace(/\s+/g, ' ').trim());
@@ -133,7 +142,7 @@ async function parseTranscript(path: string, size: number): Promise<Omit<RecentC
     if (!firstPrompt && r.type === 'user') firstPrompt = promptText(r.message?.content);
   }
   const title = customTitle ?? aiTitle ?? (firstPrompt ? truncate(firstPrompt) : basename(path, '.jsonl').slice(0, 8));
-  return { cwd: conversationFolder(cwds), title, lastPrompt: lastPrompt && truncate(lastPrompt, LAST_PROMPT_MAX), automated };
+  return { cwd: conversationFolder(cwds), title, lastPrompt: lastPrompt && truncate(lastPrompt, LAST_PROMPT_MAX), automated, saidAt };
 }
 
 // The folder a conversation last ran in, from the folders its records were written in, oldest first. Within a

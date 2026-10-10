@@ -228,6 +228,49 @@ describe('listRecentClaudeSessions', () => {
     });
   });
 
+  // Claude Code writes to a transcript when nothing is said: a recap while the person is away, the title and
+  // mode again when it is opened (Claude Code 2.1.295 and 2.1.296).
+  describe('when a conversation was last active', () => {
+    const T = (h: number) => Date.UTC(2026, 9, 10, h);
+    const iso = (h: number) => new Date(T(h)).toISOString();
+    const write = (root: string, id: string, records: object[], mtime: number) => {
+      const f = join(root, '-p', `${id}.jsonl`);
+      writeFileSync(f, records.map(line).join(''));
+      utimesSync(f, mtime / 1000, mtime / 1000);
+    };
+    const fresh = () => {
+      const root = mkdtempSync(join(tmpdir(), 'ts-claude-'));
+      mkdirSync(join(root, '-p'));
+      return root;
+    };
+    const said = (h: number, type = 'user') => ({ type, cwd: '/p', timestamp: iso(h), message: { content: 'x' } });
+
+    it.each<[string, object[]]>([
+      ['a recap written while the person was away', [{ type: 'system', subtype: 'away_summary', timestamp: iso(9), content: 'recap' }]],
+      ['the title and mode written again when it was opened', [{ type: 'ai-title', aiTitle: 't' }, { type: 'permission-mode', permissionMode: 'default' }]],
+      ['a note Claude Code adds for itself', [{ type: 'user', isMeta: true, timestamp: iso(9), message: { content: '<local-command-caveat>' } }]],
+    ])('is when the last message was said, not %s', async (_, later) => {
+      const root = fresh();
+      write(root, U1, [said(1), said(2, 'assistant'), ...later], T(10));
+      expect((await listRecentClaudeSessions(root))[0].lastActivity).toBe(T(2));
+    });
+
+    it('is when the file was written, for a transcript whose messages carry no time', async () => {
+      const root = fresh();
+      write(root, U1, [{ type: 'user', cwd: '/p', message: { content: 'x' } }], T(5));
+      expect((await listRecentClaudeSessions(root))[0].lastActivity).toBe(T(5));
+    });
+
+    it('orders and keeps conversations by it, not by when their files were written', async () => {
+      const root = fresh();
+      write(root, U1, [said(1), { type: 'system', subtype: 'away_summary', timestamp: iso(9) }], T(9));
+      write(root, U2, [said(3)], T(3));
+      write(root, U3, [said(2)], T(2));
+      expect((await listRecentClaudeSessions(root)).map((s) => s.sessionId)).toEqual([U2, U3, U1]);
+      expect((await listRecentClaudeSessions(root, 1)).map((s) => s.sessionId)).toEqual([U2]);
+    });
+  });
+
   // Each record's cwd is the folder Claude's shell was in; `claude --resume` from another folder keeps writing
   // the same file from there (Claude Code 2.1.295 and 2.1.296).
   describe('the folder a conversation is in', () => {

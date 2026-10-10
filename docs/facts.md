@@ -114,6 +114,11 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
 - A conversation opened from the Mac's list that cannot learn what the Mac says of it (no network) says so
   and asks again every 3 seconds; going on with it is offered once the Mac answers.
   (`libs/react/src/macConversation.ts`, `apps/server/tests/e2e/sessions.spec.ts`)
+- A Claude conversation's time in the lists is when its last message was said, by the person or Claude, read
+  from the transcript; what Claude Code writes when nothing is said (a recap while away, the title and mode
+  when it is opened) does not move it. A transcript whose messages carry no time falls back to when the file
+  was written. (`apps/server/src/agents/claude/transcript/transcripts.ts`,
+  `apps/server/tests/unit/agents/claude/transcript/transcripts.test.ts`)
 - A Claude conversation's folder is the one it last ran in: resumed in another folder, it is listed, judged and
   picked up there, and a `cd` into a folder inside it does not change it. The folders offered to start a session
   in leave out recent ones that are gone. (`apps/server/src/agents/claude/transcript/transcripts.ts`,
