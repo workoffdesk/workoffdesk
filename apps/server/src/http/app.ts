@@ -4,7 +4,7 @@ import Fastify, { LogController, type FastifyBaseLogger, type FastifyInstance, t
 import type { WebSocket } from 'ws';
 import { Guard, clientIp, sessionCookie } from './auth/guard.js';
 import { LoginSessions } from './auth/sessions.js';
-import { findTranscript, lastReply } from '../agents/claude/transcript/transcriptFile.js';
+import { findTranscript, lastSaid } from '../agents/claude/transcript/transcriptFile.js';
 import { DomainError, errorReply } from '../system/errors.js';
 import { EventHub } from '../sessions/events.js';
 import type { LocalMachine } from '../sessions/machine.js';
@@ -87,9 +87,9 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   const guard = new Guard(logins, origin);
   const secure = origin.startsWith('https://');
   const hub = new EventHub(machine, async (s) => {
-    if (s.kind === 'codex') return machine.lastReply(s.id);
+    if (s.kind === 'codex') return { reply: machine.lastReply(s.id), at: null };
     const path = s.claudeSessionId && deps.claudeProjectsRoot ? await findTranscript(deps.claudeProjectsRoot, s.claudeSessionId) : null;
-    return path ? lastReply(path) : null;
+    return path ? lastSaid(path) : { reply: null, at: null };
   });
 
   const audit: AppContext['audit'] = (req, method, ok) => {

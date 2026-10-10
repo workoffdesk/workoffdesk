@@ -1,8 +1,9 @@
 import type { WebSocket } from 'ws';
 import type { LocalMachine, TermSession } from './machine.js';
 
-// What Claude said last in a session, for the list; null for a shell or before Claude has said anything.
-export type LastReply = (s: TermSession) => Promise<string | null>;
+// What the list shows of a session's conversation: what Claude said last, and when the last thing in it
+// happened; each null for a shell or before there is any.
+export type LastSaid = (s: TermSession) => Promise<{ reply: string | null; at: number | null }>;
 
 export class EventHub {
   private readonly clients = new Set<WebSocket>();
@@ -11,7 +12,7 @@ export class EventHub {
 
   constructor(
     private readonly machine: LocalMachine,
-    private readonly lastReply: LastReply = async () => null,
+    private readonly lastSaid: LastSaid = async () => ({ reply: null, at: null }),
   ) {
     machine.onChange(() => this.schedule());
     machine.journal.onHead(() => this.scheduleHeads());
@@ -64,8 +65,10 @@ export class EventHub {
     const asOf = Date.now();
     const sessions = await this.machine.listSessions().catch(() => null);
     if (!sessions) return null;
-    const replies = await Promise.all(sessions.map((s) => this.lastReply(s).catch(() => null)));
-    return { type: 'sessions', machine: this.machine.id, asOf, sessions: sessions.map((s, i) => ({ ...s, lastReply: replies[i] })) };
+    const said = await Promise.all(sessions.map((s) => this.lastSaid(s).catch(() => null)));
+    // A session is as recent as its conversation; tmux sees only keys typed at a terminal.
+    const shown = sessions.map((s, i) => ({ ...s, lastActivity: said[i]?.at ?? s.lastActivity, lastReply: said[i]?.reply ?? null }));
+    return { type: 'sessions', machine: this.machine.id, asOf, sessions: shown };
   }
 
   close(): void {

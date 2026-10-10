@@ -155,11 +155,18 @@ export async function readChatBefore(
 const REPLY_TAIL = 256 * 1024;
 const REPLY_CHARS = 120;
 
-// What Claude said last, or the error its turn ended in, as a line of plain words for a list to show under the session's name: the
-// Markdown it writes in is dropped. Only the end of the transcript is read; null when nothing is there.
-export async function lastReply(path: string, tail = REPLY_TAIL): Promise<string | null> {
+// What a list shows of a conversation, from the end of its transcript. reply: what Claude said last, or the
+// error its turn ended in, as a line of plain words (the Markdown it writes in is dropped). at: when the last
+// thing in it happened. Each null when nothing is there.
+export async function lastSaid(path: string, tail = REPLY_TAIL): Promise<{ reply: string | null; at: number | null }> {
   const size = (await stat(path)).size;
   const { items } = await readChat(path, Math.max(0, size - tail));
+  const dated = items.findLast((i) => 'at' in i && i.at);
+  const at = dated && 'at' in dated && dated.at ? Date.parse(dated.at) : NaN;
+  return { reply: replyOf(items), at: Number.isFinite(at) ? at : null };
+}
+
+function replyOf(items: ChatItem[]): string | null {
   const last = items.findLast((i) => i.k === 'text' || (i.k === 'note' && 'event' in i && i.event.e === 'failed'));
   if (!last) return null;
   // A turn that ended in an error says so, in Claude Code's own words.

@@ -63,4 +63,19 @@ describe('EventHub', () => {
     expect(types()).toEqual(['sessions', 'heads', 'sessions']);
     hub.close();
   });
+
+  it.each([
+    ['when the conversation last had anything in it', 5_000, 5_000],
+    ['when tmux last saw it, for one with nothing in a conversation', null, 1_000],
+  ])('dates a session by %s', async (_, at, shown) => {
+    const machine = {
+      id: 'local',
+      onChange: () => () => {},
+      listSessions: async () => [{ id: 's1', kind: 'claude', lastActivity: 1_000 }],
+      journal: new Journal({ file: ':memory:', log: () => {} }),
+    } as unknown as Machine;
+    const hub = new EventHub(machine, async () => ({ reply: '好了', at }));
+    expect((await hub.snapshot())?.sessions).toMatchObject([{ id: 's1', lastActivity: shown, lastReply: '好了' }]);
+    hub.close();
+  });
 });

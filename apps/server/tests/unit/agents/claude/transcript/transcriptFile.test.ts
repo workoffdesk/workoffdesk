@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ChatItem } from '../../../../../src/agents/claude/transcript/chat.js';
-import { findTranscript, lastReply, readChat, readChatBefore } from '../../../../../src/agents/claude/transcript/transcriptFile.js';
+import { findTranscript, lastSaid, readChat, readChatBefore } from '../../../../../src/agents/claude/transcript/transcriptFile.js';
 
 const at = '2026-10-03T06:00:00.000Z';
 const user = (content: unknown, extra = {}) => ({ type: 'user', timestamp: at, message: { role: 'user', content }, ...extra });
@@ -185,7 +185,7 @@ describe('findTranscript', () => {
   });
 });
 
-describe('lastReply', () => {
+describe('lastSaid', () => {
   const file = (...records: unknown[]) => {
     const p = join(scratch(), 't.jsonl');
     writeFileSync(p, records.map(line).join(''));
@@ -200,7 +200,7 @@ describe('lastReply', () => {
       user([{ type: 'tool_result', tool_use_id: 't1', content: 'a.ts' }]),
       assistant({ type: 'text', text: '## 结论\n\n按钮改成 **圆角 8px**，见 [说明](https://x.test)：\n\n1. 改 `.btn`\n- 跑测试\n> 注意\n```css\n.btn {}\n```' }),
     );
-    expect(await lastReply(p)).toBe('结论 按钮改成 圆角 8px，见 说明： 改 .btn 跑测试 注意 .btn {}');
+    expect((await lastSaid(p)).reply).toBe('结论 按钮改成 圆角 8px，见 说明： 改 .btn 跑测试 注意 .btn {}');
   });
 
   it('returns the error when the turn ended in one', async () => {
@@ -209,22 +209,37 @@ describe('lastReply', () => {
       assistant({ type: 'text', text: '先看看。' }),
       assistant({ type: 'text', text: 'API Error: 529 Overloaded' }, { isApiErrorMessage: true }),
     );
-    expect(await lastReply(p)).toBe('API Error: 529 Overloaded');
+    expect((await lastSaid(p)).reply).toBe('API Error: 529 Overloaded');
   });
 
   it('returns nothing before Claude has said anything', async () => {
-    expect(await lastReply(file(user('你好')))).toBeNull();
-    expect(await lastReply(file())).toBeNull();
+    expect((await lastSaid(file(user('你好')))).reply).toBeNull();
+    expect((await lastSaid(file())).reply).toBeNull();
   });
 
   it('keeps it short however long the reply', async () => {
-    const reply = (await lastReply(file(assistant({ type: 'text', text: '长'.repeat(5000) }))))!;
+    const reply = (await lastSaid(file(assistant({ type: 'text', text: '长'.repeat(5000) })))).reply!;
     expect(reply.length).toBe(120);
   });
 
   it('reads only the end of a long transcript, stepping over the line it starts in the middle of', async () => {
     const p = file(assistant({ type: 'text', text: '很早以前' }), user('x'.repeat(400_000)), assistant({ type: 'text', text: '最新的话' }));
-    expect(await lastReply(p, 64 * 1024)).toBe('最新的话');
-    expect(await lastReply(file(assistant({ type: 'text', text: '很早以前' }), user('x'.repeat(400_000))), 64 * 1024)).toBeNull();
+    expect((await lastSaid(p, 64 * 1024)).reply).toBe('最新的话');
+    expect((await lastSaid(file(assistant({ type: 'text', text: '很早以前' }), user('x'.repeat(400_000))), 64 * 1024)).reply).toBeNull();
+  });
+
+  it('tells when the last thing in the conversation happened, a step of Claude\'s work or a prompt', async () => {
+    const when = (t: string) => ({ timestamp: t });
+    expect((await lastSaid(file(user('改一下', when('2026-10-08T03:00:00.000Z')), assistant({ type: 'tool_use', id: 't1', name: 'Bash', input: {} }, when('2026-10-11T02:09:00.000Z'))))).at).toBe(
+      Date.parse('2026-10-11T02:09:00.000Z'),
+    );
+    expect((await lastSaid(file(assistant({ type: 'text', text: '好' }, when('2026-10-10T01:00:00.000Z')), user('再来', when('2026-10-11T01:00:00.000Z'))))).at).toBe(
+      Date.parse('2026-10-11T01:00:00.000Z'),
+    );
+  });
+
+  it('tells no time when nothing in the conversation has one', async () => {
+    expect((await lastSaid(file())).at).toBeNull();
+    expect((await lastSaid(file({ type: 'ai-title', aiTitle: 'x' }))).at).toBeNull();
   });
 });
