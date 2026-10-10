@@ -111,6 +111,9 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   the web say so and offer no way to go on with it, and a request that comes anyway is refused with `folder-gone`.
   (`apps/server/src/http/routes/claude.ts`, `libs/client/src/sessions/newSession.ts` `pickUpOf`,
   `apps/server/tests/integration/http/app.claude.test.ts`, `apps/server/tests/e2e/sessions.spec.ts`)
+- A conversation opened from the Mac's list that cannot learn what the Mac says of it (no network) says so
+  and asks again every 3 seconds; going on with it is offered once the Mac answers.
+  (`libs/react/src/macConversation.ts`, `apps/server/tests/e2e/sessions.spec.ts`)
 - A Claude conversation's folder is the one it last ran in: resumed in another folder, it is listed, judged and
   picked up there, and a `cd` into a folder inside it does not change it. The folders offered to start a session
   in leave out recent ones that are gone. (`apps/server/src/agents/claude/transcript/transcripts.ts`,

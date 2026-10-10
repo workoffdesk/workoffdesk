@@ -15,7 +15,7 @@ import { t } from '@workoffdesk/i18n';
 // agent.
 export function MacConversation({ agent, sid }: { agent: Agent; sid: string }) {
   const { chat, failed } = useChat(`${agent}:${sid}`, previewChatUrl(agent, sid));
-  const { info, busy, error, pick, waiting, missed, resume, takeOverNow, takeOverWhenDone, cancel } = useMacConversation(api, agent, sid, (id) =>
+  const { info, busy, error, unreachable, pick, waiting, missed, resume, takeOverNow, takeOverWhenDone, cancel } = useMacConversation(api, agent, sid, (id) =>
     navigate(`/m/${MACHINE}/s/${id}`),
   );
   const scroller = useRef<HTMLDivElement>(null);
@@ -68,6 +68,7 @@ export function MacConversation({ agent, sid }: { agent: Agent; sid: string }) {
       </div>
       <div className="claude-view-foot">
         {error && <div className="alert">{error}</div>}
+        {unreachable && !error && <div className="alert">{t.noServer}</div>}
         {missed && !error && <div className="alert">{t.takeOverMissed}</div>}
         {pick?.do === 'takeOver' && (
           <strong>

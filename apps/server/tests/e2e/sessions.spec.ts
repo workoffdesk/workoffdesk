@@ -133,6 +133,26 @@ test.describe('the session list', () => {
     await shot(page, '54-mac-conversation-folder-gone');
   });
 
+  // Its reads go through the page's own fetch, where they can be made to fail, not through the service worker.
+  test.describe('with the network failing', () => {
+    test.use({ serviceWorkers: 'block' });
+
+    test('keeps asking the Mac about a conversation it could not reach, and offers to go on once it hears', async ({ page }) => {
+      const sid = '3f2a1b4c-0000-4000-8000-0000000000ab';
+      writeFileSync(join(E2E_HOME, 'claude-projects', '-p', `${sid}.jsonl`), jsonl({ type: 'user', cwd: E2E_HOME, message: { content: '看一下构建为什么慢' } }));
+      await login(page);
+      // One ask that fails: the client tries a read four times (retry.ts) before it gives up.
+      let refused = 0;
+      await page.route('**/api/recent', (route) => (refused < 4 ? (refused++, route.abort('internetdisconnected')) : route.continue()));
+      await page.goto(`/claude/${sid}`);
+      await expect(page.getByText('连不上服务器，检查一下网络')).toBeVisible();
+      await expect(page.getByRole('button', { name: '在手机上接着聊' })).toBeDisabled();
+      await expect(page.getByRole('button', { name: '在手机上接着聊' })).toBeEnabled({ timeout: 15_000 });
+      expect(refused).toBe(4);
+      await expect(page.getByText('连不上服务器，检查一下网络')).toHaveCount(0);
+    });
+  });
+
   test('reads like a chat list: what Claude said last, when, and who needs you', async ({ page }) => {
     await login(page);
     await clearSessions(page);

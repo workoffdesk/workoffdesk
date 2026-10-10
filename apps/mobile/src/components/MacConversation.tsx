@@ -27,7 +27,7 @@ export function MacConversation({ agent }: { agent: Agent }) {
   const navigation = useNavigation();
   const { chat, failed, loadingOlder, loadOlder } = useChat(`${agent}:${sid}`, previewChatUrl(agent, sid));
   const go = (id: string) => navigation.isFocused() && router.replace({ pathname: '/session/[id]', params: { id } });
-  const { info, busy, error, pick, waiting, missed, resume, takeOverNow, takeOverWhenDone, cancel } = useMacConversation(api, agent, sid, go);
+  const { info, busy, error, unreachable, pick, waiting, missed, resume, takeOverNow, takeOverWhenDone, cancel } = useMacConversation(api, agent, sid, go);
 
   const shown = useMemo(() => (chat ? turns(chat.items, chat.base) : []), [chat]);
   const drawn = rows(shown);
@@ -73,6 +73,7 @@ export function MacConversation({ agent }: { agent: Agent }) {
       />
       <View style={[s.foot, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         {error && <Text style={s.alert}>{error}</Text>}
+        {unreachable && !error && <Text style={s.alert}>{t.noServer}</Text>}
         {missed && !error && <Text style={s.alert}>{t.takeOverMissed}</Text>}
         {pick?.do === 'takeOver' && (
           <Text style={s.onMac}>

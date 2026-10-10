@@ -3,7 +3,8 @@ import { cancelTakeOver, createSession, pickUpOf, recentConversations, takeOver 
 import { t } from '@workoffdesk/i18n';
 import { useEffect, useState } from 'react';
 
-// How often the Mac is looked at again while the conversation is open there: what the buttons offer follows it.
+// How often the Mac is looked at again while the conversation is open there (what the buttons offer follows it),
+// or while it cannot be reached.
 const MAC_LOOK_MS = 3_000;
 
 // A Claude or Codex conversation from this Mac, read before picking it up here: what the Mac says of it, and
@@ -12,23 +13,32 @@ export function useMacConversation(api: Api, agent: Agent, sid: string, go: (id:
   const [info, setInfo] = useState<RecentConversation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The last time the Mac was asked, it could not be reached; it is asked again until it answers.
+  const [unreachable, setUnreachable] = useState(false);
   // Asked again after each take-over asked for, and every few seconds while the conversation is open on the Mac.
   const [asked, setAsked] = useState(0);
   // This page follows a take-over waiting on the Mac: to the session once it is open, or to say it was not.
   const [following, setFollowing] = useState(false);
   useEffect(() => {
     let gone = false;
+    let again: ReturnType<typeof setTimeout> | undefined;
     recentConversations(api).then(
       (all) => {
         if (gone) return;
         const r = all.find((x) => x.sessionId === sid && agentOf(x) === agent) ?? null;
+        setUnreachable(false);
         setInfo(r);
         if (r?.takingOver) setFollowing(true);
       },
-      () => {},
+      () => {
+        if (gone) return;
+        setUnreachable(true);
+        again = setTimeout(() => setAsked((n) => n + 1), MAC_LOOK_MS);
+      },
     );
     return () => {
       gone = true;
+      clearTimeout(again);
     };
   }, [api, agent, sid, asked]);
   const pick = info ? pickUpOf(info) : null;
@@ -62,6 +72,7 @@ export function useMacConversation(api: Api, agent: Agent, sid: string, go: (id:
     info,
     busy,
     error,
+    unreachable,
     pick,
     waiting,
     missed,
