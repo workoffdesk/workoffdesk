@@ -4,8 +4,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    # No pull requests while the repository is private; remove at launch.
-    open-pull-requests-limit: 0
     groups:
       all:
         patterns: ['*']
@@ -13,4 +11,3 @@ updates:
     directory: /
     schedule:
       interval: monthly
-    open-pull-requests-limit: 0
