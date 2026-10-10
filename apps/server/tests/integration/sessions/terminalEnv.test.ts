@@ -57,9 +57,9 @@ describe('environmentOf', () => {
     expect(await environmentOf((await node({ HELD: 'left OTHER=right' })).pid!)).toEqual({ HELD: 'left', OTHER: 'right' });
   });
 
-  it("gives nothing for one of the system's own programs, whose environment ps does not show", async () => {
-    const p = await run('/bin/sleep', ['60'], { PATH: '/usr/bin:/bin', MARK: '1' });
-    await new Promise((r) => setTimeout(r, 200));
+  // As for one of the system's own programs, whose environment ps leaves out where the system protects it.
+  it('gives nothing when ps shows no environment, though an argument looks like a variable', async () => {
+    const p = await run(process.execPath, ['-e', "console.log('ready'); setInterval(() => {}, 1000)", 'LOOKS=like a variable'], {});
     expect(await environmentOf(p.pid!)).toEqual({});
   });
 

@@ -110,7 +110,7 @@ describe('LocalMachine', () => {
         return result;
       };
       const store = new Store(join(mkdtempSync(join(dir, 's-')), 'state.json'));
-      const m = new LocalMachine({ tmux: t, store, claudeSettingsPath: '/dev/null', claudeBin: fakeClaude, shell: '/bin/sh' });
+      const m = new LocalMachine({ tmux: t, store, claudeSettingsPath: '/dev/null', claudeBin: fakeClaude, claudeArgs: RUNS, shell: '/bin/sh' });
       return { m, store, t, release: g.open, entered: entered.opened };
     };
 
@@ -165,7 +165,13 @@ describe('LocalMachine', () => {
     expect(args.slice(0, 5)).toEqual(['--session-id', s.claudeSessionId, '--settings', '/tmp/term site/claude settings.json', 'alt=1']);
     expect(s.claudeSessionId).toMatch(/^[0-9a-f-]{36}$/);
     expect(args).toContain(`env=${s.id}`);
+  });
+
+  it('gives a new Claude session as starting, until Claude says it has started', async () => {
+    const { m } = make({ claudeArgs: RUNS });
+    const s = await m.createSession({ kind: 'claude', cwd: dir });
     expect(s.status).toBe('starting');
+    expect(m.getStatus(s.id)).toBe('starting');
   });
 
   it('starts claude with the arguments the config names, each passed as it is written', async () => {

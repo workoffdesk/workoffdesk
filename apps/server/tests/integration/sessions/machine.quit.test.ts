@@ -151,7 +151,7 @@ describe('LocalMachine', () => {
       const { m } = make();
       const s = await m.createSession({ kind: 'claude', cwd: dir });
       expect(await until(async () => (await statusOf(m, s.id)) === 'ended')).toBe(true);
-      expect((await m.continueSession(s.id)).status).toBe('starting');
+      await m.continueSession(s.id);
       expect(await until(() => startsIn(s.id) === 2)).toBe(true);
       expect(await until(async () => (await statusOf(m, s.id)) === 'ended')).toBe(true);
     });

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+
+The first release published from GitHub Actions, with npm provenance. It does what 1.0.0 does.
+
 ## 1.0.0
 
 The first public release.
