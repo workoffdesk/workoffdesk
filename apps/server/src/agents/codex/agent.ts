@@ -153,6 +153,10 @@ export class CodexAgent {
     }
   }
 
+  async rename(threadId: string, name: string): Promise<void> {
+    await (await this.link()).request('thread/name/set', { threadId, name });
+  }
+
   close(): void {
     this.closed = true;
     this.rpc?.close();

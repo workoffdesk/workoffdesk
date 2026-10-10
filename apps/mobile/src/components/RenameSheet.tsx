@@ -8,11 +8,10 @@ import { useRename } from '@workoffdesk/react/rename';
 import { useTheme, type Theme } from '../theme';
 import { Button, CloseButton } from './ui';
 
-// Left empty, the session goes back to its directory's name.
 export function RenameSheet({ session, onClose }: { session: TermSession; onClose: () => void }) {
   const theme = useTheme();
   const s = useMemo(() => styles(theme), [theme]);
-  const { name, setName, busy, error, save } = useRename(api, session, onClose);
+  const { name, setName, busy, canSave, error, save } = useRename(api, session, onClose);
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={s.sheet}>
@@ -34,7 +33,7 @@ export function RenameSheet({ session, onClose }: { session: TermSession; onClos
             autoFocus
             autoCorrect={false}
           />
-          <Button small kind="primary" label={t.save} busy={busy} onPress={() => void save()} />
+          <Button small kind="primary" label={t.save} busy={busy} disabled={!canSave} onPress={() => void save()} />
         </View>
         <Text style={s.note}>{t.renameNote}</Text>
       </View>

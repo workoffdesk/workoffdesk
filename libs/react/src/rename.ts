@@ -3,14 +3,15 @@ import { ownName } from '@workoffdesk/client/model/format';
 import { t } from '@workoffdesk/i18n';
 import { useState } from 'react';
 
-// Renaming a session: left empty, it goes back to its directory's name. The new name comes back with the list
-// from the Mac. Naming twice is naming once, so a save that hangs on a bad line is sent again rather than left
-// unanswered.
+// Renaming a session, never to an empty name. The new name comes back with the list from the Mac. Naming twice
+// is naming once, so a save that hangs on a bad line is sent again rather than left unanswered.
 export function useRename(api: Api, session: TermSession, onClose: () => void) {
   const [name, setName] = useState(ownName(session));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const canSave = name.trim() !== '';
   const save = async () => {
+    if (busy || !canSave) return;
     setBusy(true);
     setError(null);
     try {
@@ -21,5 +22,5 @@ export function useRename(api: Api, session: TermSession, onClose: () => void) {
       setBusy(false);
     }
   };
-  return { name, setName, busy, error, save };
+  return { name, setName, busy, canSave, error, save };
 }

@@ -47,6 +47,8 @@ export type SessionMeta = {
   named?: boolean;
   customTitle?: string;
   aiTitle?: string;
+  // A name given here that its agent has not taken yet.
+  naming?: string;
   kind: SessionKind;
   cwd: string;
   claudeSessionId?: string;

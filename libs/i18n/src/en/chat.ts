@@ -102,7 +102,7 @@ export const chat = {
   rename: 'Rename',
   name: 'Name',
   renameFailed: 'Not renamed',
-  renameNote: "Leave it empty to use the name Claude or Codex gives the conversation, or else the folder's. Every device shows this name.",
+  renameNote: 'Every device, and the conversation in Claude or Codex, goes by this name.',
   newSession: 'New session',
   pickProject: 'Pick a project',
   resumeRecent: 'Resume a recent conversation',

@@ -70,7 +70,7 @@ export const register: RouteModule = (app, ctx) => {
     },
   );
 
-  // A name of the session's own, for every device; an empty one goes back to the directory's name.
+  // A name of the session's own, for every device and for its agent's conversation; never an empty one.
   app.patch<{ Params: { machine: string; id: string }; Body: { title?: unknown } }>('/api/m/:machine/sessions/:id', async (req, reply) => {
     const m = machineOr404(req, reply);
     if (!m) return reply;

@@ -6,7 +6,7 @@ import { keysToChoose, keysToTick, parseChoices, type Choices } from './choices.
 import { isCompacting } from './compacting.js';
 import { liveText } from './live.js';
 import { parsePanel, type Panel } from './panel.js';
-import { modeOn, suggestionOn } from './prompt.js';
+import { modeOn, suggestionOn, typedOn } from './prompt.js';
 
 // What the session's screen holds for the chat: a choice asked for, a dialog open over the prompt, what
 // Claude suggests saying next, and the permission mode.
@@ -39,6 +39,12 @@ export class ClaudeScreen {
     const panel = parsePanel(screen, above);
     const live = working && !choices && !panel ? liveText(joined, cols) : null;
     return { screen: { choices, panel, suggestion: suggestionOn(styled), mode: modeOn(screen), live }, compacting: isCompacting(screen) };
+  }
+
+  // What is typed at the prompt, or null when nothing is.
+  async typed(name: string): Promise<string | null> {
+    const [screen, styled] = await Promise.all([this.tmux.screen(name), this.tmux.screenStyled(name).catch(() => '')]);
+    return typedOn(screen, styled);
   }
 
   async choices(name: string, parse = parseChoices): Promise<Choices | null> {

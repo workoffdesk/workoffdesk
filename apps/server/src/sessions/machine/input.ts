@@ -46,7 +46,7 @@ export class Input {
     }
     if (Date.now() - (this.s.macLooks.get(id) ?? 0) >= MAC_LOOK_MS) {
       this.s.macLooks.set(id, Date.now());
-      void this.p.lifecycle.openOnMac();
+      this.p.lifecycle.openOnMac().catch(() => {});
     }
     const { screen, compacting } = await this.d.claude.read(tmuxName(id), this.s.statuses.get(id) === 'working');
     this.p.status.compactingOnScreen(id, compacting);

@@ -197,6 +197,10 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   Claude Code (its `ai-title`) or Codex (the thread's name) calls the conversation; else its folder.
   (`apps/server/src/system/store.ts` `shownTitle`, `apps/server/src/journal/ingest.ts` `titleIn`,
   `apps/server/src/sessions/machine/lifecycle.ts` `conversationNamed`)
+- A name given here becomes the conversation's name in Claude Code (typed as `/rename` once its prompt is free, or
+  given as `--name` when Claude is started) and in Codex (the thread's name). A name is never empty.
+  (`apps/server/src/sessions/machine/naming.ts`, `apps/server/tests/integration/sessions/machine.naming.test.ts`,
+  `apps/server/tests/integration/sessions/machine.codex.test.ts`)
 - When `codex` is installed (in `~/.local/bin` or on `PATH`), a Codex session can be started in a project folder
   too. It runs Codex's own terminal UI against an app server of the service's, which the phone drives; its
   permission requests become cards. Codex's questions are answered at the Mac or with the screen view, and the
@@ -247,8 +251,7 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   (`apps/web/src/components/QueueTray.tsx`)
 - While a panel is open, what is sent stays in the composer. (e2e `chat.spec.ts` panel tests)
 - While no Mac terminal is attached, the window is 100×50. (`apps/server/src/sessions/machine.ts` `CHAT_SIZE`)
-- Sessions can be renamed by swiping a row left or tapping the title; an empty name goes back to the agent's
-  title, or the folder's.
+- Sessions can be renamed by swiping a row left or tapping the title; Save is off while the name is empty.
   The list marks a session Running, Needs you or Unread (`Sessions.tsx` `sess-badge`); SDK-started conversations are folded under
   Sessions of automated tasks; a recent conversation opens read-only until Continue on the phone, or, while
   it is open in a terminal on the Mac, Take over to the phone. (`apps/web/src/pages/Sessions.tsx`, `NewSessionSheet.tsx`, `libs/i18n`)

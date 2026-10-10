@@ -323,13 +323,6 @@ describe('LocalMachine', () => {
       expect(m.claudeName(s.claudeSessionId!)).toBe('Third name');
     });
 
-    it('is gone when the name is cleared, so the conversation goes by its own title again', async () => {
-      const { m } = make();
-      const s = await named(m);
-      await m.renameSession(s.id, '   ');
-      expect(m.claudeName(s.claudeSessionId!)).toBeNull();
-    });
-
     it('is not a title the session was started with, nor its directory name', async () => {
       const { m } = make();
       const resumed = await m.createSession({ kind: 'claude', cwd: dir, resumeId: RESUMED, title: 'first message of it' });

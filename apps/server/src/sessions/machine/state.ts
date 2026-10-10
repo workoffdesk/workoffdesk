@@ -15,6 +15,7 @@ import type { Accounts } from './accounts.js';
 import type { Input } from './input.js';
 import type { Lifecycle } from './lifecycle.js';
 import type { Moves } from './moves.js';
+import type { Naming } from './naming.js';
 import type { Status } from './status.js';
 import type { StatusNotifier, TermSession } from './types.js';
 
@@ -115,7 +116,7 @@ export type Sessions = {
   exists(id: string): Promise<boolean>;
 };
 
-export type Parts = { sessions: Sessions; lifecycle: Lifecycle; input: Input; status: Status; accounts: Accounts; moves: Moves };
+export type Parts = { sessions: Sessions; lifecycle: Lifecycle; input: Input; status: Status; accounts: Accounts; moves: Moves; naming: Naming };
 
 export function codexOf(d: MachineDeps): CodexAgent {
   if (!d.codex) throw new InvalidRequest('Codex is not set up on this Mac');

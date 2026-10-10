@@ -360,12 +360,10 @@ describe('/api/m/:machine/sessions', () => {
       ev.ws.close();
     });
 
-    it('goes back to the directory name when cleared', async () => {
-      // Precondition: the name is not the directory name before.
+    it('refuses an empty name, and keeps the one it has', async () => {
       await rename(id, { title: '别的名字' });
+      for (const title of ['', '   ', '\n\t']) expect((await rename(id, { title })).status).toBe(400);
       expect(await titleOf(id)).toBe('别的名字');
-      expect((await rename(id, { title: '   ' })).status).toBe(200);
-      expect(await titleOf(id)).toBe(dirName);
     });
 
     it('keeps it to a line of 40 characters, counting a Chinese character or an emoji as one', async () => {

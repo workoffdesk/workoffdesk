@@ -22,6 +22,7 @@ const exe = (name: string, body: string) => {
 const codexBin = exe('codex', 'exec sleep 600');
 const claudeBin = exe('claude', `echo '[]'`);
 const A = '0199aaaa-0000-7000-8000-00000000000a';
+const B = '0199aaaa-0000-7000-8000-00000000000c';
 
 const started: ChildProcess[] = [];
 const servers: { close(): Promise<void> }[] = [];
@@ -188,6 +189,34 @@ describe('LocalMachine', () => {
       expect(await s.m.createSession({ ...s.resume, takeOver: true })).toMatchObject({ codexThreadId: A });
       expect(alive(pid)).toBe(false);
       expect(s.m.takingOver(A)).toBe(false);
+    });
+  });
+
+  // A name given here becomes the thread's name in Codex too, once the session's thread is known.
+  describe('a name given a Codex session here', () => {
+    const NEW = '0199aaaa-0000-7000-8000-00000000000b';
+    const named = (s: Awaited<ReturnType<typeof setup>>, threadId: string, name: string) =>
+      vi.waitFor(() => expect(s.server.calls).toContainEqual({ method: 'thread/name/set', params: { threadId, name } }));
+
+    it('names its thread', async () => {
+      const s = await setup();
+      const got = await s.m.createSession(s.resume);
+      await s.m.renameSession(got.id, 'Ship the fix');
+      await named(s, A, 'Ship the fix');
+    });
+
+    it('names the thread its terminal starts after, given at the start or before the thread is', async () => {
+      const s = await setup();
+      const given = await s.m.createSession({ kind: 'codex', cwd: s.at, title: 'Given at the start' });
+      const renamed = await s.m.createSession({ kind: 'codex', cwd: mkdtempSync(join(dir, 'r-')) });
+      await s.m.renameSession(renamed.id, 'Given before');
+      await new Promise((r) => setTimeout(r, 500));
+      expect(s.server.calls.filter((c) => c.method === 'thread/name/set')).toEqual([]);
+      s.server.push({ method: 'thread/started', params: { thread: { id: NEW, cwd: s.at } } });
+      s.server.push({ method: 'thread/started', params: { thread: { id: B, cwd: renamed.cwd } } });
+      await named(s, NEW, 'Given at the start');
+      await named(s, B, 'Given before');
+      expect((await s.m.listSessions()).find((x) => x.id === given.id)?.title).toBe('Given at the start');
     });
   });
 });

@@ -13,7 +13,8 @@ The search box at the foot filters by name or folder.
 A session is named after its conversation: the title Claude Code or Codex gives it, which follows what the
 conversation turns to, or the folder's name until there is one. Swipe a row left to **Rename** it, or tap the
 title inside the session; Claude Code's own `/rename` names it too, and the later name wins. The name is kept
-on the Mac, so every device sees it; clear it to go back to the agent's title.
+on the Mac, so every device sees it, and the conversation takes it in Claude Code's `/resume` list and in Codex
+too.
 
 ## Start or resume
 

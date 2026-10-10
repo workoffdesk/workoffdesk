@@ -16,6 +16,7 @@ import { shownTitle, type SessionMeta, type Store } from '../system/store.js';
 import type { Tmux } from '../system/tmux.js';
 import { Accounts } from './machine/accounts.js';
 import { Moves } from './machine/moves.js';
+import { Naming } from './machine/naming.js';
 import { Input } from './machine/input.js';
 import { Lifecycle } from './machine/lifecycle.js';
 import { CHAT_SIZE, ID, MachineState, UUID, codexOf, type MachineDeps, type Parts } from './machine/state.js';
@@ -97,7 +98,10 @@ export class LocalMachine implements Machine {
           {
             journal: this.journal,
             sessions: () => Object.entries(deps.store.get().sessions).flatMap(([id, m]) => (m.kind === 'codex' ? [{ id, cwd: m.cwd, createdAt: m.createdAt, threadId: m.codexThreadId }] : [])),
-            setThread: (id, threadId) => deps.store.update((st) => void (st.sessions[id] && (st.sessions[id].codexThreadId = threadId))),
+            setThread: (id, threadId) => {
+              deps.store.update((st) => void (st.sessions[id] && (st.sessions[id].codexThreadId = threadId)));
+              this.p.naming.watch();
+            },
             moved: (id, status, said) => this.p.status.moved(id, status, said),
             named: (id, name) => this.p.lifecycle.conversationNamed(id, { ai: name }, false),
             setUsage: (id, usage) => this.setUsage(id, usage),
@@ -132,7 +136,9 @@ export class LocalMachine implements Machine {
     p.status = new Status(this.s, this.d, p);
     p.accounts = new Accounts(this.d, p);
     p.moves = new Moves(this.s, this.d, p);
+    p.naming = new Naming(this.s, this.d, p);
     this.p = p;
+    p.naming.watch();
   }
 
   async codexOnMac(): Promise<CodexOnMac[]> {

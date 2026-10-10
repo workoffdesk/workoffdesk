@@ -4,9 +4,8 @@ import { useRename } from '@workoffdesk/react/rename';
 import { Sheet } from './Sheet';
 import { t } from '@workoffdesk/i18n';
 
-// Left empty, the session goes back to its directory's name.
 export function RenameSheet({ session, onClose }: { session: TermSession; onClose: () => void }) {
-  const { name, setName, busy, error, save } = useRename(api, session, onClose);
+  const { name, setName, busy, canSave, error, save } = useRename(api, session, onClose);
   return (
     <Sheet title={t.rename} onClose={onClose}>
       {error && (
@@ -30,7 +29,7 @@ export function RenameSheet({ session, onClose }: { session: TermSession; onClos
           enterKeyHint="done"
           autoFocus
         />
-        <button className="btn small primary" type="submit" disabled={busy}>
+        <button className="btn small primary" type="submit" disabled={busy || !canSave}>
           {t.save}
         </button>
       </form>

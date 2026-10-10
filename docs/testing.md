@@ -174,7 +174,8 @@ Every test file is listed under the risks it guards; one that guards several is 
 - Server: `apps/server/tests/unit/agents/claude/screen/screen.test.ts`,
   `apps/server/tests/unit/agents/claude/screen/choices.test.ts`, `apps/server/tests/integration/http/routes/chat.test.ts`,
   `apps/server/tests/integration/sessions/machine.test.ts`, `apps/server/tests/integration/system/tmux.test.ts`,
-  `apps/server/tests/integration/sessions/control.test.ts`, `apps/server/tests/integration/sessions/machine.sending.test.ts`
+  `apps/server/tests/integration/sessions/control.test.ts`, `apps/server/tests/integration/sessions/machine.sending.test.ts`,
+  `apps/server/tests/integration/sessions/machine.naming.test.ts`, `apps/server/tests/unit/agents/claude/screen/prompt.test.ts`
 - Client: `libs/client/tests/composer/modes.test.ts`, `libs/client/tests/sessions/session.test.ts`,
   `libs/client/tests/composer/hold.test.ts`, `libs/client/tests/composer/keys.test.ts`
 - End to end: `apps/server/tests/e2e/composer.spec.ts`, `apps/server/tests/e2e/chat.spec.ts`
@@ -183,7 +184,7 @@ Every test file is listed under the risks it guards; one that guards several is 
 
 - Claude Code's screen: `apps/server/tests/unit/agents/claude/screen/choices.test.ts`,
   `apps/server/tests/unit/agents/claude/screen/panel.test.ts`, `apps/server/tests/unit/agents/claude/screen/live.test.ts`,
-  `apps/server/tests/unit/agents/claude/screen/compacting.test.ts`
+  `apps/server/tests/unit/agents/claude/screen/compacting.test.ts`, `apps/server/tests/unit/agents/claude/screen/prompt.test.ts`
 - Claude Code's files and answers: `apps/server/tests/unit/agents/claude/transcript/chat.test.ts`,
   `apps/server/tests/unit/agents/claude/transcript/transcriptFile.test.ts`,
   `apps/server/tests/unit/agents/claude/transcript/transcripts.test.ts`,

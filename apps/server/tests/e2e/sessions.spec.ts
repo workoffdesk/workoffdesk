@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { E2E_HOME } from '../../playwright.config';
@@ -252,6 +252,7 @@ test.describe('the session list', () => {
       const name = sheet.getByLabel('名字');
       await expect(name).toHaveValue('');
       await expect(name).toHaveAttribute('placeholder', 'project-a');
+      await expect(sheet.getByRole('button', { name: '保存' })).toBeDisabled();
       await name.fill('部署修复');
       await sheet.getByRole('button', { name: '保存' }).click();
       await expect(sheet).toBeHidden();
@@ -276,23 +277,33 @@ test.describe('the session list', () => {
       await expect(page).toHaveURL(/\/m\/local\/s\/[a-z0-9]+$/);
     });
 
-    test('is changed from a tap on the title, and cleared to go back to the directory name', async ({ page }) => {
-      await login(page);
-      await newClaude(page);
-      await page.getByRole('button', { name: /^改名/ }).click();
-      const sheet = page.getByRole('dialog', { name: '改名' });
-      await sheet.getByLabel('名字').fill('看日志');
-      await shot(page, '30-rename-sheet');
-      await sheet.getByLabel('名字').press('Enter');
-      await expect(sheet).toBeHidden();
-      const title = page.locator('.term-title');
-      await expect(title.locator('strong')).toHaveText('看日志');
-      await expect(title.locator('span')).toContainText('project-a');
-      await page.getByRole('button', { name: /^改名/ }).click();
-      await expect(sheet.getByLabel('名字')).toHaveValue('看日志');
-      await sheet.getByLabel('名字').fill('');
-      await sheet.getByRole('button', { name: '保存' }).click();
-      await expect(title.locator('strong')).toHaveText('project-a');
+    test('is changed from a tap on the title, and never to an empty one', async ({ page }) => {
+      // Claude stays at its prompt: an ended session's title is not a button.
+      const stays = join(E2E_HOME, 'claude-stays');
+      writeFileSync(stays, '');
+      try {
+        await login(page);
+        await newClaude(page);
+        await page.getByRole('button', { name: /^改名/ }).click();
+        const sheet = page.getByRole('dialog', { name: '改名' });
+        await sheet.getByLabel('名字').fill('看日志');
+        await shot(page, '30-rename-sheet');
+        await sheet.getByLabel('名字').press('Enter');
+        await expect(sheet).toBeHidden();
+        const title = page.locator('.term-title');
+        await expect(title.locator('strong')).toHaveText('看日志');
+        await expect(title.locator('span').first()).toContainText('project-a');
+        await page.getByRole('button', { name: /^改名/ }).click();
+        await expect(sheet.getByLabel('名字')).toHaveValue('看日志');
+        await sheet.getByLabel('名字').fill('   ');
+        await expect(sheet.getByRole('button', { name: '保存' })).toBeDisabled();
+        await sheet.getByLabel('名字').press('Enter');
+        await expect(sheet).toBeVisible();
+        await expect(sheet.locator('.sheet-note')).not.toContainText('不填');
+        await expect(title.locator('strong')).toHaveText('看日志');
+      } finally {
+        rmSync(stays, { force: true });
+      }
     });
 
     test('is given to a Claude session as it is started', async ({ page }) => {

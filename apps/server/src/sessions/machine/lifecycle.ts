@@ -212,6 +212,8 @@ export class Lifecycle {
     const resumed = spec.kind !== 'shell' && spec.resumeId;
     const given = resumed ? ((spec.kind === 'claude' && this.claudeName(resumed)) || undefined) : spec.title;
     const meta: SessionMeta = { title: sessionTitle(given, cwd), named: !!nameLine(given), kind: spec.kind, cwd, createdAt: Date.now() };
+    // Claude is started with it; Codex's thread is named once it is known.
+    if (spec.kind === 'codex' && meta.named) meta.naming = meta.title;
     let command: string | undefined;
     if (spec.kind === 'codex') {
       const codex = codexOf(this.d);
@@ -221,7 +223,7 @@ export class Lifecycle {
     }
     if (spec.kind === 'claude') {
       meta.claudeSessionId = spec.resumeId ?? randomUUID();
-      const claude = await this.claudeCommand(spec.resumeId ? { resume: spec.resumeId } : { sessionId: meta.claudeSessionId }, spec.env);
+      const claude = await this.claudeCommand(spec.resumeId ? { resume: spec.resumeId } : { sessionId: meta.claudeSessionId }, spec.env, nameLine(given) || undefined);
       command = claude.command;
       if (claude.dir !== undefined) meta.claudeDir = claude.dir;
       if (spec.env) meta.terminal = true;
@@ -240,9 +242,9 @@ export class Lifecycle {
 
   // What a Claude session's pane runs: Claude, then a login shell once it ends, however it ends (panes.ts). It runs on
   // the account in use, or, started from a terminal (with that terminal's environment), on that terminal's; dir is
-  // that account, when known.
-  private async claudeCommand(conversation: { resume: string } | { sessionId: string }, terminal?: Record<string, string>): Promise<{ command: string; dir?: string }> {
-    const idArgs = 'resume' in conversation ? `--resume ${shq(conversation.resume)}` : `--session-id ${shq(conversation.sessionId)}`;
+  // that account, when known. name: the name given the session here, which Claude takes for the conversation's.
+  private async claudeCommand(conversation: { resume: string } | { sessionId: string }, terminal?: Record<string, string>, name?: string): Promise<{ command: string; dir?: string }> {
+    const idArgs = `${'resume' in conversation ? `--resume ${shq(conversation.resume)}` : `--session-id ${shq(conversation.sessionId)}`}${name ? ` --name ${shq(name)}` : ''}`;
     const account = terminal ? undefined : await this.p.accounts.accountInUse();
     const dirArgs = account === undefined ? '' : account ? `env CLAUDE_CONFIG_DIR=${shq(account)} ` : 'env -u CLAUDE_CONFIG_DIR ';
     const dir = terminal ? this.d.accounts?.idOf(terminal.CLAUDE_CONFIG_DIR) : (account ?? this.d.accounts?.ownId());
@@ -270,11 +272,14 @@ export class Lifecycle {
     const said = this.d.claudeProjectsRoot ? await findTranscript(this.d.claudeProjectsRoot, spec.resumeId).catch(() => null) : true;
     this.p.status.setStatus(id, 'starting');
     try {
-      const claude = await this.claudeCommand(said ? { resume: spec.resumeId } : { sessionId: spec.resumeId }, spec.env);
+      const given = meta.named === false ? undefined : nameLine(meta.title) || undefined;
+      const claude = await this.claudeCommand(said ? { resume: spec.resumeId } : { sessionId: spec.resumeId }, spec.env, given);
       await this.d.tmux.respawnPane(name, { cwd: meta.cwd, command: claude.command, env: this.sessionEnv(id, spec.env) });
+      this.p.naming.taken(id);
       this.d.store.update((st) => {
         const now = st.sessions[id];
         if (!now) return;
+        delete now.naming;
         if (claude.dir !== undefined) now.claudeDir = claude.dir;
         if (spec.env) now.terminal = true;
         else delete now.terminal;
@@ -297,36 +302,45 @@ export class Lifecycle {
 
   async renameSession(id: string, title: string): Promise<TermSession | null> {
     if (!ID.test(id)) throw new InvalidRequest('bad session id');
+    const name = nameLine(title);
+    if (!name) throw new InvalidRequest('a name cannot be empty');
     const meta = this.d.store.get().sessions[id];
     if (!meta || !(await this.p.sessions.exists(id))) return null;
     this.d.store.update((st) => {
       const now = st.sessions[id];
       if (!now) return;
-      now.title = sessionTitle(title, meta.cwd);
-      now.named = !!nameLine(title);
-      if (now.claudeSessionId) nameConversation(st, now.claudeSessionId, nameLine(title));
+      now.title = name;
+      now.named = true;
+      now.naming = name;
+      if (now.claudeSessionId) nameConversation(st, now.claudeSessionId, name);
     });
     this.s.emit();
+    this.p.naming.watch();
     return (await this.p.sessions.listSessions()).find((s) => s.id === id) ?? null;
   }
 
   // What the agent calls a session's conversation. Read from its start, the names it was given there;
   // after, one given by /rename is given as one given here is, the latest name given being the one kept.
+  // While a name given here is on its way, only that name counts: any other is one the agent held before.
   conversationNamed(id: string, found: Titles, fresh: boolean): void {
     const meta = this.d.store.get().sessions[id];
     if (!meta) return;
-    const custom = nameLine(found.custom) || undefined;
+    const written = nameLine(found.custom) || undefined;
+    const taken = !!meta.naming && written === meta.naming;
+    const custom = meta.naming && !taken ? undefined : written;
     const ai = nameLine(found.ai) || undefined;
     const customTitle = fresh ? custom : (custom ?? meta.customTitle);
     const aiTitle = fresh ? ai : (ai ?? meta.aiTitle);
-    const renamed = !fresh && !!custom && meta.named !== false;
+    const renamed = taken || (!fresh && !!custom && meta.named !== false);
     if (customTitle === meta.customTitle && aiTitle === meta.aiTitle && !renamed) return;
+    if (taken) this.p.naming.taken(id);
     this.d.store.update((st) => {
       const now = st.sessions[id];
       if (!now) return;
       now.customTitle = customTitle;
       now.aiTitle = aiTitle;
       if (!renamed) return;
+      if (taken) delete now.naming;
       now.named = false;
       if (now.claudeSessionId) nameConversation(st, now.claudeSessionId, '');
     });

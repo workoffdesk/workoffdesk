@@ -98,7 +98,7 @@ export const chat: typeof en = {
   rename: '改名',
   name: '名字',
   renameFailed: '没改成',
-  renameNote: '不填就用 Claude 或 Codex 给这个对话起的名字，还没有就用目录名。各设备上都显示这个名字。',
+  renameNote: '各设备上，以及 Claude 或 Codex 里的这个对话，都叫这个名字。',
   newSession: '新建会话',
   pickProject: '选一个项目',
   resumeRecent: '续上最近的对话',
