@@ -146,6 +146,7 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
     running = true;
     line = deps.links.open(id, onScreen, (state) => {
       link = state;
+      if (state === 'ended') list.drop(id);
       publish();
     });
     stops.push(() => line?.close());

@@ -420,6 +420,25 @@ describe('createSessions', () => {
     });
   });
 
+  describe('a session that ends on the Mac', () => {
+    it.each([
+      ['says it has exited', (l: ReturnType<typeof setup>['line']) => (l.opens(), l.says({ type: 'exit' }))],
+      ['closes for a session it no longer has (4404)', (l: ReturnType<typeof setup>['line']) => l.ends(4404)],
+    ])('leaves the list as soon as its line %s, not when the list next comes', (_, end) => {
+      const { line, list } = setup();
+      end(line);
+      expect(list.dropped).toEqual(['s1']);
+    });
+
+    it('stays in the list while its line is only down', () => {
+      const { line, list } = setup();
+      line.opens();
+      line.ends(1006);
+      vi.advanceTimersByTime(60_000);
+      expect(list.dropped).toEqual([]);
+    });
+  });
+
   describe('a session left while the Mac is answering', () => {
     it('changes nothing and tells no one when the answer comes', async () => {
       const { s, api, release } = setup();
