@@ -88,7 +88,7 @@ export default function Sessions() {
             },
             // The bar's first item is its rightmost.
             right: [
-              { type: 'button', label: t.newSession, icon: { type: 'sfSymbol', name: 'plus' }, onPress: () => router.push('/new-session') },
+              { type: 'button', label: t.newSession, icon: { type: 'sfSymbol', name: 'plus.circle' }, onPress: () => router.push('/new-session') },
               { type: 'button', label: t.conversationsOnMac, icon: { type: 'sfSymbol', name: 'clock.arrow.circlepath' }, onPress: () => router.push('/conversations') },
             ],
           }),
