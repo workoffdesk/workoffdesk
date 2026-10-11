@@ -22,3 +22,4 @@ in each are the code's at that time; the code as it is now is mapped in [archite
 - 2026-10-09: [The apps' and libraries' layout, and the rules that keep it](2026-10-09-client-layout.md)
 - 2026-10-10: [A conversation's folder is the one it last ran in](2026-10-10-conversation-folder.md)
 - 2026-10-10: [Only the page in front asks the Mac](2026-10-10-page-in-front.md)
+- 2026-10-11: [One reading of Claude Code's transcript](2026-10-11-transcript-events.md)

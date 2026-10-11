@@ -186,6 +186,7 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/unit/agents/claude/screen/panel.test.ts`, `apps/server/tests/unit/agents/claude/screen/live.test.ts`,
   `apps/server/tests/unit/agents/claude/screen/compacting.test.ts`, `apps/server/tests/unit/agents/claude/screen/prompt.test.ts`
 - Claude Code's files and answers: `apps/server/tests/unit/agents/claude/transcript/chat.test.ts`,
+  `apps/server/tests/unit/agents/claude/transcript/events.test.ts`,
   `apps/server/tests/unit/agents/claude/transcript/transcriptFile.test.ts`,
   `apps/server/tests/unit/agents/claude/transcript/transcripts.test.ts`,
   `apps/server/tests/unit/agents/claude/transcript/turn.test.ts`, `apps/server/tests/unit/agents/claude/usage.test.ts`,

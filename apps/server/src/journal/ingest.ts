@@ -1,4 +1,5 @@
 import { sentWords, type ChatItem } from '../agents/claude/transcript/chat.js';
+import { eventOf } from '../agents/claude/transcript/events.js';
 import { findTranscript, idItems, linesFrom } from '../agents/claude/transcript/transcriptFile.js';
 import { queueInTranscript } from '../agents/claude/transcript/turn.js';
 import type { JournalDb, MessageRow } from './db.js';
@@ -101,14 +102,16 @@ export async function ingest(db: JournalDb, id: string, conv: string | null, o: 
 // A record of a name the conversation was given, kept in found.
 function titleIn(line: string, found: Titles): void {
   if (!line.includes('-title"')) return;
-  let r: { type?: unknown; customTitle?: unknown; aiTitle?: unknown };
+  let v: unknown;
   try {
-    r = JSON.parse(line) as typeof r;
+    v = JSON.parse(line);
   } catch {
     return;
   }
-  if (r.type === 'custom-title' && typeof r.customTitle === 'string' && r.customTitle.trim()) found.custom = r.customTitle;
-  if (r.type === 'ai-title' && typeof r.aiTitle === 'string' && r.aiTitle.trim()) found.ai = r.aiTitle;
+  const e = eventOf(v);
+  if (e.k !== 'title' || !e.text.trim()) return;
+  if (e.by === 'person') found.custom = e.text;
+  else found.ai = e.text;
 }
 
 // Lands the messages not landed that the conversation already has, each at the first prompt with its words

@@ -1,7 +1,7 @@
 import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { unpasted, type TranscriptRecord } from './chat.js';
+import { envelopeOf, eventOf, unhandled, type TranscriptEvent, type TranscriptRecord } from './events.js';
 import { findTranscript } from './transcriptFile.js';
 
 // Claude Code's transcript format is undocumented: every field read here is
@@ -162,21 +162,59 @@ async function parseTranscript(path: string, size: number): Promise<(Omit<Recent
   let automated = false;
   let saidAt: number | null = null;
   for (const r of records) {
-    if ((r.type === 'user' || r.type === 'assistant') && r.isMeta !== true && typeof r.timestamp === 'string') {
-      const at = Date.parse(r.timestamp);
+    const e = eventOf(r);
+    const envelope = envelopeOf(r);
+    if (envelope.cwd) cwds.push(envelope.cwd);
+    if (envelope.automated) automated = true;
+    if (e.at && isSaid(e)) {
+      const at = Date.parse(e.at);
       if (Number.isFinite(at) && at > (saidAt ?? -Infinity)) saidAt = at;
     }
-    if (typeof r.cwd === 'string' && r.cwd) cwds.push(r.cwd);
-    if (r.entrypoint === 'sdk-cli') automated = true;
-    if (r.type === 'custom-title' && typeof r.customTitle === 'string' && r.customTitle.trim()) customTitle = truncate(r.customTitle.replace(/\s+/g, ' ').trim());
-    if (r.type === 'ai-title' && typeof r.aiTitle === 'string' && r.aiTitle.trim()) aiTitle = r.aiTitle.trim();
-    const said =
-      r.type === 'user' && !r.isMeta && !r.isCompactSummary ? promptText(r.message?.content) : r.type === 'last-prompt' ? promptText(r.lastPrompt) : null;
+    if (e.k === 'title' && e.text.trim()) {
+      if (e.by === 'person') customTitle = truncate(e.text.replace(/\s+/g, ' ').trim());
+      else aiTitle = e.text.trim();
+    }
+    const said = e.k === 'prompt' ? promptText(e.words) : e.k === 'lastPrompt' ? promptText(e.text) : null;
     if (said) lastPrompt = said;
-    if (!firstPrompt && r.type === 'user') firstPrompt = promptText(r.message?.content);
+    if (!firstPrompt && e.k === 'prompt') firstPrompt = said;
   }
   const title = customTitle ?? aiTitle ?? (firstPrompt ? truncate(firstPrompt) : basename(path, '.jsonl').slice(0, 8));
   return { cwd: conversationFolder(cwds), title, lastPrompt: lastPrompt && truncate(lastPrompt, LAST_PROMPT_MAX), automated, saidAt };
+}
+
+// Whether an event is something said, by the person or Claude, rather than a note or a record of Claude Code's.
+function isSaid(e: TranscriptEvent): boolean {
+  switch (e.k) {
+    case 'prompt':
+    case 'shell':
+    case 'shellOutput':
+    case 'results':
+    case 'interrupted':
+    case 'compacted':
+    case 'teammates':
+    case 'taskNotification':
+    case 'fromOther':
+    case 'reply':
+    case 'apiError':
+      return true;
+    case 'command':
+    case 'commandOutput':
+      return !e.local;
+    case 'noted':
+    case 'peer':
+    case 'compactBoundary':
+    case 'turnOver':
+    case 'queue':
+    case 'midTurnPrompt':
+    case 'midTurnTaskEnd':
+    case 'title':
+    case 'lastPrompt':
+    case 'sidechain':
+    case 'other':
+      return false;
+    default:
+      return unhandled(e);
+  }
 }
 
 // The folder a conversation last ran in, from the folders its records were written in, oldest first. Within a
@@ -224,14 +262,7 @@ function parseLines(text: string): TranscriptRecord[] {
   return out;
 }
 
-function promptText(content: unknown): string | null {
-  const raw = unpasted(
-    typeof content === 'string'
-      ? content
-      : Array.isArray(content)
-        ? content.filter((b) => b?.type === 'text' && typeof b.text === 'string').map((b) => b.text).join(' ')
-        : '',
-  );
+function promptText(raw: string): string | null {
   // An agent runner's wake names its issue on a line of its own; that, not its template, says what it is.
   const issue = /^- issue:\s*(.+)$/m.exec(raw)?.[1];
   const text = (issue ?? raw.replace(/^#{1,6}\s+/gm, '')).replace(/\s+/g, ' ').trim();

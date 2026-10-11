@@ -1,4 +1,5 @@
 import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
+import { eventOf, unhandled, type TranscriptEvent } from './events.js';
 
 // What Claude Code's transcript says of the turn it is on, read from its end: whether the turn is over, and
 // what Claude still holds in its own queue. A message typed while it works waits there (enqueue) until it is
@@ -7,103 +8,97 @@ import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
 
 // The end of the transcript read for it: what was typed long before was taken long ago.
 const TAIL_BYTES = 256 * 1024;
-const INTERRUPTED = '[Request interrupted';
-const COMMAND = /<command-name>/;
-const COMMAND_OUTPUT = /^<local-command-std(out|err)>/;
 
-type Entry = {
-  type?: unknown;
-  subtype?: unknown;
-  operation?: unknown;
-  content?: unknown;
-  timestamp?: unknown;
-  isMeta?: unknown;
-  isCompactSummary?: unknown;
-  isApiErrorMessage?: unknown;
-  message?: { content?: unknown };
-};
-
-// The entries of the lines, but for commands Claude Code ran on its own (/model, /effort): each is written as
-// the command and its output, and is no part of any turn. A command whose prompt goes to Claude (/review)
-// has no output of its own and stays, as the prompt of its turn.
-function entries(lines: string[], wanted: (line: string) => boolean): Entry[] {
-  const out: Entry[] = [];
+// The events of the lines, but for commands Claude Code ran on its own at the prompt (/model, /effort): each
+// is the command and what it printed, and no part of any turn. A command whose prompt goes to Claude (/review)
+// prints nothing of its own and stays, as the prompt of its turn.
+function events(lines: string[], wanted: (line: string) => boolean): TranscriptEvent[] {
+  const out: TranscriptEvent[] = [];
   for (const line of lines) {
     if (!wanted(line)) continue;
+    let v: unknown;
     try {
-      const e = JSON.parse(line) as Entry;
-      if (!e || typeof e !== 'object') continue;
-      if (userSays(e, COMMAND_OUTPUT)) {
-        const command = out.findLastIndex((x) => userSays(x, COMMAND));
-        if (command >= 0) out.splice(command, 1);
-        continue;
-      }
-      out.push(e);
+      v = JSON.parse(line);
     } catch {
-      // a line cut off by the end of what was read, or one being written
+      continue; // a line cut off by the end of what was read, or one being written
     }
+    const e = eventOf(v);
+    if (e.k === 'commandOutput' && !e.local) {
+      const command = out.findLastIndex((x) => x.k === 'command' && !x.local);
+      if (command >= 0) out.splice(command, 1);
+      continue;
+    }
+    out.push(e);
   }
   return out;
 }
 
-const texts = (content: unknown): string[] =>
-  typeof content === 'string'
-    ? [content]
-    : Array.isArray(content)
-      ? content.flatMap((b: { type?: unknown; text?: unknown }) => (b?.type === 'text' && typeof b.text === 'string' ? [b.text] : []))
-      : [];
-
-const userSays = (e: Entry, text: RegExp) => e.type === 'user' && texts(e.message?.content).some((t) => text.test(t));
+// What an event says of the turn: that one begins with it, that it goes on, that it ended there, or nothing.
+function turnSays(e: TranscriptEvent): 'starts' | 'going' | 'over' | null {
+  switch (e.k) {
+    case 'prompt':
+    case 'shell':
+    case 'shellOutput':
+    case 'teammates':
+    case 'taskNotification':
+    case 'fromOther':
+      return 'starts';
+    case 'command':
+      return e.local ? null : 'starts';
+    case 'results':
+    case 'reply':
+      return 'going';
+    case 'queue':
+      return e.op === 'dequeue' ? 'going' : null;
+    case 'interrupted':
+    case 'apiError':
+    case 'turnOver':
+      return 'over';
+    // A compaction asked for runs between turns; one Claude Code starts on its own can fall in the middle of one.
+    case 'compactBoundary':
+      return e.manual ? 'over' : null;
+    case 'commandOutput':
+    case 'compacted':
+    case 'noted':
+    case 'peer':
+    case 'midTurnPrompt':
+    case 'midTurnTaskEnd':
+    case 'title':
+    case 'lastPrompt':
+    case 'sidechain':
+    case 'other':
+      return null;
+    default:
+      return unhandled(e);
+  }
+}
 
 // The messages Claude still holds, oldest first, by the queue operations since the last turn began: what
 // was held before then was taken by then.
 export function heldByClaude(lines: string[]): string[] {
   const held: string[] = [];
-  for (const e of entries(lines, (l) => l.includes('"queue-operation"') || l.includes('"user"'))) {
-    if (startsTurn(e)) held.length = 0;
-    if (e.type !== 'queue-operation') continue;
-    if (e.operation === 'enqueue') held.push(typeof e.content === 'string' ? e.content : '');
-    else if (e.operation === 'dequeue') held.shift();
-    else if (e.operation === 'popAll') held.length = 0;
-    else if (e.operation === 'remove') {
-      const i = held.indexOf(e.content as string);
+  for (const e of events(lines, (l) => l.includes('"queue-operation"') || l.includes('"user"'))) {
+    if (turnSays(e) === 'starts') held.length = 0;
+    if (e.k !== 'queue') continue;
+    if (e.op === 'enqueue') held.push(e.text ?? '');
+    else if (e.op === 'dequeue') held.shift();
+    else if (e.op === 'popAll') held.length = 0;
+    else {
+      const i = e.text === undefined ? -1 : held.indexOf(e.text);
       held.splice(i < 0 ? 0 : i, 1);
     }
   }
   return held;
 }
 
-// Written as the person's, and no one's: a note Claude Code adds, or the summary it goes on from once compacted.
-const noOnesWords = (e: Entry) => e.isMeta === true || e.isCompactSummary === true;
-
-// A prompt: what a turn begins with, as against the answer to a call, a note or Esc.
-function startsTurn(e: Entry): boolean {
-  if (e.type !== 'user' || noOnesWords(e)) return false;
-  const c = e.message?.content;
-  if (Array.isArray(c) && c.every((b: { type?: unknown }) => b?.type === 'tool_result')) return false;
-  return !texts(c).some((t) => t.startsWith(INTERRUPTED));
-}
-
-// What an entry says of the turn: that it ended there, that the turn goes on, or nothing.
-function said(e: Entry): 'over' | 'going' | null {
-  if (e.type === 'system') return e.subtype === 'stop_hook_summary' ? 'over' : null;
-  if (e.type === 'queue-operation') return e.operation === 'dequeue' ? 'going' : null;
-  if (e.type === 'assistant') return e.isApiErrorMessage === true ? 'over' : 'going';
-  if (e.type === 'user') {
-    if (noOnesWords(e)) return null;
-    return texts(e.message?.content).some((t) => t.startsWith(INTERRUPTED)) ? 'over' : 'going';
-  }
-  return null;
-}
-
 // Whether the turn the lines end in is over, and when it ended; null when they hold no turn.
 export function lastTurn(lines: string[]): { over: true; at: number } | { over: false } | null {
-  const all = entries(lines, () => true);
+  const all = events(lines, () => true);
   for (let i = all.length - 1; i >= 0; i--) {
-    const s = said(all[i]);
-    if (s === 'going') return { over: false };
+    const s = turnSays(all[i]);
+    if (s === 'starts' || s === 'going') return { over: false };
     if (s === 'over') {
-      const at = typeof all[i].timestamp === 'string' ? Date.parse(all[i].timestamp as string) : NaN;
+      const at = Date.parse(all[i].at ?? '');
       return { over: true, at: Number.isFinite(at) ? at : 0 };
     }
   }
@@ -131,8 +126,8 @@ export function transcriptTail(path: string): string[] | null {
 // The messages pulled back out of Claude's queue into its prompt at the Mac, each with when: from there they are
 // the person's to change, send or drop, so none of them goes on as it was sent.
 function pulledBack(lines: string[]): { text: string; at: number }[] {
-  return entries(lines, (l) => l.includes('"popAll"')).flatMap((e) =>
-    e.type === 'queue-operation' && e.operation === 'popAll' && typeof e.content === 'string' ? [{ text: e.content, at: Date.parse(String(e.timestamp)) }] : [],
+  return events(lines, (l) => l.includes('"popAll"')).flatMap((e) =>
+    e.k === 'queue' && e.op === 'popAll' && e.text !== undefined ? [{ text: e.text, at: Date.parse(String(e.at)) }] : [],
   );
 }
 

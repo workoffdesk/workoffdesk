@@ -1,8 +1,7 @@
-import { stripVTControlCharacters } from 'node:util';
 import { isOwnHookCommand } from '../hooks/hooks.js';
+import { eventOf, tagText, unhandled, type ReplyBlock, type ToolResult, type TranscriptEvent } from './events.js';
 
-// A Claude session as a conversation, read from its transcript. The format is Claude Code's own and
-// undocumented: every field is optional, and a record not understood is left out, never thrown on.
+// A Claude session as a conversation, read from its transcript's events.
 
 export type ChatItem =
   | { k: 'user'; text: string; at?: string }
@@ -40,22 +39,8 @@ const RESULT_MAX = 2000;
 // What Claude Code records as the answer of a call it was stopped before running.
 const STOPPED = /^The user doesn't want to (proceed with this tool use|take this action)/;
 
-// A transcript line once it is known to be an object. Every field may be missing or of any type;
-// message is only ever read through optional chaining, which is safe on whatever it turns out to be.
-export type TranscriptRecord = { [field: string]: unknown; message?: { content?: unknown } };
-
 const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max)}…` : s);
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
-
-// As text, without the colours and links a terminal would have drawn from it.
-function blocksText(content: unknown): string {
-  if (typeof content === 'string') return stripVTControlCharacters(content);
-  if (!Array.isArray(content)) return '';
-  return content
-    .map((b) => (b?.type === 'text' ? stripVTControlCharacters(str(b.text)) : b?.type === 'image' ? '[image]' : ''))
-    .filter(Boolean)
-    .join(' ');
-}
 
 export function toolSummary(name: string, input: Record<string, unknown>): string {
   const pick = (...keys: string[]) => keys.map((k) => str(input[k])).find(Boolean);
@@ -143,47 +128,19 @@ function fileChange(v: unknown): Diff | null {
   return { file: t.filePath, added, removed, ...(created ? { created: true as const } : {}), ...(all.length > DIFF_LINES_MAX ? { cut: true as const } : {}), hunks: kept };
 }
 
-function userItems(r: TranscriptRecord, at: string | undefined): ChatItem[] {
-  const content = r.message?.content;
-  if (r.isCompactSummary) return [{ k: 'note', event: { e: 'compacted' } }];
-  if (Array.isArray(content) && content.some((b) => b?.type === 'tool_result')) {
-    const results = content.filter((b) => b?.type === 'tool_result' && typeof b.tool_use_id === 'string');
-    const diff = results.length === 1 && results[0].is_error !== true ? fileChange(r.toolUseResult) : null;
-    const made = results.length === 1 && results[0].is_error !== true ? taskMade(r.toolUseResult) : null;
-    const shown: ChatItem[] = results.map((b): ChatItem => {
-      const text = blocksText(b.content);
-      if (STOPPED.test(text)) return { k: 'result', id: b.tool_use_id, text: '', error: false, stopped: true };
-      const item: ChatItem = { k: 'result', id: b.tool_use_id, text: clip(text, RESULT_MAX), error: b.is_error === true };
-      if (diff) item.diff = diff;
-      return Array.isArray(b.content) && b.content.some((c: { type?: unknown } | null) => c?.type === 'image') ? { ...item, image: true } : item;
-    });
-    const started = results.length === 1 ? backgroundStarted(r.toolUseResult, results[0].tool_use_id) : [];
-    return [...shown, ...(made ? [made] : []), ...started];
-  }
-  const text = unpasted(blocksText(content)).trim();
-  if (!text) return [];
-  if (text.startsWith('[Request interrupted')) return [{ k: 'note', event: { e: 'interrupted' }, retry: true }];
-  const command = /<command-name>([^<]*)<\/command-name>/.exec(text);
-  if (command?.[1].trim() === '/compact') return [];
-  if (command) {
-    const args = /<command-args>([^<]*)<\/command-args>/.exec(text)?.[1].trim();
-    return [{ k: 'note', text: [command[1].trim(), args].filter(Boolean).join(' '), command: true, at }];
-  }
-  if (text.startsWith('<bash-input>')) return [{ k: 'note', text: `!${tagText(text, 'bash-input')}`, command: true, at }];
-  if (text.startsWith('<bash-stdout>')) {
-    const printed = [tagText(text, 'bash-stdout'), tagText(text, 'bash-stderr')].filter(Boolean).join('\n');
-    return printed ? [{ k: 'note', text: clip(printed, RESULT_MAX) }] : [];
-  }
-  const stdout = /^<local-command-std(?:out|err)>([\s\S]*)<\/local-command-std(?:out|err)>$/.exec(text);
-  if (stdout) {
-    const shown = stdout[1].split('\n').filter((l) => !ownHookLine(l)).join('\n').trim();
-    return shown ? [{ k: 'note', text: clip(shown, RESULT_MAX) }] : [];
-  }
-  return [{ k: 'user', text, at }];
+function resultItems(results: ToolResult[], detail: unknown): ChatItem[] {
+  const alone = results.length === 1 && !results[0].error;
+  const diff = alone ? fileChange(detail) : null;
+  const made = alone ? taskMade(detail) : null;
+  const shown = results.map((b): ChatItem => {
+    if (STOPPED.test(b.text)) return { k: 'result', id: b.id, text: '', error: false, stopped: true };
+    const item: ChatItem = { k: 'result', id: b.id, text: clip(b.text, RESULT_MAX), error: b.error };
+    if (diff) item.diff = diff;
+    return b.image ? { ...item, image: true } : item;
+  });
+  const started = results.length === 1 ? backgroundStarted(detail, results[0].id) : [];
+  return [...shown, ...(made ? [made] : []), ...started];
 }
-
-// Text as it was pasted at the prompt, which Claude Code records wrapped in a tag naming the paste.
-export const unpasted = (text: string) => text.replace(/<pasted_content id="([^"]*)">\n*([\s\S]*?)\n*<\/pasted_content id="\1">/g, '$2');
 
 // The words a message sent to Claude has when the transcript records it as this item: a prompt's, or a
 // command's typed at the prompt. Null for anything a message cannot be.
@@ -192,10 +149,6 @@ export function sentWords(item: ChatItem): string | null {
   return item.k === 'note' && 'command' in item && item.command ? item.text : null;
 }
 
-const XML_ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'" };
-const tagText = (text: string, tag: string) =>
-  new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(text)?.[1].replace(/&(?:amp|lt|gt|quot|apos);/g, (e) => XML_ENTITIES[e]).trim() ?? '';
-
 function taskNote(text: string): ChatItem[] {
   const summary = tagText(text, 'summary');
   const what = /^Background command "([\s\S]*)" (?:completed|failed|was stopped)/.exec(summary)?.[1] ?? summary;
@@ -203,30 +156,6 @@ function taskNote(text: string): ChatItem[] {
   const id = tagText(text, 'task-id');
   const note: ChatItem = { k: 'note', event: { e: 'task', status, what }, detail: summary };
   return id && status ? [note, { k: 'bg', id, status }] : [note];
-}
-
-// Teammates' messages, which Claude Code records with no sender: it wraps them in this envelope instead.
-// A body that is a JSON object is a status update between agents (idle, shutting down), for Claude alone.
-const TEAMMATES = 'Another Claude session sent a message:\n<teammate-message ';
-function fromTeammates(text: string): ChatItem[] | null {
-  if (!text.startsWith(TEAMMATES)) return null;
-  return [...text.matchAll(/<teammate-message\s[^>]*?teammate_id="([^"]*)"[^>]*>([\s\S]*?)<\/teammate-message>/g)].flatMap(([, from, body]): ChatItem[] => {
-    const detail = body.trim();
-    return detail && !/^\{[\s\S]*\}$/.test(detail) ? [{ k: 'note', event: { e: 'peer', from }, detail }] : [];
-  });
-}
-
-// A prompt that did not come from the user: Claude Code records who sent it. Older versions record
-// nobody, and then the prompt is the user's, unless it is a teammate's message in its envelope.
-function sentByOther(r: TranscriptRecord): ChatItem[] | null {
-  const origin = r.origin && typeof r.origin === 'object' ? (r.origin as Record<string, unknown>) : null;
-  if (!origin) return fromTeammates(blocksText(r.message?.content).trim());
-  if (origin.kind === 'human') return null;
-  if (origin.kind === 'peer') return [{ k: 'note', event: { e: 'peer', from: str(origin.name) }, detail: str(origin.body) }];
-  if (r.isMeta) return [];
-  const text = blocksText(r.message?.content).trim();
-  if (origin.kind === 'task-notification') return taskNote(text);
-  return text ? [{ k: 'note', text: clip(text, RESULT_MAX) }] : [];
 }
 
 // The plan Claude asks to go ahead with, shown whole rather than as a line: written into Claude Code's
@@ -238,51 +167,73 @@ function planOf(name: string, input: Record<string, unknown>): string {
   return '';
 }
 
-function assistantItems(r: TranscriptRecord, at: string | undefined): ChatItem[] {
-  const content = r.message?.content;
-  if (!Array.isArray(content)) return [];
-  const out: ChatItem[] = [];
-  for (const b of content) {
-    if (b?.type === 'text' && str(b.text).trim()) out.push({ k: 'text', text: b.text.trim(), at });
-    if (b?.type === 'tool_use' && typeof b.id === 'string') {
-      const name = str(b.name) || 'Tool';
-      const input = b.input && typeof b.input === 'object' ? b.input : {};
-      const plan = planOf(name, input);
-      out.push({ k: 'tool', id: b.id, name, summary: toolSummary(name, input), at, ...(plan && { plan }) }, ...taskItems(name, input));
-    }
-  }
-  return out;
-}
-
-// A message the user sent while Claude worked, which Claude took in the middle of its turn: the transcript
-// has it only as this attachment.
-function takenMidTurn(r: TranscriptRecord, at: string | undefined): ChatItem[] {
-  const a = r.attachment && typeof r.attachment === 'object' ? (r.attachment as Record<string, unknown>) : null;
-  if (a?.type !== 'queued_command' || a.isMeta) return [];
-  const origin = a.origin && typeof a.origin === 'object' ? (a.origin as Record<string, unknown>) : null;
-  // How a background command ended, taken in mid-turn: only the end is kept, the note comes as its own prompt.
-  if (origin?.kind === 'task-notification' || a.commandMode === 'task-notification')
-    return taskNote(blocksText(a.prompt)).filter((i) => i.k === 'bg');
-  if ((a.commandMode ?? 'prompt') !== 'prompt' || (origin && origin.kind !== 'human')) return [];
-  const text = unpasted(blocksText(a.prompt)).trim();
-  return text ? [{ k: 'user', text, at }] : [];
+function replyItems(blocks: ReplyBlock[], at: string | undefined): ChatItem[] {
+  return blocks.flatMap((b): ChatItem[] => {
+    if (b.type === 'text') return b.text.trim() ? [{ k: 'text', text: b.text.trim(), at }] : [];
+    const name = b.name || 'Tool';
+    const plan = planOf(name, b.input);
+    return [{ k: 'tool', id: b.id, name, summary: toolSummary(name, b.input), at, ...(plan && { plan }) }, ...taskItems(name, b.input)];
+  });
 }
 
 // What one transcript record shows in the conversation. Subagents' own turns, Claude's thinking and
 // text injected for Claude alone are not part of it.
 export function chatItems(v: unknown): ChatItem[] {
-  if (!v || typeof v !== 'object') return [];
-  const r = v as TranscriptRecord;
-  if (r.isSidechain) return [];
-  const at = typeof r.timestamp === 'string' ? r.timestamp : undefined;
-  if (r.type === 'attachment') return takenMidTurn(r, at);
-  if (!r.message || typeof r.message !== 'object') return [];
-  if (r.type === 'user') return sentByOther(r) ?? (r.isMeta ? [] : userItems(r, at));
-  // A reply the API failed to give: what Claude Code wrote in its place says why.
-  if (r.type === 'assistant' && r.isApiErrorMessage) {
-    const event: NoteEvent = r.error === 'rate_limit' ? { e: 'failed', limit: true } : { e: 'failed' };
-    return [{ k: 'note', event, detail: clip(blocksText(r.message.content).replace(/^API Error:\s*/, ''), RESULT_MAX), retry: true }];
+  return eventItems(eventOf(v));
+}
+
+function eventItems(e: TranscriptEvent): ChatItem[] {
+  const at = e.at;
+  switch (e.k) {
+    case 'prompt':
+      return e.text ? [{ k: 'user', text: e.text, at }] : [];
+    // A message sent while Claude worked, which it took in the middle of its turn.
+    case 'midTurnPrompt':
+      return e.text ? [{ k: 'user', text: e.text, at }] : [];
+    // How a background command ended, taken in mid-turn: only the end is kept, the note comes as its own prompt.
+    case 'midTurnTaskEnd':
+      return taskNote(e.text).filter((i) => i.k === 'bg');
+    case 'command':
+      return e.local || e.name === '/compact' ? [] : [{ k: 'note', text: [e.name, e.args].filter(Boolean).join(' '), command: true, at }];
+    case 'commandOutput': {
+      if (e.local) return [];
+      const shown = e.text.split('\n').filter((l) => !ownHookLine(l)).join('\n').trim();
+      return shown ? [{ k: 'note', text: clip(shown, RESULT_MAX) }] : [];
+    }
+    case 'shell':
+      return [{ k: 'note', text: `!${e.command}`, command: true, at }];
+    case 'shellOutput':
+      return e.text ? [{ k: 'note', text: clip(e.text, RESULT_MAX) }] : [];
+    case 'results':
+      return resultItems(e.results, e.detail);
+    case 'interrupted':
+      return [{ k: 'note', event: { e: 'interrupted' }, retry: true }];
+    case 'compacted':
+      return [{ k: 'note', event: { e: 'compacted' } }];
+    case 'peer':
+      return [{ k: 'note', event: { e: 'peer', from: e.from }, detail: e.body }];
+    // A body that is a JSON object is a status update between agents (idle, shutting down), for Claude alone.
+    case 'teammates':
+      return e.messages.flatMap((m): ChatItem[] => (m.body && !/^\{[\s\S]*\}$/.test(m.body) ? [{ k: 'note', event: { e: 'peer', from: m.from }, detail: m.body }] : []));
+    case 'taskNotification':
+      return taskNote(e.text);
+    case 'fromOther':
+      return e.text ? [{ k: 'note', text: clip(e.text, RESULT_MAX) }] : [];
+    case 'reply':
+      return replyItems(e.blocks, at);
+    // A reply the API failed to give: what Claude Code wrote in its place says why.
+    case 'apiError':
+      return [{ k: 'note', event: e.limit ? { e: 'failed', limit: true } : { e: 'failed' }, detail: clip(e.text.replace(/^API Error:\s*/, ''), RESULT_MAX), retry: true }];
+    case 'noted':
+    case 'compactBoundary':
+    case 'turnOver':
+    case 'queue':
+    case 'title':
+    case 'lastPrompt':
+    case 'sidechain':
+    case 'other':
+      return [];
+    default:
+      return unhandled(e);
   }
-  if (r.type === 'assistant') return assistantItems(r, at);
-  return [];
 }

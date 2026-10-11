@@ -18,6 +18,23 @@ const compacted = [
   line({ type: 'user', isCompactSummary: true, isVisibleInTranscriptOnly: true, message: { role: 'user', content: 'This session is being continued from a previous conversation.' } }),
   line({ type: 'system', subtype: 'informational' }),
 ];
+// A compaction the person asked for with /compact: the words go through Claude's queue, and once compacted
+// Claude Code writes the command and what it printed.
+const compactedByHand = [
+  line({ type: 'user', message: { role: 'user', content: '/compact' } }),
+  op('enqueue', '/compact'),
+  op('dequeue'),
+  line({ type: 'system', subtype: 'compact_boundary', compactMetadata: { trigger: 'manual' } }),
+  line({ type: 'user', isCompactSummary: true, isVisibleInTranscriptOnly: true, message: { role: 'user', content: 'This session is being continued from a previous conversation.' } }),
+  line({ type: 'user', isMeta: true, message: { role: 'user', content: '<local-command-caveat>Caveat</local-command-caveat>' } }),
+  line({ type: 'user', message: { role: 'user', content: '<command-name>/compact</command-name>\n<command-message>compact</command-message>' } }),
+  line({ type: 'user', message: { role: 'user', content: '<local-command-stdout>Compacted</local-command-stdout>' } }),
+];
+// A command Claude Code runs on its own, written as its own records.
+const ranOnItsOwn = [
+  line({ type: 'system', subtype: 'local_command', content: '<command-name>/model</command-name>\n<command-args>opus</command-args>' }),
+  line({ type: 'system', subtype: 'local_command', content: '<local-command-stdout>Set model to Opus</local-command-stdout>' }),
+];
 const noise = [line({ type: 'mode' }), line({ type: 'attachment', attachment: { type: 'total_tokens_reminder' } }), line({ type: 'last-prompt' })];
 
 describe('lastTurn', () => {
@@ -30,6 +47,7 @@ describe('lastTurn', () => {
     ['a turn started from its own queue', [prompt, reply, stopped, op('dequeue')]],
     ['with entries that say nothing of the turn after it', [prompt, toolUse, ...noise]],
     ['compacted in the middle of it', [prompt, toolUse, toolResult, ...compacted]],
+    ['begun by a command whose prompt goes to Claude, with one run on its own after it', [reply, stopped, line({ type: 'user', message: { role: 'user', content: '<command-name>/review</command-name>' } }), ...ranOnItsOwn]],
   ])('tells a turn still going: %s', (_, lines) => {
     expect(lastTurn(lines)).toEqual({ over: false });
   });
@@ -40,6 +58,8 @@ describe('lastTurn', () => {
     ['ended by an API error', [prompt, apiError]],
     ['ended, with entries after it that say nothing of the turn', [prompt, reply, stopped, ...noise, meta]],
     ['ended, and the conversation compacted after it', [prompt, reply, stopped, ...compacted, ...noise]],
+    ['ended, and the conversation compacted by hand after it', [prompt, reply, stopped, ...compactedByHand, ...noise]],
+    ['ended, and a command run on its own after it', [prompt, reply, stopped, ...ranOnItsOwn]],
   ])('tells a turn that is over: %s', (_, lines) => {
     expect(lastTurn(lines)).toEqual({ over: true, at: Date.parse(at) });
   });
