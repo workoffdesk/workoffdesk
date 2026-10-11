@@ -1,5 +1,6 @@
 import { isOwnHookCommand } from '../hooks/hooks.js';
-import { eventOf, tagText, unhandled, type ReplyBlock, type ToolResult, type TranscriptEvent } from './events.js';
+import { eventOf, tagText, type ReplyBlock, type ToolResult, type ClaudeEvent } from './events.js';
+import { unhandled } from '../../events.js';
 
 // A Claude session as a conversation, read from its transcript's events.
 
@@ -182,56 +183,56 @@ export function chatItems(v: unknown): ChatItem[] {
   return eventItems(eventOf(v));
 }
 
-function eventItems(e: TranscriptEvent): ChatItem[] {
+function eventItems(e: ClaudeEvent): ChatItem[] {
   const at = e.at;
   switch (e.k) {
-    case 'prompt':
+    case 'claude:prompt':
       return e.text ? [{ k: 'user', text: e.text, at }] : [];
     // A message sent while Claude worked, which it took in the middle of its turn.
-    case 'midTurnPrompt':
+    case 'claude:midTurnPrompt':
       return e.text ? [{ k: 'user', text: e.text, at }] : [];
     // How a background command ended, taken in mid-turn: only the end is kept, the note comes as its own prompt.
-    case 'midTurnTaskEnd':
+    case 'claude:midTurnTaskEnd':
       return taskNote(e.text).filter((i) => i.k === 'bg');
-    case 'command':
+    case 'claude:command':
       return e.local || e.name === '/compact' ? [] : [{ k: 'note', text: [e.name, e.args].filter(Boolean).join(' '), command: true, at }];
-    case 'commandOutput': {
+    case 'claude:commandOutput': {
       if (e.local) return [];
       const shown = e.text.split('\n').filter((l) => !ownHookLine(l)).join('\n').trim();
       return shown ? [{ k: 'note', text: clip(shown, RESULT_MAX) }] : [];
     }
-    case 'shell':
+    case 'claude:shell':
       return [{ k: 'note', text: `!${e.command}`, command: true, at }];
-    case 'shellOutput':
+    case 'claude:shellOutput':
       return e.text ? [{ k: 'note', text: clip(e.text, RESULT_MAX) }] : [];
-    case 'results':
+    case 'claude:results':
       return resultItems(e.results, e.detail);
-    case 'interrupted':
+    case 'claude:interrupted':
       return [{ k: 'note', event: { e: 'interrupted' }, retry: true }];
-    case 'compacted':
+    case 'claude:compacted':
       return [{ k: 'note', event: { e: 'compacted' } }];
-    case 'peer':
+    case 'claude:peer':
       return [{ k: 'note', event: { e: 'peer', from: e.from }, detail: e.body }];
     // A body that is a JSON object is a status update between agents (idle, shutting down), for Claude alone.
-    case 'teammates':
+    case 'claude:teammates':
       return e.messages.flatMap((m): ChatItem[] => (m.body && !/^\{[\s\S]*\}$/.test(m.body) ? [{ k: 'note', event: { e: 'peer', from: m.from }, detail: m.body }] : []));
-    case 'taskNotification':
+    case 'claude:taskNotification':
       return taskNote(e.text);
-    case 'fromOther':
+    case 'claude:fromOther':
       return e.text ? [{ k: 'note', text: clip(e.text, RESULT_MAX) }] : [];
-    case 'reply':
+    case 'claude:reply':
       return replyItems(e.blocks, at);
     // A reply the API failed to give: what Claude Code wrote in its place says why.
-    case 'apiError':
+    case 'claude:apiError':
       return [{ k: 'note', event: e.limit ? { e: 'failed', limit: true } : { e: 'failed' }, detail: clip(e.text.replace(/^API Error:\s*/, ''), RESULT_MAX), retry: true }];
-    case 'noted':
-    case 'compactBoundary':
-    case 'turnOver':
-    case 'queue':
-    case 'title':
-    case 'lastPrompt':
-    case 'sidechain':
-    case 'other':
+    case 'claude:noted':
+    case 'claude:compactBoundary':
+    case 'claude:turnOver':
+    case 'claude:queue':
+    case 'claude:title':
+    case 'claude:lastPrompt':
+    case 'claude:sidechain':
+    case 'claude:other':
       return [];
     default:
       return unhandled(e);

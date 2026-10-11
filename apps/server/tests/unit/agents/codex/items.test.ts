@@ -2,6 +2,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Answer } from '../../../../src/agents/types.js';
+import { itemEventOf } from '../../../../src/agents/codex/events.js';
 import { askOf, COMMAND_APPROVAL, decisionOf, entriesOf, FILE_APPROVAL, inputOf, isApproval, turnNote, usageOf } from '../../../../src/agents/codex/items.js';
 
 // What Codex's app server says, as the phone's chat, permission cards and usage pill show it.
@@ -227,10 +228,11 @@ describe('askOf', () => {
   });
 
   describe('when it asks to change files', () => {
-    const fileItem = { changes: [{ path: '/work/a.ts', diff: '-a\n+b' }, { path: '/work/b.ts', diff: '+c' }] };
+    const fileItem = itemEventOf({ id: 'f1', type: 'fileChange', changes: [{ path: '/work/a.ts', diff: '-a\n+b' }, { path: '/work/b.ts', diff: '+c' }] });
+    const files = fileItem.k === 'codex:fileChange' ? fileItem.changes : [];
 
     it('returns a card naming the files, with why and what changes', () => {
-      expect(askOf('a1', FILE_APPROVAL, { reason: 'Fix the bug' }, fileItem)).toEqual({
+      expect(askOf('a1', FILE_APPROVAL, { reason: 'Fix the bug' }, files)).toEqual({
         id: 'a1',
         kind: 'permission',
         tool: 'Edit',
@@ -252,7 +254,7 @@ describe('askOf', () => {
       ['when it offers to', { availableDecisions: ['accept', 'acceptForSession', 'decline'] }, true],
       ['not when it does not', { availableDecisions: ['accept', 'decline'] }, false],
     ])('offers to allow edits for the session %s', (_, params, offers) => {
-      expect(askOf('a1', FILE_APPROVAL, params, fileItem).always !== null).toBe(offers);
+      expect(askOf('a1', FILE_APPROVAL, params, files).always !== null).toBe(offers);
     });
   });
 });

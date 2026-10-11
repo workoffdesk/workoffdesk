@@ -2,7 +2,9 @@ import { execFile } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+import { turnSays } from '../turnSays.js';
 import type { CodexAgent } from './agent.js';
+import { rolloutEventOf } from './events.js';
 
 // The Codex conversations people had on this Mac, and where each is open now (docs/design/
 // 2026-10-08-codex-on-the-mac.md). Codex lets one process at a time write a thread: whichever holds the flock
@@ -222,28 +224,19 @@ export async function rolloutEnd(path: string): Promise<{ busy: boolean; turnAt:
     let lastPrompt: string | null = null;
     for (const line of lines) {
       if (!line.includes('"event_msg"')) continue;
-      let e: Obj | undefined;
-      let p: Obj | undefined;
+      let v: unknown;
       try {
-        e = obj(JSON.parse(line));
-        p = obj(e?.payload);
+        v = JSON.parse(line);
       } catch {
         continue;
       }
-      const type = str(p?.type);
-      if (type === 'task_started') {
+      const e = rolloutEventOf(v);
+      const turn = turnSays(e);
+      if (turn === 'starts') {
         busy = true;
-        turnAt = Date.parse(str(e?.timestamp)) || 0;
-      }
-      else if (type === 'task_complete' || type === 'turn_aborted') busy = false;
-      else if (type === 'item_completed' && obj(p?.item)?.type === 'UserMessage') {
-        const text = (Array.isArray(obj(p?.item)?.content) ? (obj(p?.item)!.content as unknown[]) : [])
-          .map((c) => (obj(c)?.type === 'text' ? str(obj(c)?.text) : ''))
-          .join(' ');
-        lastPrompt = promptOf(text) ?? lastPrompt;
-      }
-      // How Codex before September wrote it.
-      else if (type === 'user_message') lastPrompt = promptOf(str(p?.message)) ?? lastPrompt;
+        turnAt = Date.parse(e.at ?? '') || 0;
+      } else if (turn === 'over') busy = false;
+      if (e.k === 'codex:rolloutPrompt') lastPrompt = promptOf(e.text) ?? lastPrompt;
     }
     return { busy, turnAt, lastPrompt, mtime: mtimeMs };
   } finally {

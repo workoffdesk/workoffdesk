@@ -1,7 +1,8 @@
 import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { envelopeOf, eventOf, unhandled, type TranscriptEvent, type TranscriptRecord } from './events.js';
+import { envelopeOf, eventOf, type ClaudeEvent, type TranscriptRecord } from './events.js';
+import { unhandled } from '../../events.js';
 import { findTranscript } from './transcriptFile.js';
 
 // Claude Code's transcript format is undocumented: every field read here is
@@ -170,47 +171,47 @@ async function parseTranscript(path: string, size: number): Promise<(Omit<Recent
       const at = Date.parse(e.at);
       if (Number.isFinite(at) && at > (saidAt ?? -Infinity)) saidAt = at;
     }
-    if (e.k === 'title' && e.text.trim()) {
+    if (e.k === 'claude:title' && e.text.trim()) {
       if (e.by === 'person') customTitle = truncate(e.text.replace(/\s+/g, ' ').trim());
       else aiTitle = e.text.trim();
     }
-    const said = e.k === 'prompt' ? promptText(e.words) : e.k === 'lastPrompt' ? promptText(e.text) : null;
+    const said = e.k === 'claude:prompt' ? promptText(e.words) : e.k === 'claude:lastPrompt' ? promptText(e.text) : null;
     if (said) lastPrompt = said;
-    if (!firstPrompt && e.k === 'prompt') firstPrompt = said;
+    if (!firstPrompt && e.k === 'claude:prompt') firstPrompt = said;
   }
   const title = customTitle ?? aiTitle ?? (firstPrompt ? truncate(firstPrompt) : basename(path, '.jsonl').slice(0, 8));
   return { cwd: conversationFolder(cwds), title, lastPrompt: lastPrompt && truncate(lastPrompt, LAST_PROMPT_MAX), automated, saidAt };
 }
 
 // Whether an event is something said, by the person or Claude, rather than a note or a record of Claude Code's.
-function isSaid(e: TranscriptEvent): boolean {
+function isSaid(e: ClaudeEvent): boolean {
   switch (e.k) {
-    case 'prompt':
-    case 'shell':
-    case 'shellOutput':
-    case 'results':
-    case 'interrupted':
-    case 'compacted':
-    case 'teammates':
-    case 'taskNotification':
-    case 'fromOther':
-    case 'reply':
-    case 'apiError':
+    case 'claude:prompt':
+    case 'claude:shell':
+    case 'claude:shellOutput':
+    case 'claude:results':
+    case 'claude:interrupted':
+    case 'claude:compacted':
+    case 'claude:teammates':
+    case 'claude:taskNotification':
+    case 'claude:fromOther':
+    case 'claude:reply':
+    case 'claude:apiError':
       return true;
-    case 'command':
-    case 'commandOutput':
+    case 'claude:command':
+    case 'claude:commandOutput':
       return !e.local;
-    case 'noted':
-    case 'peer':
-    case 'compactBoundary':
-    case 'turnOver':
-    case 'queue':
-    case 'midTurnPrompt':
-    case 'midTurnTaskEnd':
-    case 'title':
-    case 'lastPrompt':
-    case 'sidechain':
-    case 'other':
+    case 'claude:noted':
+    case 'claude:peer':
+    case 'claude:compactBoundary':
+    case 'claude:turnOver':
+    case 'claude:queue':
+    case 'claude:midTurnPrompt':
+    case 'claude:midTurnTaskEnd':
+    case 'claude:title':
+    case 'claude:lastPrompt':
+    case 'claude:sidechain':
+    case 'claude:other':
       return false;
     default:
       return unhandled(e);

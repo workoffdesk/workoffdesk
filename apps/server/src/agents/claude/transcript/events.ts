@@ -2,46 +2,47 @@ import { stripVTControlCharacters } from 'node:util';
 
 // What each record of a Claude Code transcript is, decided here and nowhere else. The format is Claude Code's
 // own and undocumented: every field is optional, and a record not understood is `other`, never thrown on.
-// Readers switch over `k`; a kind added here makes the compiler name every reader that has not handled it.
+// Readers switch over `k` (see ../../events.ts); a kind added here makes the compiler name every reader that
+// has not handled it.
 
 export type ToolResult = { id: string; text: string; error: boolean; image: boolean };
 export type ReplyBlock = { type: 'text'; text: string } | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
 export type QueueOp = 'enqueue' | 'dequeue' | 'remove' | 'popAll';
 
-export type TranscriptEvent = { at?: string } & (
+export type ClaudeEvent = { at?: string } & (
   // The person's words. text: as shown, a picture as [image]; words: only what was typed.
-  | { k: 'prompt'; text: string; words: string }
+  | { k: 'claude:prompt'; text: string; words: string }
   // A command typed at the prompt. local: one Claude Code ran on its own and wrote as its own record.
-  | { k: 'command'; name: string; args: string; local: boolean }
-  | { k: 'commandOutput'; text: string; local: boolean }
+  | { k: 'claude:command'; name: string; args: string; local: boolean }
+  | { k: 'claude:commandOutput'; text: string; local: boolean }
   // `!` at the prompt, and what it printed.
-  | { k: 'shell'; command: string }
-  | { k: 'shellOutput'; text: string }
+  | { k: 'claude:shell'; command: string }
+  | { k: 'claude:shellOutput'; text: string }
   // Answers to Claude's calls; detail: what Claude Code adds of the call's own (a file's change, a task made).
-  | { k: 'results'; results: ToolResult[]; detail: unknown }
-  | { k: 'interrupted' }
+  | { k: 'claude:results'; results: ToolResult[]; detail: unknown }
+  | { k: 'claude:interrupted' }
   // The summary a compacted conversation goes on from, and the line where it was compacted.
-  | { k: 'compacted' }
-  | { k: 'compactBoundary'; manual: boolean }
+  | { k: 'claude:compacted' }
+  | { k: 'claude:compactBoundary'; manual: boolean }
   // Words written as the person's and no one's: a note Claude Code adds for Claude.
-  | { k: 'noted' }
-  | { k: 'peer'; from: string; body: string }
-  | { k: 'teammates'; messages: { from: string; body: string }[] }
-  | { k: 'taskNotification'; text: string }
+  | { k: 'claude:noted' }
+  | { k: 'claude:peer'; from: string; body: string }
+  | { k: 'claude:teammates'; messages: { from: string; body: string }[] }
+  | { k: 'claude:taskNotification'; text: string }
   // A prompt from neither the person nor anyone named above.
-  | { k: 'fromOther'; text: string }
-  | { k: 'reply'; blocks: ReplyBlock[] }
-  | { k: 'apiError'; limit: boolean; text: string }
-  | { k: 'turnOver' }
-  | { k: 'queue'; op: QueueOp; text?: string }
+  | { k: 'claude:fromOther'; text: string }
+  | { k: 'claude:reply'; blocks: ReplyBlock[] }
+  | { k: 'claude:apiError'; limit: boolean; text: string }
+  | { k: 'claude:turnOver' }
+  | { k: 'claude:queue'; op: QueueOp; text?: string }
   // Taken into the turn under way from Claude's queue: a message, or how a background command ended.
-  | { k: 'midTurnPrompt'; text: string }
-  | { k: 'midTurnTaskEnd'; text: string }
-  | { k: 'title'; by: 'person' | 'claude'; text: string }
-  | { k: 'lastPrompt'; text: string }
+  | { k: 'claude:midTurnPrompt'; text: string }
+  | { k: 'claude:midTurnTaskEnd'; text: string }
+  | { k: 'claude:title'; by: 'person' | 'claude'; text: string }
+  | { k: 'claude:lastPrompt'; text: string }
   // A subagent's own record.
-  | { k: 'sidechain' }
-  | { k: 'other' }
+  | { k: 'claude:sidechain' }
+  | { k: 'claude:other' }
 );
 
 // A transcript line once it is known to be an object. Every field may be missing or of any type.
@@ -75,11 +76,11 @@ const INTERRUPTED = '[Request interrupted';
 const COMMAND = /<command-name>([^<]*)<\/command-name>/;
 const COMMAND_OUTPUT = /^<local-command-std(?:out|err)>([\s\S]*?)(?:<\/local-command-std(?:out|err)>)?$/;
 
-function commandOf(text: string, local: boolean): TranscriptEvent | null {
+function commandOf(text: string, local: boolean): ClaudeEvent | null {
   const command = COMMAND.exec(text);
-  if (command) return { k: 'command', name: command[1].trim(), args: tagText(text, 'command-args'), local };
+  if (command) return { k: 'claude:command', name: command[1].trim(), args: tagText(text, 'command-args'), local };
   const output = COMMAND_OUTPUT.exec(text);
-  return output ? { k: 'commandOutput', text: output[1], local } : null;
+  return output ? { k: 'claude:commandOutput', text: output[1], local } : null;
 }
 
 // Teammates' messages, which older Claude Code records with no sender: it wraps them in this envelope instead.
@@ -88,9 +89,9 @@ const teammates = (text: string) =>
   [...text.matchAll(/<teammate-message\s[^>]*?teammate_id="([^"]*)"[^>]*>([\s\S]*?)<\/teammate-message>/g)].map(([, from, body]) => ({ from, body: body.trim() }));
 
 // What the person's own record says, once it is known to be theirs.
-function personSaid(r: TranscriptRecord): TranscriptEvent {
+function personSaid(r: TranscriptRecord): ClaudeEvent {
   const content = r.message?.content;
-  if (r.isCompactSummary) return { k: 'compacted' };
+  if (r.isCompactSummary) return { k: 'claude:compacted' };
   if (Array.isArray(content) && content.some((b) => b?.type === 'tool_result')) {
     const results = content
       .filter((b) => b?.type === 'tool_result' && typeof b.tool_use_id === 'string')
@@ -100,93 +101,93 @@ function personSaid(r: TranscriptRecord): TranscriptEvent {
         error: b.is_error === true,
         image: Array.isArray(b.content) && b.content.some((c: { type?: unknown } | null) => c?.type === 'image'),
       }));
-    return { k: 'results', results, detail: r.toolUseResult };
+    return { k: 'claude:results', results, detail: r.toolUseResult };
   }
   const text = unpasted(blocksText(content)).trim();
-  if (text.startsWith(INTERRUPTED)) return { k: 'interrupted' };
+  if (text.startsWith(INTERRUPTED)) return { k: 'claude:interrupted' };
   const command = commandOf(text, false);
   if (command) return command;
-  if (text.startsWith('<bash-input>')) return { k: 'shell', command: tagText(text, 'bash-input') };
-  if (text.startsWith('<bash-stdout>')) return { k: 'shellOutput', text: [tagText(text, 'bash-stdout'), tagText(text, 'bash-stderr')].filter(Boolean).join('\n') };
-  return { k: 'prompt', text, words: unpasted(typedText(content)) };
+  if (text.startsWith('<bash-input>')) return { k: 'claude:shell', command: tagText(text, 'bash-input') };
+  if (text.startsWith('<bash-stdout>')) return { k: 'claude:shellOutput', text: [tagText(text, 'bash-stdout'), tagText(text, 'bash-stderr')].filter(Boolean).join('\n') };
+  return { k: 'claude:prompt', text, words: unpasted(typedText(content)) };
 }
 
 // A user record: the person's, or one Claude Code records who sent. Older versions record nobody, and then it
 // is the person's, unless it is teammates' messages in their envelope.
-function userEvent(r: TranscriptRecord): TranscriptEvent {
+function userEvent(r: TranscriptRecord): ClaudeEvent {
   const origin = object(r.origin);
   if (!origin) {
     const text = blocksText(r.message?.content).trim();
-    if (text.startsWith(TEAMMATES)) return { k: 'teammates', messages: teammates(text) };
-    return r.isMeta ? { k: 'noted' } : personSaid(r);
+    if (text.startsWith(TEAMMATES)) return { k: 'claude:teammates', messages: teammates(text) };
+    return r.isMeta ? { k: 'claude:noted' } : personSaid(r);
   }
-  if (origin.kind === 'peer') return { k: 'peer', from: str(origin.name), body: str(origin.body) };
-  if (r.isMeta) return { k: 'noted' };
+  if (origin.kind === 'peer') return { k: 'claude:peer', from: str(origin.name), body: str(origin.body) };
+  if (r.isMeta) return { k: 'claude:noted' };
   if (origin.kind === 'human') return personSaid(r);
   const text = blocksText(r.message?.content).trim();
-  return origin.kind === 'task-notification' ? { k: 'taskNotification', text } : { k: 'fromOther', text };
+  return origin.kind === 'task-notification' ? { k: 'claude:taskNotification', text } : { k: 'claude:fromOther', text };
 }
 
-function replyEvent(r: TranscriptRecord): TranscriptEvent {
+function replyEvent(r: TranscriptRecord): ClaudeEvent {
   const content = r.message?.content;
-  if (r.isApiErrorMessage) return { k: 'apiError', limit: r.error === 'rate_limit', text: blocksText(content) };
+  if (r.isApiErrorMessage) return { k: 'claude:apiError', limit: r.error === 'rate_limit', text: blocksText(content) };
   const blocks: ReplyBlock[] = (Array.isArray(content) ? content : []).flatMap((b): ReplyBlock[] => {
     if (b?.type === 'text' && typeof b.text === 'string') return [{ type: 'text', text: b.text }];
     if (b?.type === 'tool_use' && typeof b.id === 'string') return [{ type: 'tool_use', id: b.id, name: str(b.name), input: object(b.input) ?? {} }];
     return [];
   });
-  return { k: 'reply', blocks };
+  return { k: 'claude:reply', blocks };
 }
 
-function systemEvent(r: TranscriptRecord): TranscriptEvent {
-  if (r.subtype === 'stop_hook_summary') return { k: 'turnOver' };
-  if (r.subtype === 'compact_boundary') return { k: 'compactBoundary', manual: object(r.compactMetadata)?.trigger === 'manual' };
-  if (r.subtype === 'local_command') return commandOf(str(r.content).trim(), true) ?? { k: 'other' };
-  return { k: 'other' };
+function systemEvent(r: TranscriptRecord): ClaudeEvent {
+  if (r.subtype === 'stop_hook_summary') return { k: 'claude:turnOver' };
+  if (r.subtype === 'compact_boundary') return { k: 'claude:compactBoundary', manual: object(r.compactMetadata)?.trigger === 'manual' };
+  if (r.subtype === 'local_command') return commandOf(str(r.content).trim(), true) ?? { k: 'claude:other' };
+  return { k: 'claude:other' };
 }
 
 // A message the person sent while Claude worked, which Claude took in the middle of its turn.
-function midTurnEvent(r: TranscriptRecord): TranscriptEvent {
+function midTurnEvent(r: TranscriptRecord): ClaudeEvent {
   const a = object(r.attachment);
-  if (a?.type !== 'queued_command' || a.isMeta) return { k: 'other' };
+  if (a?.type !== 'queued_command' || a.isMeta) return { k: 'claude:other' };
   const origin = object(a.origin);
-  if (origin?.kind === 'task-notification' || a.commandMode === 'task-notification') return { k: 'midTurnTaskEnd', text: blocksText(a.prompt) };
-  if ((a.commandMode ?? 'prompt') !== 'prompt' || (origin && origin.kind !== 'human')) return { k: 'other' };
-  return { k: 'midTurnPrompt', text: unpasted(blocksText(a.prompt)).trim() };
+  if (origin?.kind === 'task-notification' || a.commandMode === 'task-notification') return { k: 'claude:midTurnTaskEnd', text: blocksText(a.prompt) };
+  if ((a.commandMode ?? 'prompt') !== 'prompt' || (origin && origin.kind !== 'human')) return { k: 'claude:other' };
+  return { k: 'claude:midTurnPrompt', text: unpasted(blocksText(a.prompt)).trim() };
 }
 
 const QUEUE_OPS: readonly QueueOp[] = ['enqueue', 'dequeue', 'remove', 'popAll'];
 
-function kindOf(r: TranscriptRecord): TranscriptEvent {
-  if (r.isSidechain) return { k: 'sidechain' };
+function kindOf(r: TranscriptRecord): ClaudeEvent {
+  if (r.isSidechain) return { k: 'claude:sidechain' };
   switch (r.type) {
     case 'user':
-      return object(r.message) ? userEvent(r) : { k: 'other' };
+      return object(r.message) ? userEvent(r) : { k: 'claude:other' };
     case 'assistant':
-      return object(r.message) ? replyEvent(r) : { k: 'other' };
+      return object(r.message) ? replyEvent(r) : { k: 'claude:other' };
     case 'system':
       return systemEvent(r);
     case 'attachment':
       return midTurnEvent(r);
     case 'queue-operation': {
       const op = QUEUE_OPS.find((o) => o === r.operation);
-      if (!op) return { k: 'other' };
-      return typeof r.content === 'string' ? { k: 'queue', op, text: r.content } : { k: 'queue', op };
+      if (!op) return { k: 'claude:other' };
+      return typeof r.content === 'string' ? { k: 'claude:queue', op, text: r.content } : { k: 'claude:queue', op };
     }
     case 'custom-title':
-      return { k: 'title', by: 'person', text: str(r.customTitle) };
+      return { k: 'claude:title', by: 'person', text: str(r.customTitle) };
     case 'ai-title':
-      return { k: 'title', by: 'claude', text: str(r.aiTitle) };
+      return { k: 'claude:title', by: 'claude', text: str(r.aiTitle) };
     case 'last-prompt':
-      return { k: 'lastPrompt', text: str(r.lastPrompt) };
+      return { k: 'claude:lastPrompt', text: str(r.lastPrompt) };
     default:
-      return { k: 'other' };
+      return { k: 'claude:other' };
   }
 }
 
-export function eventOf(v: unknown): TranscriptEvent {
+export function eventOf(v: unknown): ClaudeEvent {
   const r = object(v) as TranscriptRecord | null;
-  if (!r) return { k: 'other' };
+  if (!r) return { k: 'claude:other' };
   const event = kindOf(r);
   return typeof r.timestamp === 'string' ? { ...event, at: r.timestamp } : event;
 }
@@ -196,9 +197,4 @@ export function eventOf(v: unknown): TranscriptEvent {
 export function envelopeOf(v: unknown): { cwd: string | null; automated: boolean } {
   const r = object(v);
   return { cwd: typeof r?.cwd === 'string' && r.cwd ? r.cwd : null, automated: r?.entrypoint === 'sdk-cli' };
-}
-
-// For a switch over every kind: a kind no case handles leaves this called with it, which does not compile.
-export function unhandled(e: never): never {
-  throw new Error(`transcript event not handled: ${JSON.stringify(e)}`);
 }

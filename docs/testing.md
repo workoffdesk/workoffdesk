@@ -196,7 +196,7 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/integration/agents/claude/offers/models.test.ts`,
   `apps/server/tests/integration/agents/claude/offers/files.test.ts`,
   `apps/server/tests/integration/agents/claude/transcript/watch.test.ts`
-- Codex: `apps/server/tests/unit/agents/codex/items.test.ts`,
+- Codex: `apps/server/tests/unit/agents/codex/events.test.ts`, `apps/server/tests/unit/agents/codex/items.test.ts`,
   `apps/server/tests/unit/agents/codex/threads.test.ts`,
   `apps/server/tests/integration/agents/codex/rpc.test.ts`,
   `apps/server/tests/integration/agents/codex/agent.test.ts`,

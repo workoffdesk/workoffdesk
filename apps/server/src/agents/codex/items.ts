@@ -2,7 +2,9 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatItem, Diff, Hunk } from '../claude/transcript/chat.js';
 import type { Usage } from '../claude/usage.js';
+import { unhandled } from '../events.js';
 import type { Answer, Ask } from '../types.js';
+import { commandOf, itemEventOf, turnEventOf, type CodexThreadEvent, type FileChange } from './events.js';
 
 // Codex's app-server protocol (`codex app-server generate-ts`) as far as it is read here. Every field is
 // read as possibly missing: the protocol is marked experimental.
@@ -21,16 +23,6 @@ const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max)}â€
 const line1 = (s: string) => clip(s.split('\n')[0], SUMMARY_MAX);
 
 export type Entry = { id: string; item: ChatItem; clientId?: string };
-
-// What the user typed, as the chat shows it; a picture sent along is named by its path in the text already.
-const userText = (content: unknown) =>
-  arr(content)
-    .map((c) => (obj(c)?.type === 'text' ? str(obj(c)?.text) : ''))
-    .filter(Boolean)
-    .join('\n');
-
-// The command as Codex parsed it rather than the shell line that wraps it (`/bin/zsh -c 'â€¦'`).
-const commandOf = (i: Obj) => str(obj(arr(i.commandActions)[0])?.command) || str(i.command);
 
 function unifiedDiff(file: string, kind: string, text: string): Diff {
   const lines = text.replace(/\n$/, '').split('\n');
@@ -69,76 +61,61 @@ const failedOrStopped = (status: string) => ({ error: status === 'failed', ...(s
 
 // What one completed item adds to the chat; nothing for what the chat does not show (reasoning).
 export function entriesOf(item: unknown, at?: string): Entry[] {
-  const i = obj(item);
-  const id = str(i?.id);
-  if (!i || !id) return [];
-  const stamp = at ? { at } : {};
-  switch (i.type) {
-    case 'userMessage': {
-      const text = userText(i.content);
-      const clientId = str(i.clientId);
-      return text ? [{ id, item: { k: 'user', text, ...stamp }, ...(clientId && { clientId }) }] : [];
-    }
-    case 'agentMessage':
-      return str(i.text) ? [{ id, item: { k: 'text', text: str(i.text), ...stamp } }] : [];
-    case 'plan':
-      return str(i.text) ? [{ id, item: { k: 'text', text: str(i.text), ...stamp } }] : [];
-    case 'commandExecution': {
-      const status = str(i.status);
-      const exit = num(i.exitCode);
-      return [
-        { id, item: { k: 'tool', id, name: 'Bash', summary: line1(commandOf(i)), ...stamp } },
-        { id: `${id}#r`, item: { k: 'result', id, text: clip(str(i.aggregatedOutput), RESULT_MAX), ...failedOrStopped(status), ...(exit !== undefined && exit !== 0 && { error: true }) } },
-      ];
-    }
-    case 'fileChange': {
-      const status = str(i.status);
-      return arr(i.changes).flatMap((c, n): Entry[] => {
-        const change = obj(c);
-        const path = str(change?.path);
-        if (!path) return [];
-        const kind = str(obj(change?.kind)?.type);
-        const cid = `${id}:${n}`;
-        return [
-          { id: cid, item: { k: 'tool', id: cid, name: kind === 'add' ? 'Write' : 'Edit', summary: line1(path), ...stamp } },
-          { id: `${cid}#r`, item: { k: 'result', id: cid, text: '', ...failedOrStopped(status), diff: unifiedDiff(path, kind, str(change?.diff)) } },
-        ];
-      });
-    }
-    case 'mcpToolCall':
-    case 'dynamicToolCall': {
-      const name = [str(i.server) || str(i.namespace), str(i.tool)].filter(Boolean).join('.');
-      const args = obj(i.arguments) ?? {};
-      const summary = line1(Object.values(args).map(str).find(Boolean) ?? '');
-      const error = str(obj(i.error)?.message);
-      const text = error || arr(obj(i.result)?.content ?? i.contentItems).map((c) => str(obj(c)?.text)).filter(Boolean).join('\n');
-      return [
-        { id, item: { k: 'tool', id, name: name || 'tool', summary, ...stamp } },
-        { id: `${id}#r`, item: { k: 'result', id, text: clip(text, RESULT_MAX), error: !!error || str(i.status) === 'failed' || i.success === false } },
-      ];
-    }
-    case 'webSearch':
-      return [{ id, item: { k: 'tool', id, name: 'WebSearch', summary: line1(str(i.query)), ...stamp } }];
-    case 'imageView':
-      return [{ id, item: { k: 'tool', id, name: 'Read', summary: line1(str(i.path)), ...stamp } }];
-    case 'contextCompaction':
-      return [{ id, item: { k: 'note', event: { e: 'compacted' } } }];
-    default:
-      return [];
-  }
+  return entriesOfEvent(itemEventOf(item, at));
 }
 
 // A turn that did not end by itself, as the line the chat puts after it.
 export function turnNote(turn: unknown): Entry | null {
-  const t = obj(turn);
-  const id = str(t?.id);
-  if (!t || !id) return null;
-  if (t.status === 'interrupted') return { id: `${id}#end`, item: { k: 'note', event: { e: 'interrupted' } } };
-  if (t.status === 'failed') {
-    const detail = str(obj(t.error)?.message);
-    return { id: `${id}#end`, item: { k: 'note', event: { e: 'failed' }, ...(detail && { detail }) } };
+  return entriesOfEvent(turnEventOf(turn))[0] ?? null;
+}
+
+export function entriesOfEvent(e: CodexThreadEvent): Entry[] {
+  const stamp = e.at ? { at: e.at } : {};
+  switch (e.k) {
+    case 'codex:userMessage':
+      return e.text ? [{ id: e.id, item: { k: 'user', text: e.text, ...stamp }, ...(e.clientId && { clientId: e.clientId }) }] : [];
+    case 'codex:agentMessage':
+    case 'codex:plan':
+      return e.text ? [{ id: e.id, item: { k: 'text', text: e.text, ...stamp } }] : [];
+    case 'codex:commandExecution': {
+      const { id } = e;
+      return [
+        { id, item: { k: 'tool', id, name: 'Bash', summary: line1(e.command), ...stamp } },
+        { id: `${id}#r`, item: { k: 'result', id, text: clip(e.output, RESULT_MAX), ...failedOrStopped(e.status), ...(e.exitCode !== undefined && e.exitCode !== 0 && { error: true }) } },
+      ];
+    }
+    case 'codex:fileChange':
+      return e.changes.flatMap((c, n): Entry[] => {
+        if (!c.path) return [];
+        const cid = `${e.id}:${n}`;
+        return [
+          { id: cid, item: { k: 'tool', id: cid, name: c.kind === 'add' ? 'Write' : 'Edit', summary: line1(c.path), ...stamp } },
+          { id: `${cid}#r`, item: { k: 'result', id: cid, text: '', ...failedOrStopped(e.status), diff: unifiedDiff(c.path, c.kind, c.diff) } },
+        ];
+      });
+    case 'codex:toolCall': {
+      const { id } = e;
+      const summary = line1(Object.values(e.args).map(str).find(Boolean) ?? '');
+      return [
+        { id, item: { k: 'tool', id, name: e.name || 'tool', summary, ...stamp } },
+        { id: `${id}#r`, item: { k: 'result', id, text: clip(e.text, RESULT_MAX), error: e.failed } },
+      ];
+    }
+    case 'codex:webSearch':
+      return [{ id: e.id, item: { k: 'tool', id: e.id, name: 'WebSearch', summary: line1(e.query), ...stamp } }];
+    case 'codex:imageView':
+      return [{ id: e.id, item: { k: 'tool', id: e.id, name: 'Read', summary: line1(e.path), ...stamp } }];
+    case 'codex:compaction':
+      return [{ id: e.id, item: { k: 'note', event: { e: 'compacted' } } }];
+    case 'codex:turnEnded':
+      if (e.how === 'interrupted') return [{ id: `${e.id}#end`, item: { k: 'note', event: { e: 'interrupted' } } }];
+      if (e.how === 'failed') return [{ id: `${e.id}#end`, item: { k: 'note', event: { e: 'failed' }, ...(e.error && { detail: e.error }) } }];
+      return [];
+    case 'codex:other':
+      return [];
+    default:
+      return unhandled(e);
   }
-  return null;
 }
 
 export const COMMAND_APPROVAL = 'item/commandExecution/requestApproval';
@@ -160,9 +137,9 @@ const offered = (params: Obj, decision: string) => {
   return !all.length || all.includes(decision);
 };
 
-// An approval Codex asks for, as the phone's permission card. fileItem: the file change it is for, as it
-// started, which names the files the request itself does not.
-export function askOf(askId: string, method: string, params: Obj, fileItem?: Obj): Ask {
+// An approval Codex asks for, as the phone's permission card. files: the file change it is for, as it started,
+// which names the files the request itself does not.
+export function askOf(askId: string, method: string, params: Obj, files?: FileChange[]): Ask {
   const reason = str(params.reason);
   if (method === COMMAND_APPROVAL) {
     const command = commandOf(params);
@@ -177,9 +154,9 @@ export function askOf(askId: string, method: string, params: Obj, fileItem?: Obj
       always: amendment ? { rules: [amendment.acceptWithExecpolicyAmendment.execpolicy_amendment.join(' ')], dirs: [], mode: null } : null,
     };
   }
-  const changes = arr(fileItem?.changes).map(obj);
-  const paths = changes.map((c) => str(c?.path)).filter(Boolean);
-  const diffs = changes.map((c) => str(c?.diff)).filter(Boolean).join('\n');
+  const changes = files ?? [];
+  const paths = changes.map((c) => c.path).filter(Boolean);
+  const diffs = changes.map((c) => c.diff).filter(Boolean).join('\n');
   return {
     id: askId,
     kind: 'permission',

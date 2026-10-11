@@ -109,7 +109,7 @@ function titleIn(line: string, found: Titles): void {
     return;
   }
   const e = eventOf(v);
-  if (e.k !== 'title' || !e.text.trim()) return;
+  if (e.k !== 'claude:title' || !e.text.trim()) return;
   if (e.by === 'person') found.custom = e.text;
   else found.ai = e.text;
 }

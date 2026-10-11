@@ -1,5 +1,6 @@
 import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
-import { eventOf, unhandled, type TranscriptEvent } from './events.js';
+import { turnSays } from '../../turnSays.js';
+import { eventOf, type ClaudeEvent } from './events.js';
 
 // What Claude Code's transcript says of the turn it is on, read from its end: whether the turn is over, and
 // what Claude still holds in its own queue. A message typed while it works waits there (enqueue) until it is
@@ -12,8 +13,8 @@ const TAIL_BYTES = 256 * 1024;
 // The events of the lines, but for commands Claude Code ran on its own at the prompt (/model, /effort): each
 // is the command and what it printed, and no part of any turn. A command whose prompt goes to Claude (/review)
 // prints nothing of its own and stays, as the prompt of its turn.
-function events(lines: string[], wanted: (line: string) => boolean): TranscriptEvent[] {
-  const out: TranscriptEvent[] = [];
+function events(lines: string[], wanted: (line: string) => boolean): ClaudeEvent[] {
+  const out: ClaudeEvent[] = [];
   for (const line of lines) {
     if (!wanted(line)) continue;
     let v: unknown;
@@ -23,8 +24,8 @@ function events(lines: string[], wanted: (line: string) => boolean): TranscriptE
       continue; // a line cut off by the end of what was read, or one being written
     }
     const e = eventOf(v);
-    if (e.k === 'commandOutput' && !e.local) {
-      const command = out.findLastIndex((x) => x.k === 'command' && !x.local);
+    if (e.k === 'claude:commandOutput' && !e.local) {
+      const command = out.findLastIndex((x) => x.k === 'claude:command' && !x.local);
       if (command >= 0) out.splice(command, 1);
       continue;
     }
@@ -33,53 +34,13 @@ function events(lines: string[], wanted: (line: string) => boolean): TranscriptE
   return out;
 }
 
-// What an event says of the turn: that one begins with it, that it goes on, that it ended there, or nothing.
-function turnSays(e: TranscriptEvent): 'starts' | 'going' | 'over' | null {
-  switch (e.k) {
-    case 'prompt':
-    case 'shell':
-    case 'shellOutput':
-    case 'teammates':
-    case 'taskNotification':
-    case 'fromOther':
-      return 'starts';
-    case 'command':
-      return e.local ? null : 'starts';
-    case 'results':
-    case 'reply':
-      return 'going';
-    case 'queue':
-      return e.op === 'dequeue' ? 'going' : null;
-    case 'interrupted':
-    case 'apiError':
-    case 'turnOver':
-      return 'over';
-    // A compaction asked for runs between turns; one Claude Code starts on its own can fall in the middle of one.
-    case 'compactBoundary':
-      return e.manual ? 'over' : null;
-    case 'commandOutput':
-    case 'compacted':
-    case 'noted':
-    case 'peer':
-    case 'midTurnPrompt':
-    case 'midTurnTaskEnd':
-    case 'title':
-    case 'lastPrompt':
-    case 'sidechain':
-    case 'other':
-      return null;
-    default:
-      return unhandled(e);
-  }
-}
-
 // The messages Claude still holds, oldest first, by the queue operations since the last turn began: what
 // was held before then was taken by then.
 export function heldByClaude(lines: string[]): string[] {
   const held: string[] = [];
   for (const e of events(lines, (l) => l.includes('"queue-operation"') || l.includes('"user"'))) {
     if (turnSays(e) === 'starts') held.length = 0;
-    if (e.k !== 'queue') continue;
+    if (e.k !== 'claude:queue') continue;
     if (e.op === 'enqueue') held.push(e.text ?? '');
     else if (e.op === 'dequeue') held.shift();
     else if (e.op === 'popAll') held.length = 0;
@@ -127,7 +88,7 @@ export function transcriptTail(path: string): string[] | null {
 // the person's to change, send or drop, so none of them goes on as it was sent.
 function pulledBack(lines: string[]): { text: string; at: number }[] {
   return events(lines, (l) => l.includes('"popAll"')).flatMap((e) =>
-    e.k === 'queue' && e.op === 'popAll' && e.text !== undefined ? [{ text: e.text, at: Date.parse(String(e.at)) }] : [],
+    e.k === 'claude:queue' && e.op === 'popAll' && e.text !== undefined ? [{ text: e.text, at: Date.parse(String(e.at)) }] : [],
   );
 }
 

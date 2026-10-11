@@ -1,7 +1,8 @@
 import { realpathSync } from 'node:fs';
 import type { Ask, ClaudeStatus } from '../types.js';
 import type { CodexHost } from './agent.js';
-import { askOf, entriesOf, isApproval, turnNote, usageOf, type Entry } from './items.js';
+import { itemEventOf, type FileChange } from './events.js';
+import { askOf, entriesOfEvent, isApproval, turnNote, usageOf, type Entry } from './items.js';
 import type { Notification, RequestId, ServerRequest } from './rpc.js';
 
 type Obj = Record<string, unknown>;
@@ -20,7 +21,7 @@ export type Thread = {
   compacting: boolean;
   asks: Map<string, HeldAsk>;
   // File changes as they started, which their approvals do not name the files of.
-  files: Map<string, Obj>;
+  files: Map<string, FileChange[]>;
   live: Map<string, string>;
   liveTimer: NodeJS.Timeout | null;
   said: string;
@@ -88,21 +89,21 @@ export class CodexNotifications {
         return;
       }
       case 'item/started': {
-        const item = obj(params.item);
-        if (item?.type === 'fileChange') t.files.set(str(item.id), item);
-        if (item?.type === 'contextCompaction') this.compacting(t, true);
+        const e = itemEventOf(params.item);
+        if (e.k === 'codex:fileChange') t.files.set(e.id, e.changes);
+        if (e.k === 'codex:compaction') this.compacting(t, true);
         return;
       }
       case 'item/completed': {
-        const item = obj(params.item);
         const at = typeof params.completedAtMs === 'number' ? new Date(params.completedAtMs).toISOString() : undefined;
-        this.put(t, entriesOf(item, at));
-        if (item?.type === 'agentMessage') {
-          t.said = str(item.text) || t.said;
-          this.liveDone(t, str(item.id));
+        const e = itemEventOf(params.item, at);
+        this.put(t, entriesOfEvent(e));
+        if (e.k === 'codex:agentMessage') {
+          t.said = e.text || t.said;
+          this.liveDone(t, e.id);
         }
-        if (item?.type === 'fileChange') t.files.delete(str(item.id));
-        if (item?.type === 'contextCompaction') this.compacting(t, false);
+        if (e.k === 'codex:fileChange') t.files.delete(e.id);
+        if (e.k === 'codex:compaction') this.compacting(t, false);
         return;
       }
       case 'item/agentMessage/delta':
