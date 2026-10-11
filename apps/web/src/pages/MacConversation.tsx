@@ -113,7 +113,12 @@ export function MacConversation({ agent, sid }: { agent: Agent; sid: string }) {
                 </button>
               </>
             )}
-            <span className="claude-view-note">{t.takeOverNote(agentName(agent))}</span>
+            <span className="claude-view-note">
+              {t.takeOverNote(agentName(agent))}
+              <br />
+              {t.backAtMac}
+              <code>workoffdesk attach</code>
+            </span>
           </>
         ) : pick?.do === 'gone' ? (
           <>

@@ -10,7 +10,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../client';
 import { useChat } from '../hooks';
-import { useTheme, type Theme } from '../theme';
+import { MONO, useTheme, type Theme } from '../theme';
 import { PageHeader } from './header';
 import { ToolsRow, TurnView } from './Turn';
 import { Button } from './ui';
@@ -77,11 +77,14 @@ export function MacConversation({ agent }: { agent: Agent }) {
         {missed && !error && <Text style={s.alert}>{t.takeOverMissed}</Text>}
         {info === null && <Text style={s.alert}>{t.notOnMac}</Text>}
         {pick?.do === 'takeOver' && (
-          <Text style={s.onMac}>
-            {[pick.status === 'busy' ? t.onMacBusy : pick.status === 'waiting' ? t.onMacWaiting : t.onMacIdle, pick.terminals > 1 && t.openInTerminals(pick.terminals)]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
+          <View style={s.onMac}>
+            <View style={[s.dot, { backgroundColor: pick.status === 'busy' ? theme.c.working : pick.status === 'waiting' ? theme.c.waiting : theme.c.idle }]} />
+            <Text style={s.onMacText}>
+              {[pick.status === 'busy' ? t.onMacBusy : pick.status === 'waiting' ? t.onMacWaiting : t.onMacIdle, pick.terminals > 1 && t.openInTerminals(pick.terminals)]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
+          </View>
         )}
         {pick?.do === 'takeOver' && waiting ? (
           <>
@@ -96,7 +99,12 @@ export function MacConversation({ agent }: { agent: Agent }) {
             {pick.status === 'busy' && <Button label={t.takeOverInterrupt} disabled={busy} onPress={takeOverNow} />}
             {pick.status === 'waiting' && <Text style={s.waitText}>{t.takeOverDropsQuestion}</Text>}
             {pick.status === 'waiting' && <Button kind="primary" label={t.takeOverNow} busy={busy} onPress={takeOverNow} />}
-            <Text style={s.note}>{t.takeOverNote(agentName(agent))}</Text>
+            <Text style={s.note}>
+              {t.takeOverNote(agentName(agent))}
+              {'\n'}
+              {t.backAtMac}
+              <Text style={s.code}>workoffdesk attach</Text>
+            </Text>
           </>
         ) : pick?.do === 'gone' ? (
           <>
@@ -128,9 +136,12 @@ const styles = ({ c, fs }: Theme) =>
     entry: { paddingVertical: 7 },
     older: { paddingVertical: 12 },
     reading: { color: c.muted, fontSize: fs(14), textAlign: 'center', paddingVertical: 40 },
-    note: { alignSelf: 'center', textAlign: 'center', fontSize: fs(12), color: c.muted },
-    foot: { gap: 8, paddingTop: 10, paddingHorizontal: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border, backgroundColor: c.bg },
-    alert: { color: c.danger, fontSize: fs(14) },
-    onMac: { color: c.text, fontSize: fs(14), fontWeight: '600' },
-    waitText: { color: c.muted, fontSize: fs(14) },
+    note: { alignSelf: 'center', textAlign: 'center', fontSize: fs(12), lineHeight: fs(18), color: c.muted },
+    code: { fontFamily: MONO, color: c.text },
+    foot: { gap: 10, paddingTop: 12, paddingHorizontal: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border, backgroundColor: c.bg },
+    alert: { textAlign: 'center', color: c.danger, fontSize: fs(14) },
+    onMac: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6 },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    onMacText: { color: c.muted, fontSize: fs(13), fontWeight: '500' },
+    waitText: { alignSelf: 'center', textAlign: 'center', color: c.muted, fontSize: fs(14) },
   });
