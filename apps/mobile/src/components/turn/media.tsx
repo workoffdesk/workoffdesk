@@ -6,6 +6,7 @@ import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth, signIn, usePicture } from '../../client';
 import type { Source } from '../../pictures';
+import { SWIPE_CLOSE_OFFSET, swipeAway } from '../../swipeAway';
 import { useTheme } from '../../theme';
 import { playVideo } from '../VideoPlayer';
 import { useStyles } from './styles';
@@ -55,33 +56,30 @@ function Picture({ source, path, read, size, onOpen, onDropped }: { source: Sour
 }
 
 export const PICTURE_GAP = 6;
-// A picture let go of this far up or down, or flicked, closes the viewer, as in Photos.
-
-const SWIPE_CLOSE_OFFSET = 90;
-
-const SWIPE_CLOSE_VELOCITY = 1.4;
-// How far a drag goes before the black behind the picture has gone.
-
+// How far a drag goes before the black behind the picture has gone, and the picture is as small as it gets.
 const SWIPE_FADE = 320;
+const SWIPE_SMALLEST = 0.6;
 
 const LEAVE_MS = 180;
 
 // One picture of the viewer, with a spinner until it has come over the line, and a way to ask again if it
 // never does: on black, a picture still coming looks the same as one that will not.
-// Not zoomed in, it is dragged up or down by the page's own bounce (the way react-native-image-viewing does it
-// without a gesture library): drag follows that offset, and a picture let go far enough or flicked leaves the
-// way it went. Zoomed in, a drag moves around the picture.
-function ViewerPage({ source, path, read, width, height, label, drag, onClose }: { source: Source; path: string; read: boolean; width: number; height: number; label: string; drag: Animated.Value; onClose: () => void }) {
+// Not zoomed in, it is dragged by the page's own bounce (the way react-native-image-viewing does it without a
+// gesture library), any way when it is the only one (free), else up or down, sideways going to the next: drag
+// is how far it went, the picture getting smaller, and one let go far enough or flicked leaves the way it went.
+// Zoomed in, a drag moves around the picture.
+function ViewerPage({ source, path, read, width, height, label, free, drag, onClose }: { source: Source; path: string; read: boolean; width: number; height: number; label: string; free: boolean; drag: Animated.Value; onClose: () => void }) {
   const s = useStyles();
   const [load, again] = usePicture(source);
   const leaving = useRef(false);
-  const [away] = useState(() => new Animated.Value(0));
-  const shrink = drag.interpolate({ inputRange: [-SWIPE_FADE, 0, SWIPE_FADE], outputRange: [0.8, 1, 0.8], extrapolate: 'clamp' });
-  const leave = (down: boolean) => {
+  const [away] = useState(() => new Animated.ValueXY({ x: 0, y: 0 }));
+  const shrink = drag.interpolate({ inputRange: [0, SWIPE_FADE], outputRange: [1, SWIPE_SMALLEST], extrapolate: 'clamp' });
+  const leave = (way: { x: number; y: number }) => {
     leaving.current = true;
+    const far = Math.hypot(width, height);
     Animated.parallel([
-      Animated.timing(away, { toValue: down ? height : -height, duration: LEAVE_MS, useNativeDriver: true }),
-      Animated.timing(drag, { toValue: down ? -SWIPE_FADE : SWIPE_FADE, duration: LEAVE_MS, useNativeDriver: true }),
+      Animated.timing(away, { toValue: { x: way.x * far, y: way.y * far }, duration: LEAVE_MS, useNativeDriver: true }),
+      Animated.timing(drag, { toValue: SWIPE_FADE, duration: LEAVE_MS, useNativeDriver: true }),
     ]).start(onClose);
   };
   return (
@@ -92,23 +90,23 @@ function ViewerPage({ source, path, read, width, height, label, drag, onClose }:
       minimumZoomScale={1}
       centerContent
       alwaysBounceVertical
-      directionalLockEnabled
+      alwaysBounceHorizontal={free}
+      directionalLockEnabled={!free}
       scrollEventThrottle={16}
       onScroll={({ nativeEvent: e }) => {
-        if (!leaving.current && e.zoomScale <= 1) drag.setValue(e.contentOffset.y);
+        if (!leaving.current && e.zoomScale <= 1) drag.setValue(Math.hypot(e.contentOffset.x, e.contentOffset.y));
       }}
       onScrollEndDrag={({ nativeEvent: e }) => {
         if (leaving.current || e.zoomScale > 1) return;
-        const y = e.contentOffset.y;
-        const flick = e.velocity?.y ?? 0;
-        if (Math.abs(y) > SWIPE_CLOSE_OFFSET || Math.abs(flick) > SWIPE_CLOSE_VELOCITY) leave(Math.abs(y) > 1 ? y < 0 : flick < 0);
+        const way = swipeAway(e.contentOffset, { x: e.velocity?.x ?? 0, y: e.velocity?.y ?? 0 });
+        if (way) leave(way);
       }}
       showsHorizontalScrollIndicator={false}
       showsVerticalScrollIndicator={false}
     >
       <Pressable style={{ width, height }} accessibilityLabel={t.close} onPress={onClose}>
         {load.state === 'shown' && (
-          <Animated.View style={{ width, height, transform: [{ translateY: away }, { scale: shrink }] }}>
+          <Animated.View style={{ width, height, transform: [...away.getTranslateTransform(), { scale: shrink }] }}>
             <Image source={{ uri: load.uri }} style={{ width, height }} resizeMode="contain" accessibilityLabel={label} />
           </Animated.View>
         )}
@@ -131,31 +129,22 @@ function ViewerPage({ source, path, read, width, height, label, drag, onClose }:
   );
 }
 
-// Pictures full screen on black, starting from the one tapped: swiped through sideways, pinched to zoom,
-// closed with the button, a tap, or a swipe up or down that fades the black as it goes.
+// Pictures on black across the whole screen, starting from the one tapped, the count and the close button over
+// them: swiped through sideways, pinched to zoom, closed with the button, a tap, or a swipe away that fades the
+// black as it goes.
 export function Viewer({ sources, paths, read, start, onClose }: { sources: Source[]; paths: string[]; read: boolean; start: number; onClose: () => void }) {
   const s = useStyles();
   const insets = useSafeAreaInsets();
   const [page, setPage] = useState<{ width: number; height: number } | null>(null);
   const [at, setAt] = useState(start);
-  // How far the picture shown is dragged up (+) or down (-).
+  // How far the picture shown is dragged from where it was.
   const [drag] = useState(() => new Animated.Value(0));
-  const black = drag.interpolate({ inputRange: [-SWIPE_FADE, 0, SWIPE_FADE], outputRange: [0, 1, 0], extrapolate: 'clamp' });
-  const bar = drag.interpolate({ inputRange: [-SWIPE_CLOSE_OFFSET, 0, SWIPE_CLOSE_OFFSET], outputRange: [0, 1, 0], extrapolate: 'clamp' });
+  const black = drag.interpolate({ inputRange: [0, SWIPE_FADE], outputRange: [1, 0], extrapolate: 'clamp' });
+  const bar = drag.interpolate({ inputRange: [0, SWIPE_CLOSE_OFFSET], outputRange: [1, 0], extrapolate: 'clamp' });
   return (
     <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={onClose} supportedOrientations={['portrait', 'landscape']}>
-      <View style={[s.viewer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={s.viewer}>
         <Animated.View style={[StyleSheet.absoluteFill, s.viewerBlack, { opacity: black }]} pointerEvents="none" />
-        {/* Above the pictures, not over them, so a picture of a screen is not taken for the screen. */}
-        <Animated.View style={[s.viewerBar, { opacity: bar }]}>
-          <View style={s.viewerSide} />
-          <Text style={s.viewerCount}>{sources.length > 1 ? `${t.image} ${at + 1} / ${sources.length}` : t.image}</Text>
-          <View style={s.viewerSide}>
-            <Pressable style={s.viewerClose} accessibilityRole="button" accessibilityLabel={t.close} hitSlop={10} onPress={onClose}>
-              <SymbolView name="xmark" tintColor="#fff" size={18} weight="semibold" />
-            </Pressable>
-          </View>
-        </Animated.View>
         <View style={s.viewerPages} onLayout={(e) => setPage({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}>
           {page && (
             <ScrollView
@@ -167,11 +156,20 @@ export function Viewer({ sources, paths, read, start, onClose }: { sources: Sour
               onMomentumScrollEnd={(e) => setAt(Math.round(e.nativeEvent.contentOffset.x / page.width))}
             >
               {sources.map((source, i) => (
-                <ViewerPage key={source.uri} source={source} path={paths[i]} read={read} width={page.width} height={page.height} label={`${i + 1} / ${sources.length}`} drag={drag} onClose={onClose} />
+                <ViewerPage key={source.uri} source={source} path={paths[i]} read={read} width={page.width} height={page.height} label={`${i + 1} / ${sources.length}`} free={sources.length === 1} drag={drag} onClose={onClose} />
               ))}
             </ScrollView>
           )}
         </View>
+        <Animated.View style={[s.viewerBar, { top: insets.top, opacity: bar }]} pointerEvents="box-none">
+          <View style={s.viewerSide} />
+          <Text style={s.viewerCount}>{sources.length > 1 ? `${t.image} ${at + 1} / ${sources.length}` : t.image}</Text>
+          <View style={s.viewerSide}>
+            <Pressable style={s.viewerClose} accessibilityRole="button" accessibilityLabel={t.close} hitSlop={10} onPress={onClose}>
+              <SymbolView name="xmark" tintColor="#fff" size={18} weight="semibold" />
+            </Pressable>
+          </View>
+        </Animated.View>
       </View>
     </Modal>
   );
