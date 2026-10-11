@@ -167,6 +167,45 @@ describe('createSessionList', () => {
     expect(list.current()?.[1].past).toBeUndefined();
   });
 
+  describe('a name given here', () => {
+    const titles = (list: ReturnType<typeof setup>['list']) => list.current()?.map((s) => s.title);
+    const named = (...titles: string[]) => ({ ...listOf(), sessions: titles.map((title, i) => ({ ...session(['a', 'b'][i]), title })) });
+
+    it('shows at once, over lists the Mac read before it took it, and not on another session', () => {
+      const { server, list, storage } = setup();
+      list.subscribe(vi.fn());
+      server.last().says(listOf('a', 'b'));
+      list.naming('a', 'Fix the login');
+      expect(titles(list)).toEqual(['Fix the login', 'b']);
+      server.last().says(listOf('a', 'b'));
+      expect(titles(list)).toEqual(['Fix the login', 'b']);
+      // What is kept on the device is what the Mac said.
+      expect(JSON.parse(storage.data.get(SESSIONS_KEY)!).map((s: TermSession) => s.title)).toEqual(['a', 'b']);
+    });
+
+    it('gives way to the Mac once a list has it, so a later name from the Mac shows', () => {
+      const { server, list } = setup();
+      list.subscribe(vi.fn());
+      server.last().says(listOf('a', 'b'));
+      list.naming('a', 'Fix the login');
+      server.last().says(named('Fix the login', 'b'));
+      server.last().says(named('Named at the Mac', 'b'));
+      expect(titles(list)).toEqual(['Named at the Mac', 'b']);
+    });
+
+    it('is taken back with null, showing what the Mac said', () => {
+      const { server, list } = setup();
+      const heard = vi.fn();
+      list.subscribe(heard);
+      server.last().says(listOf('a', 'b'));
+      list.naming('a', 'Fix the login');
+      heard.mockClear();
+      list.naming('a', null);
+      expect(titles(list)).toEqual(['a', 'b']);
+      expect(heard).toHaveBeenCalled();
+    });
+  });
+
   it('drops a shell ended here at once: nothing of it is kept', () => {
     const { server, list } = setup();
     list.subscribe(vi.fn());

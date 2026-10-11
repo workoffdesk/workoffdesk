@@ -68,7 +68,10 @@ export function createSessionList(config: SessionListConfig) {
     }
   };
 
-  let current = kept();
+  // What the Mac said, and what is shown: that, with the names given here it has not taken yet.
+  let said = kept();
+  let current = said;
+  const names = new Map<string, string>();
   // When the Mac read the list last heard from it; null for one kept on the device.
   let asOf: number | null = null;
   const listeners = new Set<() => void>();
@@ -83,14 +86,16 @@ export function createSessionList(config: SessionListConfig) {
   let askTimer: ReturnType<typeof setTimeout> | undefined;
 
   const publish = (s: TermSession[] | null) => {
-    current = s;
+    said = s;
+    current = s && names.size ? s.map((x) => (names.has(x.id) ? { ...x, title: names.get(x.id)! } : x)) : s;
     for (const l of listeners) l();
   };
 
   // A new list: what left it is remembered as ended, what is in it is not.
   const settle = (next: TermSession[]) => {
+    for (const s of next) if (names.get(s.id) === s.title) names.delete(s.id);
     const live = new Set(next.map((s) => s.id));
-    const left = (current ?? []).filter((s) => !live.has(s.id));
+    const left = (said ?? []).filter((s) => !live.has(s.id));
     const ended = read(ENDED_KEY);
     if (left.length || ended.some((s) => live.has(s.id))) {
       const leftIds = new Set(left.map((s) => s.id));
@@ -220,18 +225,25 @@ export function createSessionList(config: SessionListConfig) {
 
     // A session deleted from here leaves the list at once, without waiting for the Mac to say so.
     drop(id: string) {
-      if (!current) return;
-      settle(current.filter((s) => s.id !== id));
+      if (!said) return;
+      settle(said.filter((s) => s.id !== id));
     },
 
     // A session ended from here is at once what the Mac will list: a Claude or Codex one past, a shell gone.
     ends(id: string) {
-      if (!current) return;
+      if (!said) return;
       settle(
-        current.flatMap((s) =>
+        said.flatMap((s) =>
           s.id !== id ? [s] : s.kind === 'shell' ? [] : [{ ...s, past: true as const, status: 'ended' as const, usage: null }],
         ),
       );
+    },
+
+    // A name given a session here shows at once, until a list from the Mac has it; null takes it back.
+    naming(id: string, title: string | null) {
+      if (title === null) names.delete(id);
+      else names.set(id, title);
+      publish(said);
     },
 
     // What a logged-out device, or one now on another account, must not show. The socket of the login that
@@ -240,6 +252,7 @@ export function createSessionList(config: SessionListConfig) {
       clearTimeout(lingering);
       lingering = undefined;
       stop();
+      names.clear();
       publish(null);
       try {
         storage.removeItem(SESSIONS_KEY);

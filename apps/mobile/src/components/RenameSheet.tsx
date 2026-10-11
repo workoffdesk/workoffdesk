@@ -2,25 +2,28 @@ import type { TermSession } from '@workoffdesk/client/base/api';
 import { dirName } from '@workoffdesk/client/model/format';
 import { t } from '@workoffdesk/i18n';
 import { useMemo } from 'react';
-import { Modal, StyleSheet, Text, TextInput, View } from 'react-native';
-import { api } from '../client';
+import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { api, sessionList } from '../client';
 import { useRename } from '@workoffdesk/react/rename';
 import { useTheme, type Theme } from '../theme';
-import { Button, CloseButton } from './ui';
+import { Button } from './ui';
 
+// A small dialog high on the screen, clear of the keyboard on the smallest phone. A save closes it at once.
 export function RenameSheet({ session, onClose }: { session: TermSession; onClose: () => void }) {
   const theme = useTheme();
   const s = useMemo(() => styles(theme), [theme]);
-  const { name, setName, busy, canSave, error, save } = useRename(api, session, onClose);
+  const insets = useSafeAreaInsets();
+  const { name, setName, canSave, save } = useRename(api, sessionList, session, onClose, (why) => Alert.alert(why));
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={s.sheet}>
-        <View style={s.head}>
-          <Text style={s.title}>{t.rename}</Text>
-          <CloseButton onPress={onClose} />
-        </View>
-        {error && <Text style={s.alert}>{error}</Text>}
-        <View style={s.form}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <View style={[s.page, { paddingTop: insets.top + 56 }]} accessibilityViewIsModal>
+        <Pressable style={[StyleSheet.absoluteFill, s.backdrop]} accessible={false} onPress={onClose} />
+        <View style={s.card}>
+          <Text style={s.title} accessibilityRole="header">
+            {t.rename}
+          </Text>
+          <Text style={s.note}>{t.renameNote}</Text>
           <TextInput
             style={s.input}
             accessibilityLabel={t.name}
@@ -29,13 +32,17 @@ export function RenameSheet({ session, onClose }: { session: TermSession; onClos
             value={name}
             onChangeText={setName}
             returnKeyType="done"
-            onSubmitEditing={() => void save()}
+            onSubmitEditing={save}
             autoFocus
             autoCorrect={false}
+            clearButtonMode="while-editing"
+            selectTextOnFocus
           />
-          <Button small kind="primary" label={t.save} busy={busy} disabled={!canSave} onPress={() => void save()} />
+          <View style={s.actions}>
+            <Button label={t.cancel} onPress={onClose} style={s.action} />
+            <Button kind="primary" label={t.save} disabled={!canSave} onPress={save} style={s.action} />
+          </View>
         </View>
-        <Text style={s.note}>{t.renameNote}</Text>
       </View>
     </Modal>
   );
@@ -43,11 +50,23 @@ export function RenameSheet({ session, onClose }: { session: TermSession; onClos
 
 const styles = ({ c, fs }: Theme) =>
   StyleSheet.create({
-    sheet: { flex: 1, backgroundColor: c.surface, padding: 16, gap: 12 },
-    head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    title: { flex: 1, fontSize: fs(17), fontWeight: '700', color: c.text },
-    alert: { color: c.danger, fontSize: fs(14) },
-    form: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    input: { flex: 1, minHeight: 44, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: c.border, backgroundColor: c.bg, fontSize: Math.max(16, fs(16)), color: c.text },
-    note: { fontSize: fs(13), color: c.muted },
+    page: { flex: 1, alignItems: 'center', paddingHorizontal: 24 },
+    backdrop: { backgroundColor: 'rgba(0,0,0,0.3)' },
+    card: {
+      width: '100%',
+      maxWidth: 400,
+      padding: 20,
+      gap: 12,
+      borderRadius: 28,
+      backgroundColor: c.surface,
+      shadowColor: '#000',
+      shadowOpacity: 0.18,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 8 },
+    },
+    title: { textAlign: 'center', fontSize: fs(17), fontWeight: '600', color: c.text },
+    note: { textAlign: 'center', fontSize: fs(13), color: c.muted },
+    input: { minHeight: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: c.border, backgroundColor: c.bg, fontSize: Math.max(16, fs(16)), color: c.text },
+    actions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+    action: { flex: 1 },
   });

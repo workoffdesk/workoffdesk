@@ -350,7 +350,7 @@ export function SessionPage({ id }: { id: string }) {
         )}
         {s.toast && <div className="toast">{s.toast}</div>}
         {renaming && known && (
-          <RenameSheet session={known} onClose={() => setRenaming(false)} />
+          <RenameSheet session={known} onClose={() => setRenaming(false)} onFailed={session.sayToast} />
         )}
         {screenShown && (
           <ScreenSheet

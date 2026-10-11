@@ -1,23 +1,19 @@
 import { api, type TermSession } from '../api';
 import { dirName } from '@workoffdesk/client/model/format';
 import { useRename } from '@workoffdesk/react/rename';
+import { sessionList } from '../platform';
 import { Sheet } from './Sheet';
 import { t } from '@workoffdesk/i18n';
 
-export function RenameSheet({ session, onClose }: { session: TermSession; onClose: () => void }) {
-  const { name, setName, busy, canSave, error, save } = useRename(api, session, onClose);
+export function RenameSheet({ session, onClose, onFailed }: { session: TermSession; onClose: () => void; onFailed: (why: string) => void }) {
+  const { name, setName, canSave, save } = useRename(api, sessionList, session, onClose, onFailed);
   return (
     <Sheet title={t.rename} onClose={onClose}>
-      {error && (
-        <div className="alert" role="alert">
-          {error}
-        </div>
-      )}
       <form
         className="rename-form"
         onSubmit={(e) => {
           e.preventDefault();
-          void save();
+          save();
         }}
       >
         <input
@@ -29,7 +25,7 @@ export function RenameSheet({ session, onClose }: { session: TermSession; onClos
           enterKeyHint="done"
           autoFocus
         />
-        <button className="btn small primary" type="submit" disabled={busy || !canSave}>
+        <button className="btn small primary" type="submit" disabled={!canSave}>
           {t.save}
         </button>
       </form>

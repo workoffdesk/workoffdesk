@@ -222,7 +222,7 @@ export function Sessions({ current }: { current?: string } = {}) {
         </label>
       )}
       {creating && <NewSessionSheet onClose={() => setCreating(false)} />}
-      {renaming && <RenameSheet session={renaming} onClose={() => setRenaming(null)} />}
+      {renaming && <RenameSheet session={renaming} onClose={() => setRenaming(null)} onFailed={setProblem} />}
       {deleting && (
         <ActionSheet
           title={t.deleteSessionTitle}

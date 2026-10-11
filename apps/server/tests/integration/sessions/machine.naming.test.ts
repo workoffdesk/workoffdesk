@@ -1,6 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import type { LocalMachine } from '../../../src/sessions/machine.js';
 import { RUNS, machineSetup } from '../../helpers/machine.js';
 import { until } from '../../helpers/until.js';
 
@@ -121,5 +122,27 @@ describe('the name Claude writes into its transcript', () => {
     expect(await title()).toBe('New name');
     await writes('Named at the Mac');
     expect(await title()).toBe('Named at the Mac');
+  });
+
+  // A save sent again over a bad line arrives after Claude took the name the first one gave.
+  it('is not given again when a session is given the name it has', async () => {
+    const { m, store, s, writes } = await setup();
+    await m.renameSession(s.id, 'New name');
+    await writes('New name');
+    expect(store.get().sessions[s.id].naming, 'precondition: Claude took the name').toBeUndefined();
+    expect(await m.renameSession(s.id, '  New name ')).toMatchObject({ id: s.id, title: 'New name' });
+    expect(store.get().sessions[s.id].naming).toBeUndefined();
+  });
+
+  it.each([
+    ['a name given at the Mac took its place', (m: LocalMachine, id: string, writes: (n: string) => Promise<void>) => writes('Named at the Mac')],
+    ['another name given here is on its way', (m: LocalMachine, id: string) => m.renameSession(id, 'Other name')],
+  ])('is given again once %s', async (_, between) => {
+    const { m, store, s, writes } = await setup();
+    await m.renameSession(s.id, 'New name');
+    await writes('New name');
+    await between(m, s.id, writes);
+    await m.renameSession(s.id, 'New name');
+    expect(store.get().sessions[s.id].naming).toBe('New name');
   });
 });

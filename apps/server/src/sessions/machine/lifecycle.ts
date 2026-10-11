@@ -345,6 +345,8 @@ export class Lifecycle {
     }
     const meta = this.d.store.get().sessions[id];
     if (!meta || !(await this.p.sessions.exists(id))) return null;
+    // The name its agent has, or is being given: nothing to give it again.
+    if ((meta.naming ?? meta.customTitle) === name) return (await this.p.sessions.listSessions()).find((s) => s.id === id) ?? null;
     this.d.store.update((st) => {
       const now = st.sessions[id];
       if (!now) return;
