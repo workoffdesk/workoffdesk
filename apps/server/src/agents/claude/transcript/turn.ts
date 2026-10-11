@@ -18,6 +18,7 @@ type Entry = {
   content?: unknown;
   timestamp?: unknown;
   isMeta?: unknown;
+  isCompactSummary?: unknown;
   isApiErrorMessage?: unknown;
   message?: { content?: unknown };
 };
@@ -72,9 +73,12 @@ export function heldByClaude(lines: string[]): string[] {
   return held;
 }
 
+// Written as the person's, and no one's: a note Claude Code adds, or the summary it goes on from once compacted.
+const noOnesWords = (e: Entry) => e.isMeta === true || e.isCompactSummary === true;
+
 // A prompt: what a turn begins with, as against the answer to a call, a note or Esc.
 function startsTurn(e: Entry): boolean {
-  if (e.type !== 'user' || e.isMeta === true) return false;
+  if (e.type !== 'user' || noOnesWords(e)) return false;
   const c = e.message?.content;
   if (Array.isArray(c) && c.every((b: { type?: unknown }) => b?.type === 'tool_result')) return false;
   return !texts(c).some((t) => t.startsWith(INTERRUPTED));
@@ -86,7 +90,7 @@ function said(e: Entry): 'over' | 'going' | null {
   if (e.type === 'queue-operation') return e.operation === 'dequeue' ? 'going' : null;
   if (e.type === 'assistant') return e.isApiErrorMessage === true ? 'over' : 'going';
   if (e.type === 'user') {
-    if (e.isMeta === true) return null;
+    if (noOnesWords(e)) return null;
     return texts(e.message?.content).some((t) => t.startsWith(INTERRUPTED)) ? 'over' : 'going';
   }
   return null;

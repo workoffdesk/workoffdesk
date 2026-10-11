@@ -12,6 +12,12 @@ const interrupted = line({ type: 'user', message: { role: 'user', content: [{ ty
 const apiError = line({ type: 'assistant', isApiErrorMessage: true, message: { role: 'assistant', content: [{ type: 'text', text: 'API Error: 529 Overloaded' }] } });
 const meta = line({ type: 'user', isMeta: true, message: { role: 'user', content: 'caveat' } });
 const op = (operation: string, content?: string) => line({ type: 'queue-operation', operation, ...(content ? { content } : {}) });
+// What Claude Code writes when it compacts the conversation, on its own while idle or asked to: no prompt.
+const compacted = [
+  line({ type: 'system', subtype: 'compact_boundary', compactMetadata: { trigger: 'auto' } }),
+  line({ type: 'user', isCompactSummary: true, isVisibleInTranscriptOnly: true, message: { role: 'user', content: 'This session is being continued from a previous conversation.' } }),
+  line({ type: 'system', subtype: 'informational' }),
+];
 const noise = [line({ type: 'mode' }), line({ type: 'attachment', attachment: { type: 'total_tokens_reminder' } }), line({ type: 'last-prompt' })];
 
 describe('lastTurn', () => {
@@ -23,6 +29,7 @@ describe('lastTurn', () => {
     ['a new turn after the last one ended', [prompt, reply, stopped, prompt]],
     ['a turn started from its own queue', [prompt, reply, stopped, op('dequeue')]],
     ['with entries that say nothing of the turn after it', [prompt, toolUse, ...noise]],
+    ['compacted in the middle of it', [prompt, toolUse, toolResult, ...compacted]],
   ])('tells a turn still going: %s', (_, lines) => {
     expect(lastTurn(lines)).toEqual({ over: false });
   });
@@ -32,6 +39,7 @@ describe('lastTurn', () => {
     ['stopped with Esc', [prompt, toolUse, interrupted]],
     ['ended by an API error', [prompt, apiError]],
     ['ended, with entries after it that say nothing of the turn', [prompt, reply, stopped, ...noise, meta]],
+    ['ended, and the conversation compacted after it', [prompt, reply, stopped, ...compacted, ...noise]],
   ])('tells a turn that is over: %s', (_, lines) => {
     expect(lastTurn(lines)).toEqual({ over: true, at: Date.parse(at) });
   });
@@ -55,6 +63,7 @@ describe('heldByClaude', () => {
     [[op('enqueue', 'old'), prompt, reply], 0],
     [[op('enqueue', 'old'), prompt, op('enqueue', 'a'), toolResult, reply, stopped], 1],
     [[prompt, op('enqueue', 'a'), op('remove', 'a'), toolResult, reply, stopped], 0],
+    [[prompt, op('enqueue', 'a'), toolResult, ...compacted], 1],
   ])('counts what Claude still holds, case %#', (lines, n) => {
     expect(heldByClaude(lines)).toHaveLength(n);
   });
