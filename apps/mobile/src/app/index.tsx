@@ -1,17 +1,18 @@
-import { agentOf, isAgent, type RecentConversation, type TermSession } from '@workoffdesk/client/base/api';
-import { dirName, listTime, sessionPreview, shortPath } from '@workoffdesk/client/model/format';
+import { errorText, type RecentConversation, type TermSession } from '@workoffdesk/client/base/api';
+import { leaveSession } from '@workoffdesk/client/sessions/leave';
 import { folderBeside, listView } from '@workoffdesk/client/sessions/sessionListView';
 import { t } from '@workoffdesk/i18n';
 import { router, Stack } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { followMacRecent, keptMacRecent, macShown } from '@workoffdesk/client/sessions/macRecent';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useUpdateReady } from '../appUpdate';
-import { api, seen, storage, visibility } from '../client';
+import { api, seen, sessionList, storage, visibility } from '../client';
 import { RenameSheet } from '../components/RenameSheet';
 import { useSessions } from '../hooks';
-import { tint, useTheme, type Theme } from '../theme';
+import { MacRow, Row, rowStyles, type RowAction } from '../components/rows';
+import { useTheme, type Theme } from '../theme';
 import { bareHeader } from '../components/header';
 
 type Section = { cwd: string; title: string | null; data: TermSession[] };
@@ -25,102 +26,20 @@ function useMacSessions(sessions: TermSession[] | null): RecentConversation[] {
   return recent;
 }
 
-// A long press renames the session, as a swipe does on the web.
-function Row({ s, folder, unread, theme, onRename }: { s: TermSession; folder: string | null; unread: boolean; theme: Theme; onRename: () => void }) {
-  const st = useMemo(() => styles(theme), [theme]);
-  const { c } = theme;
-  const status = isAgent(s.kind) ? s.status : null;
-  return (
-    <Pressable
-      testID="session-card"
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/session/[id]', params: { id: s.id } })}
-      onLongPress={onRename}
-      accessibilityActions={[{ name: 'rename', label: t.renameAction }]}
-      onAccessibilityAction={(e) => e.nativeEvent.actionName === 'rename' && onRename()}
-      style={({ pressed }) => [st.item, pressed && { backgroundColor: c.rowHeld }]}
-    >
-      <View style={[st.avatar, { backgroundColor: s.kind === 'codex' ? c.codex : isAgent(s.kind) ? c.claude : c.shell }]}>
-        <SymbolView
-          name={s.kind === 'codex' ? 'chevron.left.forwardslash.chevron.right' : isAgent(s.kind) ? 'bubble.left' : 'terminal'}
-          tintColor="#fff"
-          size={s.kind === 'codex' ? 22 : 26}
-        />
-        {status === 'waiting' && <View style={[st.needsYou, { borderColor: c.row }]} />}
-        {status === 'working' && <View style={[st.busy, { borderColor: c.row, backgroundColor: c.accent }]} />}
-      </View>
-      <View style={st.main}>
-        <View style={st.top}>
-          {status === 'working' && <Text style={[st.badge, { color: c.working, backgroundColor: tint(c.working, 16) }]}>{t.busy}</Text>}
-          {status === 'waiting' && <Text style={[st.badge, { color: c.waiting, backgroundColor: tint(c.waiting, 16) }]}>{t.needsYou}</Text>}
-          {unread && status !== 'working' && status !== 'waiting' && (
-            <Text style={[st.badge, { color: c.accentText, backgroundColor: c.accent }]}>{t.unread}</Text>
-          )}
-          <Text style={st.name} numberOfLines={1}>
-            {s.title}
-          </Text>
-          {!!folder && (
-            <Text style={st.dir} numberOfLines={1}>
-              {folder}
-            </Text>
-          )}
-          <Text style={st.time}>{listTime(s.lastActivity)}</Text>
-        </View>
-        <Text style={st.preview} numberOfLines={1}>
-          {sessionPreview(s)}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
-// A Claude or Codex conversation on the Mac, opened to read before picking it up here. One still open in a
-// terminal there is drawn as a session here is, with what the agent does in it; the line under it is what was
-// said last.
-function MacRow({ r, theme }: { r: RecentConversation; theme: Theme }) {
-  const st = useMemo(() => styles(theme), [theme]);
-  const { c } = theme;
-  const status = r.onMac?.status;
-  const terminals = r.onMac?.terminals ?? 0;
-  const codex = agentOf(r) === 'codex';
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: codex ? '/codex/[sid]' : '/claude/[sid]', params: { sid: r.sessionId } })}
-      style={({ pressed }) => [st.item, pressed && { backgroundColor: c.rowHeld }]}
-    >
-      <View style={[st.avatar, !status && st.macAvatar, { backgroundColor: codex ? c.codex : c.claude }]}>
-        <SymbolView name={codex ? 'chevron.left.forwardslash.chevron.right' : 'bubble.left'} tintColor="#fff" size={codex ? 22 : 26} />
-        {status === 'waiting' && <View style={[st.needsYou, { borderColor: c.row }]} />}
-        {status === 'busy' && <View style={[st.busy, { borderColor: c.row, backgroundColor: c.accent }]} />}
-      </View>
-      <View style={st.main}>
-        <View style={st.top}>
-          {status === 'busy' && <Text style={[st.badge, { color: c.working, backgroundColor: tint(c.working, 16) }]}>{t.busy}</Text>}
-          {status === 'waiting' && <Text style={[st.badge, { color: c.waiting, backgroundColor: tint(c.waiting, 16) }]}>{t.needsYou}</Text>}
-          {terminals > 1 && <Text style={[st.badge, { color: c.danger, backgroundColor: tint(c.danger, 16) }]}>{t.openInTerminals(terminals)}</Text>}
-          <Text style={st.name} numberOfLines={1}>
-            {r.title}
-          </Text>
-          {!!r.cwd && (
-            <Text style={st.dir} numberOfLines={1}>
-              {dirName(r.cwd)}
-            </Text>
-          )}
-          <Text style={st.time}>{listTime(r.lastActivity)}</Text>
-        </View>
-        <Text style={st.preview} numberOfLines={1}>
-          {r.lastPrompt ?? shortPath(r.cwd ?? '')}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
+// Ending or deleting a session from its row; what went wrong is said in an alert, as no page is there to say it.
+const leave = (s: TermSession) =>
+  void leaveSession(api, sessionList, s).catch((e: unknown) => Alert.alert(errorText(e, s.past ? t.deleteFailed : t.notEnded, s.past ? t.deleteFailed : t.endFailed)));
+const confirmDelete = (s: TermSession) =>
+  Alert.alert(t.deleteSessionTitle, t.deleteSessionSub, [
+    { text: t.cancel, style: 'cancel' },
+    { text: t.delete, style: 'destructive', onPress: () => leave(s) },
+  ]);
 
 export default function Sessions() {
   const theme = useTheme();
   const updateReady = useUpdateReady();
   const st = useMemo(() => styles(theme), [theme]);
+  const rs = useMemo(() => rowStyles(theme), [theme]);
   const sessions = useSessions();
   const mac = useMacSessions(sessions ?? null);
   const [query, setQuery] = useState('');
@@ -128,6 +47,10 @@ export default function Sessions() {
   const { sorted, groups } = listView(sessions ?? null, query);
   const unread = sorted ? seen.unreadOf(sorted) : new Set<string>();
   const sections: Section[] = groups.map((g) => ({ cwd: g.cwd, title: g.title, data: g.sessions }));
+  const actions = (s: TermSession): RowAction[] => [
+    { label: t.renameAction, run: () => setRenaming(s) },
+    s.past ? { label: t.delete, destructive: true, run: () => confirmDelete(s) } : { label: t.endSession, destructive: true, run: () => leave(s) },
+  ];
 
   const empty = !sorted ? (
     <Text style={st.center}>{t.loading}</Text>
@@ -163,7 +86,11 @@ export default function Sessions() {
                 </Pressable>
               ),
             },
-            right: { type: 'button', label: t.newSession, icon: { type: 'sfSymbol', name: 'plus' }, onPress: () => router.push('/new-session') },
+            // The bar's first item is its rightmost.
+            right: [
+              { type: 'button', label: t.newSession, icon: { type: 'sfSymbol', name: 'plus' }, onPress: () => router.push('/new-session') },
+              { type: 'button', label: t.conversationsOnMac, icon: { type: 'sfSymbol', name: 'clock.arrow.circlepath' }, onPress: () => router.push('/conversations') },
+            ],
           }),
           headerSearchBarOptions: {
             placeholder: t.search,
@@ -177,26 +104,26 @@ export default function Sessions() {
         contentInsetAdjustmentBehavior="automatic"
         sections={sections}
         keyExtractor={(s) => s.id}
-        renderItem={({ item, section }) => <Row s={item} folder={folderBeside(item, section.title)} unread={unread.has(item.id)} theme={theme} onRename={() => setRenaming(item)} />}
+        renderItem={({ item, section }) => <Row s={item} folder={folderBeside(item, section.title)} unread={unread.has(item.id)} theme={theme} actions={actions(item)} />}
         renderSectionHeader={({ section }) =>
           section.title ? (
-            <Text style={st.group}>
-              {section.title} <Text style={st.groupCount}>{section.data.length}</Text>
+            <Text style={rs.group}>
+              {section.title} <Text style={rs.groupCount}>{section.data.length}</Text>
             </Text>
           ) : null
         }
-        ItemSeparatorComponent={() => <View style={st.rule} />}
+        ItemSeparatorComponent={() => <View style={rs.rule} />}
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={empty}
         ListFooterComponent={
           mac.length > 0 && !query.trim() ? (
             <View>
-              <Text style={st.group}>
-                {t.otherMacSessions} <Text style={st.groupCount}>{mac.length}</Text>
+              <Text style={rs.group}>
+                {t.otherMacSessions} <Text style={rs.groupCount}>{mac.length}</Text>
               </Text>
               {mac.map((r, i) => (
                 <View key={r.sessionId}>
-                  {i > 0 && <View style={st.rule} />}
+                  {i > 0 && <View style={rs.rule} />}
                   <MacRow r={r} theme={theme} />
                 </View>
               ))}
@@ -234,21 +161,6 @@ const styles = ({ c, fs }: Theme) =>
       textAlign: 'center',
     },
     list: { flex: 1, backgroundColor: c.bg },
-    item: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 72, paddingHorizontal: 16, backgroundColor: c.row },
-    avatar: { width: 48, height: 48, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-    macAvatar: { opacity: 0.55 },
-    needsYou: { position: 'absolute', top: -4, right: -4, width: 12, height: 12, borderRadius: 6, backgroundColor: c.needsYou, borderWidth: 1.5 },
-    busy: { position: 'absolute', right: -4, bottom: -4, width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
-    main: { flex: 1, minWidth: 0, gap: 3 },
-    top: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    badge: { fontSize: fs(11), fontWeight: '600', paddingVertical: 1, paddingHorizontal: 6, borderRadius: 6, overflow: 'hidden' },
-    name: { flex: 1, minWidth: 0, fontSize: fs(17), color: c.text },
-    dir: { flexShrink: 1, maxWidth: '40%', fontSize: fs(13), color: c.muted },
-    time: { fontSize: fs(12), color: c.muted },
-    preview: { fontSize: fs(14), color: c.muted },
-    rule: { height: StyleSheet.hairlineWidth, backgroundColor: c.border, marginLeft: 76 },
-    group: { fontSize: fs(15), fontWeight: '600', color: c.text, paddingTop: 18, paddingBottom: 6, paddingHorizontal: 16, backgroundColor: c.bg },
-    groupCount: { fontWeight: '400', color: c.muted },
     hint: { fontSize: fs(12), color: c.muted, paddingTop: 8, paddingBottom: 24, paddingHorizontal: 16 },
     center: { textAlign: 'center', color: c.muted, fontSize: fs(15), paddingVertical: 40 },
     empty: { alignItems: 'center', gap: 10, paddingVertical: 56, paddingHorizontal: 16, opacity: 0.9 },

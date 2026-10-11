@@ -1,17 +1,25 @@
 import { isDir } from '../../system/dirs.js';
 import type { AppDeps } from '../app.js';
-import { recentClaude } from './claude.js';
+import type { CodexOnMac } from '../../agents/codex/threads.js';
+import { allClaude, recentClaude } from './claude.js';
 import type { RouteModule } from './context.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // How many items a read of a Codex conversation gives at most: the latest, or those before a place.
 const PAGE = 400;
+// The conversations on the Mac a page gives, unless asked for another number, and at most.
+const PAGE_CONVERSATIONS = 50;
+const MAX_CONVERSATIONS = 200;
 
 // The Codex conversations people had on this Mac, in the shape of the Claude ones: background is "open in
 // another Codex app", which cannot be gone on with here.
-async function recentCodex(deps: AppDeps) {
+function recentCodex(deps: AppDeps) {
+  return codexRows(deps, () => deps.machine.codexOnMac());
+}
+
+async function codexRows(deps: AppDeps, list: () => Promise<CodexOnMac[]>) {
   const { machine } = deps;
-  const [threads, sessions] = await Promise.all([machine.codexOnMac().catch(() => []), machine.listSessions()]);
+  const [threads, sessions] = await Promise.all([list().catch(() => []), machine.listSessions()]);
   const open = new Map(sessions.filter((s) => s.codexThreadId).map((s) => [s.codexThreadId!, s.id]));
   return threads.map((t) => ({
     sessionId: t.id,
@@ -37,6 +45,24 @@ export const register: RouteModule = (app, ctx) => {
   app.get('/api/recent', async () => {
     const [claude, codex] = await Promise.all([recentClaude(deps), recentCodex(deps)]);
     return [...claude, ...codex].sort((a, b) => b.lastActivity - a.lastActivity);
+  });
+
+  // Every conversation people had on this Mac that its agent still keeps, newest first, a page at a time: at most
+  // limit of those last active before `before`, and whether there are more. q: in the title, folder or what was
+  // said last. One a session here holds, running or past, is in the list of sessions instead.
+  app.get<{ Querystring: { q?: string; before?: string; limit?: string } }>('/api/conversations', async (req, reply) => {
+    const limit = req.query.limit === undefined ? PAGE_CONVERSATIONS : Number(req.query.limit);
+    const before = req.query.before === undefined ? Infinity : Number(req.query.before);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_CONVERSATIONS) return reply.code(400).send({ error: 'bad limit' });
+    if (Number.isNaN(before)) return reply.code(400).send({ error: 'bad before' });
+    const q = (req.query.q ?? '').trim().toLowerCase();
+    const [claude, codex, sessions] = await Promise.all([allClaude(deps), codexRows(deps, () => machine.allCodexOnMac()), machine.listSessions()]);
+    const held = new Set(sessions.flatMap((s) => [s.claudeSessionId, s.codexThreadId].filter((c) => c !== undefined)));
+    const found = (r: { title: string; cwd: string | null; lastPrompt: string | null }) => [r.title, r.cwd, r.lastPrompt].some((t) => t?.toLowerCase().includes(q));
+    const rows = [...claude, ...codex]
+      .filter((r) => !r.automated && !held.has(r.sessionId) && r.lastActivity < before && found(r))
+      .sort((a, b) => b.lastActivity - a.lastActivity);
+    return { conversations: rows.slice(0, limit), more: rows.length > limit };
   });
 
   // A thread's conversation, to read before picking it up here; the same shape and paging as a Claude one's,

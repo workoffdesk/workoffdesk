@@ -148,13 +148,31 @@ describe('createSessionList', () => {
     expect(server.sockets).toHaveLength(1);
   });
 
-  it('drops an ended session at once and keeps the shorter list', () => {
+  it('drops a deleted session at once and keeps the shorter list', () => {
     const { server, list, storage } = setup();
     list.subscribe(vi.fn());
     server.last().says(listOf('a', 'b'));
     list.drop('a');
     expect(list.current()?.map((s) => s.id)).toEqual(['b']);
     expect(JSON.parse(storage.data.get(SESSIONS_KEY)!).map((s: TermSession) => s.id)).toEqual(['b']);
+  });
+
+  it.each(['claude', 'codex'] as const)('keeps a %s session ended here at once as past, ended and without usage, as the Mac will', (kind) => {
+    const { server, list } = setup();
+    list.subscribe(vi.fn());
+    server.last().says({ type: 'sessions', machine: 'local', sessions: [{ ...session('a'), kind, usage: { tokens: 5 } }, session('b')] });
+    list.ends('a');
+    expect(list.current()?.map((s) => s.id)).toEqual(['a', 'b']);
+    expect(list.current()?.[0]).toMatchObject({ id: 'a', past: true, status: 'ended', usage: null });
+    expect(list.current()?.[1].past).toBeUndefined();
+  });
+
+  it('drops a shell ended here at once: nothing of it is kept', () => {
+    const { server, list } = setup();
+    list.subscribe(vi.fn());
+    server.last().says({ type: 'sessions', machine: 'local', sessions: [{ ...session('a'), kind: 'shell' }, session('b')] });
+    list.ends('a');
+    expect(list.current()?.map((s) => s.id)).toEqual(['b']);
   });
 
   it('forgets the list on logout, closing a socket still lingering from the login that ended', () => {

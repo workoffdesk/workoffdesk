@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { agentOf, api, isAgent, MACHINE, type RecentConversation, type TermSession } from '../api';
+import { api, errorText, isAgent, MACHINE, type RecentConversation, type TermSession } from '../api';
+import { leaveSession } from '@workoffdesk/client/sessions/leave';
+import { ActionSheet, type Action } from '../components/ActionSheet';
+import { MacItem } from '../components/MacItem';
 import { followMacRecent, keptMacRecent, macShown } from '@workoffdesk/client/sessions/macRecent';
 import { NewSessionSheet } from '../components/NewSessionSheet';
 import { RenameSheet } from '../components/RenameSheet';
-import { dirName, listTime, sessionPreview, shortPath } from '@workoffdesk/client/model/format';
+import { listTime, sessionPreview, shortPath } from '@workoffdesk/client/model/format';
 import { folderBeside, listView } from '@workoffdesk/client/sessions/sessionListView';
-import { IconGear, IconPlus, IconSearch, IconChat, IconCode, IconTerminal } from '../icons';
+import { IconGear, IconHistory, IconPlus, IconSearch, IconChat, IconCode, IconTerminal } from '../icons';
 import { navigate } from '../router';
 import { useSessions } from '../sessions';
-import { seen, storage, visibility } from '../platform';
+import { seen, sessionList, storage, visibility } from '../platform';
 import { t } from '@workoffdesk/i18n';
 
 const link = (to: string) => (e: React.MouseEvent) => {
@@ -26,18 +29,20 @@ function useMacSessions(sessions: TermSession[] | null): RecentConversation[] {
   return macShown(recent, Date.now());
 }
 
-// How far a row slides to show its action, and how far a finger moves before it is a swipe, not a tap.
+// How wide each action a row slides to show is, and how far a finger moves before it is a swipe, not a tap.
 const ACTION_PX = 88;
 const SWIPE_PX = 10;
 
-// A row slides left under the finger to show Rename. Opening one row closes the others; a tap on an open
-// row closes it rather than opening the session.
-function Row({ s, folder, open, current, unread, onOpen, onRename }: { s: TermSession; folder: string | null; open: boolean; current: boolean; unread: boolean; onOpen: (open: boolean) => void; onRename: () => void }) {
+// A row slides left under the finger to show its actions, as a long press shows them on the phone. Opening one
+// row closes the others; a tap on an open row closes it rather than opening the session. A past session is
+// drawn as a conversation on the Mac is, with no status: nothing runs in it.
+function Row({ s, folder, open, current, unread, onOpen, actions }: { s: TermSession; folder: string | null; open: boolean; current: boolean; unread: boolean; onOpen: (open: boolean) => void; actions: Action[] }) {
   const to = `/m/${MACHINE}/s/${s.id}`;
-  const status = isAgent(s.kind) ? s.status : null;
+  const status = isAgent(s.kind) && !s.past ? s.status : null;
   const drag = useRef<{ x: number; y: number; swiping: boolean; moved: boolean } | null>(null);
   const [dx, setDx] = useState<number | null>(null);
-  const base = open ? -ACTION_PX : 0;
+  const width = actions.length * ACTION_PX;
+  const base = open ? -width : 0;
   const shift = dx ?? base;
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -57,10 +62,10 @@ function Row({ s, folder, open, current, unread, onOpen, onRename }: { s: TermSe
       d.swiping = true;
       e.currentTarget.setPointerCapture(e.pointerId);
     }
-    if (d.swiping) setDx(Math.min(0, Math.max(-ACTION_PX, base + mx)));
+    if (d.swiping) setDx(Math.min(0, Math.max(-width, base + mx)));
   };
   const onPointerUp = () => {
-    if (drag.current?.swiping && dx !== null) onOpen(dx < -ACTION_PX / 2);
+    if (drag.current?.swiping && dx !== null) onOpen(dx < -width / 2);
     setDx(null);
   };
   const onClick = (e: React.MouseEvent) => {
@@ -77,9 +82,13 @@ function Row({ s, folder, open, current, unread, onOpen, onRename }: { s: TermSe
   return (
     <div className={`sess-row${dx !== null ? ' dragging' : ''}`}>
       {shift < 0 && (
-        <button className="sess-action" onClick={onRename}>
-          {t.renameAction}
-        </button>
+        <span className="sess-actions" style={{ width }}>
+          {actions.map((a) => (
+            <button key={a.label} className={a.destructive ? 'sess-action danger' : 'sess-action'} onClick={a.run}>
+              {a.label}
+            </button>
+          ))}
+        </span>
       )}
       <a
         className={current ? 'sess-item current' : 'sess-item'}
@@ -97,7 +106,7 @@ function Row({ s, folder, open, current, unread, onOpen, onRename }: { s: TermSe
         onClick={onClick}
         draggable={false}
       >
-        <span className={`avatar ${s.kind}`} aria-hidden>
+        <span className={`avatar ${s.kind}${s.past ? ' mac' : ''}`} aria-hidden>
           {s.kind === 'codex' ? <IconCode /> : isAgent(s.kind) ? <IconChat /> : <IconTerminal />}
           {status === 'waiting' && <span className="needs-you" />}
           {status === 'working' && <span className="busy" />}
@@ -111,7 +120,7 @@ function Row({ s, folder, open, current, unread, onOpen, onRename }: { s: TermSe
             {folder && <span className="sess-dir">{folder}</span>}
             <span className="sess-time">{listTime(s.lastActivity)}</span>
           </span>
-          <span className="sess-preview">{sessionPreview(s)}</span>
+          <span className="sess-preview">{s.past ? s.lastReply || shortPath(s.cwd) : sessionPreview(s)}</span>
         </span>
       </a>
     </div>
@@ -125,8 +134,24 @@ export function Sessions({ current }: { current?: string } = {}) {
   const [query, setQuery] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<TermSession | null>(null);
+  const [deleting, setDeleting] = useState<TermSession | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
   const { sorted, shown, groups } = listView(sessions, query);
   const unread = sorted ? seen.unreadOf(sorted) : new Set<string>();
+  const leave = (s: TermSession) => {
+    setProblem(null);
+    leaveSession(api, sessionList, s).catch((e: unknown) => setProblem(errorText(e, s.past ? t.deleteFailed : t.notEnded, s.past ? t.deleteFailed : t.endFailed)));
+  };
+  const actions = (s: TermSession): Action[] => {
+    const then = (run: () => void) => () => {
+      setOpenId(null);
+      run();
+    };
+    return [
+      { label: t.renameAction, run: then(() => setRenaming(s)) },
+      s.past ? { label: t.delete, destructive: true, run: then(() => setDeleting(s)) } : { label: t.endSession, destructive: true, run: then(() => leave(s)) },
+    ];
+  };
   return (
     <main className="list-page">
       <header className="list-top">
@@ -134,10 +159,16 @@ export function Sessions({ current }: { current?: string } = {}) {
           <IconGear />
         </a>
         <h1>{t.sessions}</h1>
-        <button className="icon-btn" aria-label={t.newSession} onClick={() => setCreating(true)}>
-          <IconPlus />
-        </button>
+        <span className="list-top-right">
+          <a className="icon-btn" href="/conversations" aria-label={t.conversationsOnMac} onClick={link('/conversations')}>
+            <IconHistory />
+          </a>
+          <button className="icon-btn" aria-label={t.newSession} onClick={() => setCreating(true)}>
+            <IconPlus />
+          </button>
+        </span>
       </header>
+      {problem && <p className="alert list-problem">{problem}</p>}
       {!sorted && <p className="muted center">{t.loading}</p>}
       {sorted?.length === 0 && (
         <div className="empty">
@@ -165,10 +196,7 @@ export function Sessions({ current }: { current?: string } = {}) {
               open={openId === s.id}
               current={s.id === current}
               onOpen={(open) => setOpenId(open ? s.id : null)}
-              onRename={() => {
-                setOpenId(null);
-                setRenaming(s);
-              }}
+              actions={actions(s)}
             />
             )),
           ])}
@@ -181,30 +209,7 @@ export function Sessions({ current }: { current?: string } = {}) {
             <small>{mac.length}</small>
           </h2>
           {mac.map((r) => (
-            <a
-              key={r.sessionId}
-              className={r.sessionId === current ? 'sess-item mac current' : 'sess-item mac'}
-              aria-current={r.sessionId === current ? 'page' : undefined}
-              href={`/${agentOf(r)}/${r.sessionId}`}
-              onClick={link(`/${agentOf(r)}/${r.sessionId}`)}
-            >
-              <span className={`avatar ${agentOf(r)}${r.onMac ? '' : ' mac'}`} aria-hidden>
-                {agentOf(r) === 'codex' ? <IconCode /> : <IconChat />}
-                {r.onMac?.status === 'waiting' && <span className="needs-you" />}
-                {r.onMac?.status === 'busy' && <span className="busy" />}
-              </span>
-              <span className="sess-main">
-                <span className="sess-top">
-                  {r.onMac?.status === 'busy' && <span className="sess-badge working">{t.busy}</span>}
-                  {r.onMac?.status === 'waiting' && <span className="sess-badge waiting">{t.needsYou}</span>}
-                  {(r.onMac?.terminals ?? 0) > 1 && <span className="sess-badge waiting">{t.openInTerminals(r.onMac!.terminals)}</span>}
-                  <span className="sess-name">{r.title}</span>
-                  {r.cwd && <span className="sess-dir">{dirName(r.cwd)}</span>}
-                  <span className="sess-time">{listTime(r.lastActivity)}</span>
-                </span>
-                <span className="sess-preview">{r.lastPrompt ?? shortPath(r.cwd ?? '')}</span>
-              </span>
-            </a>
+            <MacItem key={r.sessionId} r={r} current={r.sessionId === current} />
           ))}
           <p className="muted sess-hint">{t.startInTmuxHint}</p>
         </div>
@@ -218,6 +223,15 @@ export function Sessions({ current }: { current?: string } = {}) {
       )}
       {creating && <NewSessionSheet onClose={() => setCreating(false)} />}
       {renaming && <RenameSheet session={renaming} onClose={() => setRenaming(null)} />}
+      {deleting && (
+        <ActionSheet
+          title={t.deleteSessionTitle}
+          message={t.deleteSessionSub}
+          side
+          actions={[{ label: t.delete, destructive: true, run: () => leave(deleting) }]}
+          onClose={() => setDeleting(null)}
+        />
+      )}
     </main>
   );
 }

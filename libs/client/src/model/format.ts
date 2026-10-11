@@ -44,13 +44,24 @@ const DATE = new Intl.DateTimeFormat(LOCALE, { year: 'numeric', month: 'numeric'
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // When, as a chat list puts it: the clock today, then yesterday, a weekday within the week, a date.
+const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
 export function listTime(ms: number, now = Date.now()): string {
   const at = new Date(ms);
-  const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const days = Math.round((midnight(new Date(now)) - midnight(at)) / DAY_MS);
   if (days <= 0) return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
   if (days === 1) return t.yesterday;
   if (days < 7) return WEEKDAY.format(at);
+  if (at.getFullYear() === new Date(now).getFullYear()) return MONTH_DAY.format(at);
+  return DATE.format(at);
+}
+
+// The day something happened, as a list's heading puts it: today, yesterday, then the date.
+export function dayTitle(ms: number, now = Date.now()): string {
+  const at = new Date(ms);
+  const days = Math.round((midnight(new Date(now)) - midnight(at)) / DAY_MS);
+  if (days <= 0) return t.today;
+  if (days === 1) return t.yesterday;
   if (at.getFullYear() === new Date(now).getFullYear()) return MONTH_DAY.format(at);
   return DATE.format(at);
 }

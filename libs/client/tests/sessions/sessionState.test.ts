@@ -33,6 +33,7 @@ describe('sessionState', () => {
       ['its line says it ended', { link: 'ended' }],
       ['the Mac has no such session', { view: view({ gone: true }) }],
       ['it had ended before the screen opened', { endedBefore: true }],
+      ['the Mac keeps it as past', { known: aSession({ past: true }), link: 'connecting' }],
     ])('is ended when %s, and shows nothing to type into', (_, f) => {
       const s = sessionState(facts({ view: view({ status: 'working' }), ...f }), local());
       expect(s.ended).toBe(true);

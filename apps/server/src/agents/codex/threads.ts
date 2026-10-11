@@ -25,6 +25,7 @@ export type CodexHolder = { at: 'here' } | { at: 'terminal'; pid: number; tty: s
 export type CodexOnMac = CodexThread & { holder: CodexHolder | null; busy: boolean; lastPrompt: string | null; lastActivity: number };
 
 const LIMIT = 50;
+const ALL_PAGE = 100;
 // How long the list is kept: it takes the app server seconds to make.
 const KEEP_MS = 5 * 60_000;
 // How much of the end of a rollout is read for how its last turn went and what the person said last.
@@ -68,14 +69,49 @@ function anyThread(t: Obj | undefined): CodexThread | null {
   };
 }
 
+// What `make` makes, kept for KEEP_MS: everyone who asks while it is made waits for the one making; once old it
+// is made again in the background while the kept one answers, and kept on when that fails.
+function kept<T>(make: () => Promise<T>): () => Promise<T> {
+  let had: { at: number; value: T } | null = null;
+  let making: Promise<T> | null = null;
+  return () => {
+    if (!(had && Date.now() - had.at < KEEP_MS) && !making) {
+      making = make()
+        .then((value) => {
+          had = { at: Date.now(), value };
+          return value;
+        })
+        .finally(() => {
+          making = null;
+        });
+    }
+    if (had) {
+      making?.catch(() => {});
+      return Promise.resolve(had.value);
+    }
+    return making!;
+  };
+}
+
 export class CodexThreads {
-  private kept: { at: number; threads: CodexThread[] } | null = null;
-  private listing: Promise<CodexThread[]> | null = null;
   private asking: Promise<CodexOnMac[]> | null = null;
   private readonly locks: string;
+  private readonly threads: () => Promise<CodexThread[]>;
+  private readonly everyThread: () => Promise<CodexThread[]>;
 
   constructor(private readonly o: { agent: CodexAgent; sock: string; codexHome: string }) {
     this.locks = join(o.codexHome, 'thread-writer-locks');
+    this.threads = kept(async () => (await o.agent.listThreads({ limit: LIMIT, sourceKinds: ['cli', 'vscode'] })).flatMap((d) => threadOf(d) ?? []));
+    this.everyThread = kept(async () => {
+      const threads: CodexThread[] = [];
+      let cursor: string | null = null;
+      do {
+        const page: { data: unknown[]; next: string | null } = await o.agent.listThreadPage({ limit: ALL_PAGE, sourceKinds: ['cli', 'vscode'], ...(cursor && { cursor }) });
+        threads.push(...page.data.flatMap((d) => threadOf(d) ?? []));
+        cursor = page.next;
+      } while (cursor);
+      return threads;
+    });
   }
 
   // The latest threads and every thread open somewhere now, newest first. Asked again while one runs, the one
@@ -85,6 +121,13 @@ export class CodexThreads {
       this.asking = null;
     });
     return this.asking;
+  }
+
+  // Every thread people opened, however old, newest first, as list() has them.
+  async all(): Promise<CodexOnMac[]> {
+    const [threads, holders] = await Promise.all([this.everyThread(), this.holders()]);
+    const shown = await Promise.all(threads.map((t) => this.live(t, holders.get(t.id) ?? null)));
+    return shown.sort((a, b) => b.lastActivity - a.lastActivity);
   }
 
   // One thread as list() has it, also when it is older than the list goes or not one list() shows; null when
@@ -108,28 +151,6 @@ export class CodexThreads {
     const all = [...threads, ...added.flatMap((t) => (t ? [t] : []))];
     const shown = await Promise.all(all.map((t) => this.live(t, holders.get(t.id) ?? null)));
     return shown.sort((a, b) => b.lastActivity - a.lastActivity);
-  }
-
-  // The kept list, made again in the background once old; the first ask waits for it.
-  private threads(): Promise<CodexThread[]> {
-    const fresh = this.kept && Date.now() - this.kept.at < KEEP_MS;
-    if (!fresh && !this.listing) {
-      this.listing = this.o.agent
-        .listThreads({ limit: LIMIT, sourceKinds: ['cli', 'vscode'] })
-        .then((data) => {
-          const threads = data.flatMap((d) => threadOf(d) ?? []);
-          this.kept = { at: Date.now(), threads };
-          return threads;
-        })
-        .finally(() => {
-          this.listing = null;
-        });
-    }
-    if (this.kept) {
-      this.listing?.catch(() => {});
-      return Promise.resolve(this.kept.threads);
-    }
-    return this.listing!;
   }
 
   // The thread's state as its rollout says now.

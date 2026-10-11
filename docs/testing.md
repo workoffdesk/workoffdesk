@@ -278,7 +278,9 @@ Every test file is listed under the risks it guards; one that guards several is 
 - Lists and new sessions: `libs/client/tests/sessions/sessionListView.test.ts`, `libs/client/tests/base/listed.test.ts`,
   `libs/client/tests/sessions/seen.test.ts`, `libs/client/tests/sessions/newSession.test.ts`,
   `libs/client/tests/sessions/projectSearch.test.ts`, `apps/server/tests/unit/system/dirs.test.ts`,
-  `apps/server/tests/unit/package/name.test.ts`, `apps/server/tests/unit/sessions/sessionName.test.ts`
+  `apps/server/tests/unit/package/name.test.ts`, `apps/server/tests/unit/sessions/sessionName.test.ts`,
+  `libs/client/tests/sessions/leave.test.ts`, `libs/client/tests/sessions/macHistory.test.ts`,
+  `apps/server/tests/integration/sessions/machine.past.test.ts`
 - Words, errors and settings: `libs/client/tests/model/format.test.ts`, `libs/client/tests/base/api.test.ts`,
   `libs/client/tests/settings/textSize.test.ts`, `libs/client/tests/settings/choices.test.ts`, `libs/client/tests/base/api.test.ts`,
   `libs/i18n/tests/index.test.ts`, `apps/server/tests/unit/system/messages.test.ts`,

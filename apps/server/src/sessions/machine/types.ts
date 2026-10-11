@@ -40,6 +40,8 @@ export type TermSession = {
   usage: Usage | null;
   // The Claude account it runs on, by its email; said only on a Mac with more than one.
   claudeAccount?: string;
+  // Gone from tmux and kept, to read and go on with, until deleted.
+  past?: true;
 };
 
 export interface Machine {

@@ -126,7 +126,7 @@ test.describe('the session list', () => {
     await expect(gone).toBeDisabled();
 
     await page.goto(`/claude/${sid}`);
-    await expect(page.getByText('修一下 worktree 里的测试')).toBeVisible();
+    await expect(page.locator('.bubble').filter({ hasText: '修一下 worktree 里的测试' })).toBeVisible();
     await expect(page.getByRole('button', { name: '它的文件夹已经不在了，这里接不上' })).toBeDisabled();
     await expect(page.getByText(/battle-pigeon 已经不在这台 Mac 上了/)).toBeVisible();
     await expect(page.getByRole('button', { name: /接管到手机|在手机上接着聊/ })).toHaveCount(0);
@@ -215,6 +215,76 @@ test.describe('the session list', () => {
     await shot(page, '28-shell-session');
     await page.getByRole('button', { name: '看屏幕' }).click();
     await expect(page.getByRole('dialog', { name: 'Mac 上的屏幕' }).getByLabel('屏幕内容')).toBeVisible();
+  });
+
+  test.describe('a session kept as past', () => {
+    test('stays listed once ended from its row, goes on in place, and is deleted only after asking', async ({ page }) => {
+      await login(page);
+      await clearSessions(page);
+      const { id, transcript } = await newClaude(page);
+      await page.getByRole('button', { name: '返回' }).click();
+      const row = page.getByTestId('session-card').filter({ hasText: 'project-a' });
+      await swipeRow(page, row, -120);
+      await page.getByRole('button', { name: '结束会话' }).click();
+      await expect(row).toHaveCount(1);
+      await expect(row.locator('.avatar.mac')).toBeVisible();
+      // Read back from the Mac rather than from what this page remembers.
+      await page.evaluate(() => localStorage.clear());
+      await page.reload();
+      await expect(row.locator('.avatar.mac')).toBeVisible();
+      await shot(page, '58-past-session');
+
+      await row.click();
+      await expect(page).toHaveURL(new RegExp(`/s/${id}$`));
+      await expect(page.getByText('会话已结束')).toBeVisible();
+      // Claude no longer keeps a conversation it has no transcript of: it can only be read here.
+      await page.getByRole('button', { name: '接着这个对话' }).click();
+      await expect(page.getByText(/这个对话已经不在 Agent 那里了/)).toBeVisible();
+      await expect(page.locator('.term-page')).not.toHaveAttribute('data-link', 'live');
+      writeFileSync(transcript, jsonl(rec.user('把首页改成深色')));
+      await page.getByRole('button', { name: '接着这个对话' }).click();
+      await expect(page.locator('.term-page')).toHaveAttribute('data-link', 'live', { timeout: 10_000 });
+      await expect(page).toHaveURL(new RegExp(`/s/${id}$`));
+      await page.getByRole('button', { name: '返回' }).click();
+      await expect(row.locator('.avatar.mac')).toHaveCount(0);
+
+      await swipeRow(page, row, -120);
+      await page.getByRole('button', { name: '结束会话' }).click();
+      await expect(row.locator('.avatar.mac')).toBeVisible();
+      await swipeRow(page, row, -120);
+      await page.getByRole('button', { name: '删除' }).click();
+      const ask = page.getByRole('dialog', { name: '删除这个会话？' });
+      await expect(ask).toBeVisible();
+      await ask.getByRole('button', { name: '取消' }).click();
+      await expect(row).toHaveCount(1);
+      await swipeRow(page, row, -120);
+      await page.getByRole('button', { name: '删除' }).click();
+      await page.getByRole('dialog', { name: '删除这个会话？' }).getByRole('button', { name: '删除' }).click();
+      await expect(row).toHaveCount(0);
+      const listed: { id: string }[] = await (await api(page, 'GET', '/api/m/local/sessions')).json();
+      expect(listed.map((s) => s.id)).not.toContain(id);
+    });
+  });
+
+  test('finds every other conversation on the Mac from the clock, by day and by a search', async ({ page }) => {
+    await login(page);
+    await page.getByRole('link', { name: 'Mac 上的对话' }).click();
+    await expect(page).toHaveURL(/\/conversations$/);
+    await expect(page.getByRole('heading', { name: 'Mac 上的对话' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '今天' })).toBeVisible();
+    const found = page.locator('.sess-item');
+    await expect(found.filter({ hasText: '登录页按钮圆角' })).toHaveCount(1);
+    // Those programs started are not people's conversations.
+    await expect(found.filter({ hasText: 'MEM-705' })).toHaveCount(0);
+    await shot(page, '59-conversations-on-mac');
+    await page.getByLabel('搜索').fill('登录页');
+    await expect(found).toHaveCount(1);
+    await page.getByLabel('搜索').fill('没有这样的对话');
+    await expect(page.getByText(/没有这样的对话/).last()).toBeVisible();
+    await expect(found).toHaveCount(0);
+    await page.getByLabel('搜索').fill('');
+    await found.filter({ hasText: '登录页按钮圆角' }).click();
+    await expect(page).toHaveURL(/\/claude\/3f2a1b4c-0000-4000-8000-000000000001$/);
   });
 
   test.describe("a session's name", () => {

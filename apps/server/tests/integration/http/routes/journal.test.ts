@@ -27,6 +27,7 @@ const machine = {
   listSessions: async () => [],
   journal,
   exists: async (id: string) => id === 'abc',
+  isPast: (id: string) => id === 'old',
   sessionMeta: (id: string) => (id === 'abc' ? { kind: 'claude', claudeSessionId: CONV } : null),
   message: (id: string, qid: string) => ({ t: 'message', key: qid, session: id }),
   sendMessage: async (...a: unknown[]) => called('sendMessage')(...a),
@@ -72,6 +73,21 @@ describe('GET /api/m/:machine/sessions/:id/journal and /journal/items', () => {
   it.each(['-1', '1.5', 'x', '1'.repeat(16), ''])('refuses the version %j', async (v) => {
     expect((await send('GET', `abc/journal?v=${v}`)).statusCode).toBe(400);
     expect(reached).toEqual([]);
+  });
+
+  // A past session runs nothing: what it said is all in the journal.
+  it('answers for a past session from what the journal kept, reading nothing', async () => {
+    journal.putAgentItems('old', CONV, [{ id: 'o0', item: { k: 'text', text: 'said before' } }]);
+    const first = (await send('GET', `old/journal?epoch=${journal.epoch}&v=0`)).json() as { reset: boolean; rows: { t: string; key: string }[] };
+    expect(first.reset).toBe(true);
+    expect(first.rows.filter((r) => r.t === 'item').map((r) => r.key)).toEqual(['o0']);
+    expect((await send('GET', `old/journal/items?conv=${CONV}&before=5`)).json()).toMatchObject({ rows: [{ key: 'o0' }] });
+    expect(reached).toEqual([]);
+  });
+
+  it('is 404 for a session that is neither running nor past', async () => {
+    expect((await send('GET', `nope/journal?v=0`)).statusCode).toBe(404);
+    expect((await send('GET', `nope/journal/items?conv=${CONV}&before=5`)).statusCode).toBe(404);
   });
 
   it('gives pages of older items of a conversation', async () => {

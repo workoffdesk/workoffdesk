@@ -162,8 +162,10 @@ export function fakeList(current: TermSession[] | null, ended: TermSession[] = [
   let now = current;
   const listeners = new Set<() => void>();
   const dropped: string[] = [];
+  const endedHere: string[] = [];
   return {
     dropped,
+    endedHere,
     current: () => now,
     ended: (id: string) => ended.find((s) => s.id === id) ?? null,
     subscribe(listener: () => void): () => void {
@@ -171,6 +173,7 @@ export function fakeList(current: TermSession[] | null, ended: TermSession[] = [
       return () => void listeners.delete(listener);
     },
     drop: (id: string) => void dropped.push(id),
+    ends: (id: string) => void endedHere.push(id),
     set(next: TermSession[] | null) {
       now = next;
       for (const l of [...listeners]) l();

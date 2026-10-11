@@ -280,3 +280,76 @@ describe('POST /api/m/:machine/sessions for a Codex conversation', () => {
     expect(await r.json()).toEqual({ error: 'invalid session spec' });
   });
 });
+
+// Every conversation on the Mac, however old: the page that finds what the recent list no longer shows.
+describe('GET /api/conversations', () => {
+  type Page = { conversations: Row[]; more: boolean };
+  const page = async (s: Awaited<ReturnType<typeof start>>, query = '') => (await (await s.api(`/api/conversations${query}`)).json()) as Page;
+  const id = (n: number) => `0199bbbb-0000-7000-8000-${String(n).padStart(12, '0')}`;
+  // n Codex threads people opened, given a page of 50 at a time as the app server does.
+  const threads = (n: number) => (params: Record<string, unknown>) => {
+    const at = Number(params.cursor ?? 0);
+    const all = Array.from({ length: n }, (_, i) => ({ id: id(i), cwd: '/work/codex', name: `Thread ${i}`, source: 'cli', updatedAt: seconds(10_000_000 + i * 1000) }));
+    return { data: all.slice(at, at + 50), nextCursor: at + 50 < n ? String(at + 50) : null };
+  };
+  // A Claude transcript, said `ago` ms before now.
+  const transcript = (s: Awaited<ReturnType<typeof start>>, sid: string, ago: number, o: { said?: string; cwd?: string; sdk?: boolean } = {}) => {
+    const file = join(s.at, 'claude-projects', '-proj', `${sid}.jsonl`);
+    const at = new Date(now - ago);
+    writeFileSync(file, `${JSON.stringify({ type: 'user', cwd: o.cwd ?? '/work/proj', timestamp: at.toISOString(), ...(o.sdk && { entrypoint: 'sdk-cli' }), message: { content: o.said ?? `said in ${sid}` } })}\n`);
+    utimesSync(file, at, at);
+  };
+
+  it('has every one, older than the recent list goes, the latest first', async () => {
+    const s = await start({ list: threads(120) });
+    for (let i = 0; i < 60; i++) transcript(s, `0c0c0c0c-1111-4222-8333-${String(i).padStart(12, '0')}`, 20_000_000 + i * 1000);
+    const all: Row[] = [];
+    let before = '';
+    for (;;) {
+      const p = await page(s, `?limit=50${before}`);
+      all.push(...p.conversations);
+      if (!p.more) break;
+      before = `&before=${p.conversations.at(-1)!.lastActivity}`;
+    }
+    expect(all.filter((r) => r.agent === 'codex')).toHaveLength(120);
+    expect(all.filter((r) => r.agent === 'claude')).toHaveLength(61);
+    const times = all.map((r) => r.lastActivity as number);
+    expect(times).toEqual(times.toSorted((a, b) => b - a));
+  });
+
+  it('pages by the time before which to look, at most limit at a time', async () => {
+    const s = await start({ list: threads(0) });
+    for (let i = 0; i < 5; i++) transcript(s, `0c0c0c0c-1111-4222-8333-${String(i).padStart(12, '0')}`, 1_000_000 + i * 1000);
+    const first = await page(s, '?limit=2');
+    expect(first.conversations).toHaveLength(2);
+    expect(first.more).toBe(true);
+    const next = await page(s, `?limit=2&before=${first.conversations[1].lastActivity}`);
+    expect(next.conversations.map((r) => r.sessionId)).not.toContain(first.conversations[1].sessionId);
+    expect(next.conversations[0].lastActivity as number).toBeLessThan(first.conversations[1].lastActivity as number);
+  });
+
+  it.each(['0', '201', '1.5', 'x', '-3'])('refuses a limit of %s: a page has 1 to 200', async (limit) => {
+    const s = await start({ list: threads(0) });
+    expect((await s.api(`/api/conversations?limit=${limit}`)).status).toBe(400);
+  });
+
+  it('finds by title, folder or what was said last, whatever the case', async () => {
+    const s = await start({ list: threads(3) });
+    transcript(s, '0c0c0c0c-1111-4222-8333-000000000001', 5_000_000, { said: 'Fix the PAYMENT page' });
+    transcript(s, '0c0c0c0c-1111-4222-8333-000000000002', 5_000_000, { cwd: '/work/billing-service' });
+    const found = async (q: string) => (await page(s, `?q=${encodeURIComponent(q)}`)).conversations.map((r) => r.sessionId);
+    expect(await found('payment')).toEqual(['0c0c0c0c-1111-4222-8333-000000000001']);
+    expect(await found('BILLING')).toEqual(['0c0c0c0c-1111-4222-8333-000000000002']);
+    expect(await found('thread 2')).toEqual([id(2)]);
+  });
+
+  it('leaves out what programs started, and what a session here holds', async () => {
+    const s = await start({ list: threads(0) });
+    transcript(s, '0c0c0c0c-1111-4222-8333-000000000009', 5_000_000, { sdk: true });
+    const held = await s.api('/api/m/local/sessions', { method: 'POST', body: { kind: 'claude', cwd: s.at, resumeId: CLAUDE } });
+    expect(held.status, 'precondition: a session here holds it').toBe(201);
+    const ids = (await page(s)).conversations.map((r) => r.sessionId);
+    expect(ids).not.toContain('0c0c0c0c-1111-4222-8333-000000000009');
+    expect(ids).not.toContain(CLAUDE);
+  });
+});

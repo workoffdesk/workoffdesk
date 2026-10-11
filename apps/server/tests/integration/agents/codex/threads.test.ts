@@ -26,15 +26,19 @@ const T0 = Date.now();
 type Raw = Record<string, unknown>;
 const thread = (id: string, o: Raw = {}): Raw => ({ id, cwd: '/Users/someone/app', name: '', preview: 'the first words', source: 'cli', updatedAt: T0 / 1000 - 600, path: null, ...o });
 
-const setup = (listed: Raw[] = [], o: { all?: Raw[] } = {}) => {
+const setup = (listed: Raw[] = [], o: { all?: Raw[]; pages?: Record<string, { data: Raw[]; next: string | null }> } = {}) => {
   const home = mkdtempSync(join(tmpdir(), 'ts-codex-'));
   mkdirSync(join(home, 'thread-writer-locks'));
   const sock = join(home, 'codex.sock');
-  const calls = { list: 0, read: [] as string[] };
+  const calls = { list: 0, read: [] as string[], pages: [] as object[] };
   const agent = {
     listThreads: vi.fn(async () => {
       calls.list++;
       return listed;
+    }),
+    listThreadPage: vi.fn(async (params: { cursor?: string }) => {
+      calls.pages.push(params);
+      return o.pages?.[params.cursor ?? ''] ?? { data: [], next: null };
     }),
     readThread: async (id: string) => {
       calls.read.push(id);
@@ -218,6 +222,52 @@ describe('CodexThreads', () => {
         s.agent.listThreads.mockRejectedValueOnce(new Error('app server gone'));
         expect((await s.threads.list()).map((t) => t.id)).toEqual([A]);
       });
+    });
+  });
+
+  describe('all', () => {
+    afterEach(() => vi.useRealTimers());
+    const pages = {
+      '': { data: [thread(A, { updatedAt: 100 }), thread(C, { source: 'exec', updatedAt: 500 })], next: 'p2' },
+      p2: { data: [thread(B, { source: 'vscode', updatedAt: 300 })], next: null },
+    };
+
+    it('pages through every thread people opened, however old, newest first', async () => {
+      const s = setup([], { pages });
+      expect((await s.threads.all()).map((t) => t.id)).toEqual([B, A]);
+      expect(s.calls.pages).toEqual([
+        { limit: expect.any(Number), sourceKinds: ['cli', 'vscode'] },
+        { limit: expect.any(Number), sourceKinds: ['cli', 'vscode'], cursor: 'p2' },
+      ]);
+    });
+
+    it('pages once for everyone who asks while it does, and keeps them five minutes, paging again while the kept ones answer', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      const s = setup([], { pages });
+      const [a, b] = [s.threads.all(), s.threads.all()];
+      await Promise.all([a, b]);
+      vi.advanceTimersByTime(4 * 60_000);
+      await s.threads.all();
+      expect(s.calls.pages).toHaveLength(2);
+      vi.advanceTimersByTime(2 * 60_000);
+      s.agent.listThreadPage.mockImplementationOnce(async (params) => {
+        s.calls.pages.push(params);
+        return { data: [thread(A, { updatedAt: 100 }), thread(C, { updatedAt: 700 })], next: null };
+      });
+      expect((await s.threads.all()).map((t) => t.id)).toEqual([B, A]);
+      await vi.waitFor(async () => expect((await s.threads.all()).map((t) => t.id)).toEqual([C, A]));
+      expect(s.calls.pages).toHaveLength(3);
+    });
+
+    it('fails when Codex cannot list them and none were kept, and goes on with the kept ones when it cannot later', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      const s = setup([], { pages });
+      s.agent.listThreadPage.mockRejectedValueOnce(new Error('app server gone'));
+      await expect(s.threads.all()).rejects.toThrow('app server gone');
+      expect((await s.threads.all()).map((t) => t.id)).toEqual([B, A]);
+      vi.advanceTimersByTime(6 * 60_000);
+      s.agent.listThreadPage.mockRejectedValueOnce(new Error('app server gone'));
+      expect((await s.threads.all()).map((t) => t.id)).toEqual([B, A]);
     });
   });
 

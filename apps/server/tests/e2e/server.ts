@@ -95,6 +95,8 @@ const options: Parameters<typeof startServer>[0] = {
   config: parseConfig({ port, origin, pinnedDirs: [join(home, 'project-a')] }),
   webDir: fileURLToPath(new URL('../../dist/web', import.meta.url)),
   claudeBin: fakeClaude,
+  // No Codex: the threads of the Mac it runs on stay out of the test.
+  codexBin: null,
   claudeProjectsRoot: join(home, 'claude-projects'),
   claudeJobsRoot: join(home, 'claude-jobs'),
   claudeDir,

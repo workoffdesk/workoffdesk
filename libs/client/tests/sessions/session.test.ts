@@ -132,6 +132,32 @@ describe('createSessions', () => {
       expect(snap().ended).toBe(false);
     });
 
+    // A past session runs nothing to keep a line to: what it said comes from its journal.
+    it('opens no line for a past session, and follows its journal', () => {
+      const { server, journals, snap } = setup({ list: [aSession({ past: true, status: 'ended' })] });
+      expect(server.sockets).toEqual([]);
+      expect(journals.asked).toContain('follow s1');
+      expect(snap().ended).toBe(true);
+    });
+
+    it('opens its line once the list has it running again, gone on with in place', () => {
+      const { server, list, snap } = setup({ list: [aSession({ past: true, status: 'ended' })] });
+      list.set([aSession({ status: 'starting' })]);
+      expect(server.sockets.map((l) => l.path)).toEqual([`${BASE}/ws`]);
+      expect(snap().ended).toBe(false);
+    });
+
+    it('opens its line again when a session whose line ended is gone on with in place', () => {
+      const { server, line, list, snap } = setup();
+      line.opens();
+      line.ends(4404);
+      list.set([aSession({ past: true, status: 'ended' })]);
+      expect(snap().ended).toBe(true);
+      list.set([aSession({ status: 'starting' })]);
+      expect(server.sockets).toHaveLength(2);
+      expect(snap().ended).toBe(false);
+    });
+
     it('shows it ended, as last seen, when it ended before the screen opened', () => {
       const { snap } = setup({ list: [], ended: [aSession({ title: 'Old one' })] });
       expect(snap().ended).toBe(true);
@@ -408,15 +434,15 @@ describe('createSessions', () => {
       expect(await done).toBe(false);
       expect(snap().ending).toBe(false);
       expect(snap().toast).toBe(errorText(e, t.notEnded, t.endFailed));
-      expect(list.dropped).toEqual([]);
+      expect(list.endedHere).toEqual([]);
     });
 
-    it('drops it from the list once ended', async () => {
+    it('tells the list it ended once it has', async () => {
       const { s, api, list } = setup();
       const done = s.end();
       await api.answer(END);
       expect(await done).toBe(true);
-      expect(list.dropped).toEqual(['s1']);
+      expect(list.endedHere).toEqual(['s1']);
     });
   });
 
@@ -424,10 +450,10 @@ describe('createSessions', () => {
     it.each([
       ['says it has exited', (l: ReturnType<typeof setup>['line']) => (l.opens(), l.says({ type: 'exit' }))],
       ['closes for a session it no longer has (4404)', (l: ReturnType<typeof setup>['line']) => l.ends(4404)],
-    ])('leaves the list as soon as its line %s, not when the list next comes', (_, end) => {
+    ])('is ended in the list as soon as its line %s, not when the list next comes', (_, end) => {
       const { line, list } = setup();
       end(line);
-      expect(list.dropped).toEqual(['s1']);
+      expect(list.endedHere).toEqual(['s1']);
     });
 
     it('stays in the list while its line is only down', () => {
@@ -435,7 +461,7 @@ describe('createSessions', () => {
       line.opens();
       line.ends(1006);
       vi.advanceTimersByTime(60_000);
-      expect(list.dropped).toEqual([]);
+      expect(list.endedHere).toEqual([]);
     });
   });
 

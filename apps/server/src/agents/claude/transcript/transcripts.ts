@@ -50,6 +50,28 @@ async function listRecent(root: string, limit: number): Promise<RecentClaudeSess
   return [...kept.people, ...kept.programs].sort((a, b) => b.lastActivity - a.lastActivity);
 }
 
+// Every conversation Claude Code still keeps, newest first, programs' too. Asked again while a listing runs, the
+// one running answers.
+let listingAll: Promise<RecentClaudeSession[]> | null = null;
+
+export function listAllClaudeSessions(root: string): Promise<RecentClaudeSession[]> {
+  listingAll ??= listAll(root).finally(() => {
+    listingAll = null;
+  });
+  return listingAll;
+}
+
+async function listAll(root: string): Promise<RecentClaudeSession[]> {
+  const all: RecentClaudeSession[] = [];
+  for (const f of await transcriptFiles(root)) {
+    const parsed = await parsedOnce(f);
+    if (!parsed || isScratch(parsed.cwd)) continue;
+    const { saidAt, ...shown } = parsed;
+    all.push({ sessionId: basename(f.path, '.jsonl'), ...shown, lastActivity: saidAt ?? Math.round(f.mtimeMs) });
+  }
+  return all.sort((a, b) => b.lastActivity - a.lastActivity);
+}
+
 // A conversation in a temporary folder is a throwaway run (a test, a probe), not work to come back to.
 const SCRATCH_ROOTS = ['/tmp/', '/private/tmp/', '/var/folders/', '/private/var/folders/', join(tmpdir(), '/')];
 
@@ -101,7 +123,7 @@ async function transcriptFiles(root: string) {
 // What a transcript was read as, kept while the file stays as it was: the list is asked for often, and
 // reading the head and tail of hundreds of files each time took seconds.
 const parsedCache = new Map<string, { size: number; mtimeMs: number; parsed: Awaited<ReturnType<typeof parseTranscript>> }>();
-const PARSED_KEPT = 2000;
+const PARSED_KEPT = 20_000;
 
 async function parsedOnce(f: { path: string; size: number; mtimeMs: number }) {
   const kept = parsedCache.get(f.path);

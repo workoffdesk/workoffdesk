@@ -20,9 +20,10 @@ export async function login(page: Page) {
 export const api = (page: Page, method: string, path: string, data?: unknown) =>
   page.request.fetch(path, { method, data, headers: { origin: ORIGIN } });
 
+// Ending a session keeps it as past; deleting it then takes it off the list.
 export async function clearSessions(page: Page) {
-  const list = await (await api(page, 'GET', '/api/m/local/sessions')).json();
-  for (const s of list) await api(page, 'DELETE', `/api/m/local/sessions/${s.id}`);
+  for (let pass = 0; pass < 2; pass++)
+    for (const s of await (await api(page, 'GET', '/api/m/local/sessions')).json()) await api(page, 'DELETE', `/api/m/local/sessions/${s.id}`);
 }
 
 export const sessionId = (page: Page) => page.url().split('/').pop()!;

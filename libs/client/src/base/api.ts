@@ -222,6 +222,8 @@ export type TermSession = {
   claudeAccount?: string;
   // Only in the live list: what Claude said last, as plain words.
   lastReply?: string | null;
+  // Gone from the Mac's tmux and kept there, to read and go on with, until deleted.
+  past?: true;
 };
 
 // A Claude or Codex conversation people had on this Mac. `automated`: started by a program (an agent runner

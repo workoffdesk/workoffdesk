@@ -79,7 +79,7 @@ export function sessionState(f: SessionFacts, l: SessionLocal): SessionShown {
   const outdated = f.view.behind && !!known?.status && known.status !== f.view.status;
   const view = outdated ? { ...f.view, status: known.status, workingSince: null, live: null } : f.view;
   const { screen } = view;
-  const ended = link === 'ended' || view.gone || f.endedBefore;
+  const ended = link === 'ended' || view.gone || f.endedBefore || !!known?.past;
   // An ended session waits for nothing; until the journal has said, the list speaks for it.
   const status = ended ? 'ended' : (view.status ?? known?.status);
   const covered = !!(screen.choices || screen.panel) || status === 'waiting';

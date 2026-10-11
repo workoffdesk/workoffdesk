@@ -14,6 +14,7 @@ export const register: RouteModule = (app, ctx) => {
     if (!m) return reply;
     const v = count(req.query.v);
     if (!Number.isSafeInteger(v)) return reply.code(400).send({ error: 'bad version' });
+    if (machine.isPast(req.params.id)) return machine.journal.sync(req.params.id, req.query.epoch, v);
     if (!(await m.exists(req.params.id))) return reply.code(404).send({ error: 'no such session' });
     // An answer is never behind the transcript, nor the screen (a copy that asks has no line reading it).
     if (machine.sessionMeta(req.params.id)?.kind === 'claude') await m.onScreen(req.params.id).catch(() => {});
@@ -29,7 +30,7 @@ export const register: RouteModule = (app, ctx) => {
         const before = req.query.before === undefined ? NaN : count(req.query.before);
       const conv = req.query.conv ?? '';
       if (!Number.isSafeInteger(before) || !CONV.test(conv)) return reply.code(400).send({ error: 'conv and before required' });
-      if (!(await m.exists(req.params.id))) return reply.code(404).send({ error: 'no such session' });
+      if (!machine.isPast(req.params.id) && !(await m.exists(req.params.id))) return reply.code(404).send({ error: 'no such session' });
       return machine.journal.older(req.params.id, conv, before);
     },
   );

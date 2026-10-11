@@ -193,6 +193,11 @@ export class Journal {
     return () => this.headListeners.delete(cb);
   }
 
+  // How many items of what was said the session has.
+  itemCount(id: string): number {
+    return this.db.itemCount(id);
+  }
+
   drop(id: string): void {
     this.db.drop(id);
     this.screenLive.delete(id);

@@ -85,6 +85,13 @@ describe('goOnWith and canGoOn', () => {
     expect(api).toHaveBeenCalledWith('/api/m/local/sessions/abc123/continue', { method: 'POST' });
   });
 
+  it('brings a past session back in place, as the Mac keeps it', async () => {
+    const api = vi.fn(async () => went) as unknown as Api;
+    const past = { ...claude, past: true as const, status: 'ended' as const };
+    await expect(goOnWith(api, past as typeof past & { kind: 'claude' }, false)).resolves.toEqual({ session: went });
+    expect(api).toHaveBeenCalledWith('/api/m/local/sessions/abc123/continue', { method: 'POST' });
+  });
+
   it.each([
     ['claude', claude, 'conv-1'],
     ['codex', codex, 'thread-1'],

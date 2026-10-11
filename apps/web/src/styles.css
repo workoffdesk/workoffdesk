@@ -177,11 +177,13 @@ input, textarea { font: inherit; color: inherit; }
 }
 /* The phone's list bar: the gear, the title in the middle and a plain plus, on the surface with a hairline. */
 .list-top {
-  position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: 72px 1fr 72px; align-items: center;
+  position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: 100px 1fr 100px; align-items: center;
   padding: var(--safe-top) 0 10px; background: var(--surface); border-bottom: 0.5px solid var(--border);
 }
 .list-top h1 { margin: 0; text-align: center; font-size: calc(17px * var(--text-scale)); font-weight: 600; }
 .list-top .icon-btn { justify-self: center; }
+.list-top-right { justify-self: center; display: flex; }
+.list-problem { margin: 8px 16px; }
 .list-top .icon-btn svg { width: 26px; height: 26px; }
 /* Search floats over the foot of the list, as iOS puts it under the phone's thumb. */
 .list-search {
@@ -199,10 +201,12 @@ input, textarea { font: inherit; color: inherit; }
 .list-search input::-webkit-search-decoration { -webkit-appearance: none; }
 .sess-list { background: var(--row); }
 .sess-row { position: relative; overflow: hidden; }
+.sess-actions { position: absolute; top: 0; right: 0; bottom: 0; display: flex; }
 .sess-action {
-  position: absolute; top: 0; right: 0; bottom: 0; width: 88px; border: 0; background: var(--accent); color: var(--accent-text);
+  flex: 1; border: 0; background: var(--accent); color: var(--accent-text);
   font-size: calc(15px * var(--text-scale)); font-weight: 600;
 }
+.sess-action.danger { background: var(--danger); color: #fff; }
 .sess-row > .sess-item { background: var(--row); touch-action: pan-y; transition: transform 0.2s; }
 .sess-row.dragging > .sess-item { transition: none; }
 .sess-row + .sess-row > .sess-item::before,

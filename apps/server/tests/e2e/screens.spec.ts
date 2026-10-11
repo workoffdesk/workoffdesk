@@ -130,7 +130,9 @@ test.afterAll(() => {
 test.beforeEach(async ({ page }) => {
   const res = await api(page, 'POST', '/api/auth/password', { username: 'alice', password: 'correct horse battery' });
   expect(res.ok()).toBe(true);
-  for (const s of await (await api(page, 'GET', '/api/m/local/sessions')).json()) await api(page, 'DELETE', `/api/m/local/sessions/${s.id}`);
+  // Ending a session keeps it as past; deleting it then takes it off the list.
+  for (let pass = 0; pass < 2; pass++)
+    for (const s of await (await api(page, 'GET', '/api/m/local/sessions')).json()) await api(page, 'DELETE', `/api/m/local/sessions/${s.id}`);
 });
 
 test('chat', async ({ page }) => {

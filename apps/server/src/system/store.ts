@@ -63,6 +63,10 @@ export type SessionMeta = {
   createdAt: number;
 };
 
+// A Claude or Codex session gone from tmux, kept with its journal until a person deletes it; lastActivity: when
+// something last happened in it.
+export type PastSession = SessionMeta & { lastActivity: number };
+
 // What a session is called: the name given it, else what its agent calls the conversation, else its
 // directory's name. One kept without named was given its name unless that is the directory's.
 export function shownTitle(meta: SessionMeta): string {
@@ -83,6 +87,7 @@ export type State = {
   pushSubs: PushSub[];
   apnsDevices: ApnsDeviceRecord[];
   sessions: Record<string, SessionMeta>;
+  past: Record<string, PastSession>;
   // The names given here to sessions, by the Claude conversation each held, kept after the session ends.
   claudeNames: Record<string, string>;
   // The Claude account picked for sessions started here (its config dir, "" the default); unset until one is.
@@ -93,7 +98,7 @@ export type State = {
 };
 
 export function emptyState(): State {
-  return { passkeys: [], logins: [], pushSubs: [], apnsDevices: [], sessions: {}, claudeNames: {} };
+  return { passkeys: [], logins: [], pushSubs: [], apnsDevices: [], sessions: {}, past: {}, claudeNames: {} };
 }
 
 export class Store {

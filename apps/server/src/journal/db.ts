@@ -92,6 +92,7 @@ export class JournalDb {
       allStates: p('SELECT name, v, body FROM state WHERE session = ? ORDER BY v'),
       itemsBefore: p('SELECT id, conv, pos, v, body FROM item WHERE session = ? AND conv = ? AND pos < ? ORDER BY pos DESC LIMIT ?'),
       newestFirst: p('SELECT body FROM item WHERE session = ? AND conv = ? ORDER BY pos DESC'),
+      itemCount: p('SELECT COUNT(*) AS n FROM item WHERE session = ?'),
       dropItems: p('DELETE FROM item WHERE session = ?'),
       dropMessages: p('DELETE FROM message WHERE session = ?'),
       dropStates: p('DELETE FROM state WHERE session = ?'),
@@ -236,6 +237,10 @@ export class JournalDb {
   // Each session's version.
   heads(): Record<string, number> {
     return Object.fromEntries((this.q.heads.all() as { id: string; v: number }[]).map((r) => [r.id, r.v]));
+  }
+
+  itemCount(id: string): number {
+    return (this.q.itemCount.get(id) as { n: number }).n;
   }
 
   drop(id: string): void {

@@ -11,6 +11,7 @@ import { SHIFT_TAB, stepToMode } from '../composer/modes';
 import { screenNow, screenRead } from '../journal/pushes';
 import type { LinkState, SessionLink } from './sessionLink';
 import type { SessionList } from './sessionList';
+import { leaveSession } from './leave';
 import type { SlashCommand } from '../composer/slash';
 import { sessionState, startLocal, type SessionFacts, type SessionLocal, type SessionShown } from './sessionState';
 
@@ -23,7 +24,7 @@ export type SessionDeps = {
   api: Api;
   journals: Pick<Journals, 'view' | 'subscribe' | 'follow' | 'refresh' | 'rereadScreen' | 'apply' | 'send'>;
   links: { open(sessionId: string, page: Visibility, onState: (s: LinkState) => void): SessionLink };
-  list: Pick<SessionList, 'current' | 'ended' | 'subscribe' | 'drop'>;
+  list: Pick<SessionList, 'current' | 'ended' | 'subscribe' | 'ends' | 'drop'>;
   seen: { markSeen(id: string): void };
   answers: Pick<Answers, 'give'>;
   readClipboard: () => Promise<string>;
@@ -142,23 +143,27 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
   };
   const happened = seenWhileInFront(seen, id, onScreen, () => snapshot.known?.lastActivity);
 
+  // The line follows the list: one to a session that runs, none to a past one, a new one once it is gone on with.
+  const listed = () => {
+    const row = inList();
+    if (row) lastKnown = row;
+    if (!lastKnown?.past && (!line || (row && link === 'ended'))) {
+      line?.close();
+      link = 'connecting';
+      line = deps.links.open(id, onScreen, (state) => {
+        link = state;
+        if (state === 'ended') list.ends(id);
+        publish();
+      });
+    }
+    changed();
+  };
   const start = () => {
     running = true;
-    line = deps.links.open(id, onScreen, (state) => {
-      link = state;
-      if (state === 'ended') list.drop(id);
-      publish();
-    });
     stops.push(() => line?.close());
-    stops.push(
-      list.subscribe(() => {
-        const row = inList();
-        if (row) lastKnown = row;
-        changed();
-      }),
-    );
+    stops.push(list.subscribe(listed));
     stops.push(journals.subscribe(id, changed));
-    changed();
+    listed();
   };
 
   const stop = () => {
@@ -214,12 +219,7 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
     say(notHeld ? t.alreadySent : errorText(e, otherwise, otherwise));
   };
   const queuedUrl = (q: Queued) => `${base}/messages/${q.id}`;
-  const take = (qid: string, on: boolean) => {
-    const next = new Set(local.taking);
-    if (on) next.add(qid);
-    else next.delete(qid);
-    set({ taking: next });
-  };
+  const take = (qid: string, on: boolean) => set({ taking: new Set([...local.taking].filter((x) => x !== qid).concat(on ? [qid] : [])) });
   const queueAction = (q: Queued, init: ApiInit, failed: string) =>
     api<{ message: JournalRow | null }>(queuedUrl(q), { method: 'POST', ...init }).then(
       (r) => {
@@ -385,13 +385,12 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
       if (local.ending) return false;
       set({ ending: true });
       try {
-        await api(base, { method: 'DELETE' });
+        await leaveSession(api, list, lastKnown ?? { id });
       } catch (e) {
         set({ ending: false });
         say(errorText(e, t.notEnded, t.endFailed));
         return false;
       }
-      list.drop(id);
       return true;
     },
     sayToast: say,

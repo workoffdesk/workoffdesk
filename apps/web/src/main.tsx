@@ -4,6 +4,7 @@ import { lazy, StrictMode, Suspense, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Login } from './pages/Login';
 import { Sessions } from './pages/Sessions';
+import { Conversations } from './pages/Conversations';
 import { Settings } from './pages/Settings';
 import { Mac } from './pages/Mac';
 import { SessionPage } from './pages/Session';
@@ -44,6 +45,19 @@ function Page() {
   const mac = path.match(/^\/(claude|codex)\/([0-9a-f-]{36})$/);
   const onMac = mac ? { agent: mac[1] as Agent, sid: mac[2] } : null;
   const open = term ? <SessionPage key={term} id={term} /> : onMac ? <MacConversation key={path} {...onMac} /> : null;
+  if (path === '/conversations') {
+    if (!wide) return <Conversations />;
+    return (
+      <div className="split">
+        <div className="split-list">
+          <Conversations />
+        </div>
+        <div className="split-pane">
+          <p className="split-empty muted">{t.chooseSession}</p>
+        </div>
+      </div>
+    );
+  }
   if (!wide) return open ?? <Sessions />;
   return (
     <div className="split">

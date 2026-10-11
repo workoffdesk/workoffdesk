@@ -12,7 +12,7 @@ import type { Answer, ClaudeStatus } from '../agents/types.js';
 import { sqliteAvailable } from '../journal/db.js';
 import { Journal, type JournalLog, type Row } from '../journal/index.js';
 import { Conflict, InvalidRequest } from '../system/errors.js';
-import { shownTitle, type SessionMeta, type Store } from '../system/store.js';
+import { shownTitle, type PastSession, type SessionMeta, type Store } from '../system/store.js';
 import type { Tmux } from '../system/tmux.js';
 import { Accounts } from './machine/accounts.js';
 import { Moves } from './machine/moves.js';
@@ -45,6 +45,8 @@ export class LocalMachine implements Machine {
   // Per session, the last message still being taken in.
   private readonly sending = new Map<string, Promise<unknown>>();
   private lastIds = '';
+  // When something last happened in each running session, as the last listing saw it.
+  private readonly seen = new Map<string, number>();
 
   constructor(deps: {
     tmux: Tmux;
@@ -145,6 +147,11 @@ export class LocalMachine implements Machine {
     return this.d.codexThreads ? this.d.codexThreads.list() : [];
   }
 
+  // Every Codex thread people opened on the Mac, however old.
+  async allCodexOnMac(): Promise<CodexOnMac[]> {
+    return this.d.codexThreads ? this.d.codexThreads.all() : [];
+  }
+
   codexChat(threadId: string): Promise<Entry[]> {
     if (!UUID.test(threadId)) throw new InvalidRequest('thread id must be a uuid');
     return codexOf(this.d).readItems(threadId);
@@ -195,10 +202,7 @@ export class LocalMachine implements Machine {
     });
     const liveIds = new Set(live.map((t) => t.id));
     const stale = known.filter((id) => !liveIds.has(id));
-    if (stale.length) {
-      this.d.store.update((st) => stale.forEach((id) => delete st.sessions[id]));
-      stale.forEach((id) => this.p.status.forget(id));
-    }
+    if (stale.length) this.leave(stale);
     const sessions = live.map(({ id, ...t }) => {
       const meta: SessionMeta = this.d.store.get().sessions[id] ?? {
         title: t.name,
@@ -213,12 +217,50 @@ export class LocalMachine implements Machine {
     await Promise.all(sessions.map((s) => s.meta.kind === 'claude' && this.p.status.fillStatus(s.id)));
     for (const s of sessions) if (s.meta.kind === 'claude') this.p.status.look(s.id);
     for (const s of sessions) if (s.meta.kind === 'codex') this.p.status.lookCodex(s.id, s.meta);
-    const ids = [...liveIds].sort().join(',');
+    for (const s of sessions) this.seen.set(s.id, s.activity);
+    const past = this.d.store.get().past;
+    const ids = `${[...liveIds].sort().join(',')}|${Object.keys(past).sort().join(',')}`;
     if (ids !== this.lastIds) {
       this.lastIds = ids;
       this.s.emit();
     }
-    return sessions.map((s) => this.toSession(s.id, s.meta, s.activity)).sort((a, b) => b.lastActivity - a.lastActivity);
+    const running = sessions.map((s) => this.toSession(s.id, s.meta, s.activity));
+    const held = new Set(running.flatMap((s) => conversationOf(s) ?? []));
+    const kept = Object.entries(past).flatMap(([id, p]) => (held.has(conversationOf(p) ?? '') ? [] : [this.toPast(id, p)]));
+    return [...running, ...kept].sort((a, b) => b.lastActivity - a.lastActivity);
+  }
+
+  // Sessions tmux no longer has. A Claude or Codex one is kept as past, with its journal, unless a past one of
+  // the same conversation has more of it; a shell one is dropped.
+  private leave(ids: string[]): void {
+    const dropped: string[] = [];
+    this.d.store.update((st) => {
+      for (const id of ids) {
+        const meta = st.sessions[id];
+        delete st.sessions[id];
+        const conv = meta && conversationOf(meta);
+        const other = conv ? Object.keys(st.past).find((p) => conversationOf(st.past[p]) === conv) : undefined;
+        if (!meta || meta.kind === 'shell' || (other && this.journal.itemCount(other) > this.journal.itemCount(id))) {
+          dropped.push(id);
+          continue;
+        }
+        if (other) {
+          delete st.past[other];
+          dropped.push(other);
+        }
+        st.past[id] = { ...meta, lastActivity: this.seen.get(id) ?? meta.createdAt };
+      }
+    });
+    for (const id of ids) {
+      this.p.status.forget(id);
+      this.seen.delete(id);
+    }
+    for (const id of dropped) this.journal.drop(id);
+  }
+
+  // Gone from tmux and kept to read.
+  isPast(id: string): boolean {
+    return Object.hasOwn(this.d.store.get().past, id);
   }
 
   async exists(id: string): Promise<boolean> {
@@ -331,6 +373,11 @@ export class LocalMachine implements Machine {
     };
   }
 
+  private toPast(id: string, p: PastSession): TermSession {
+    const { lastActivity, ...meta } = p;
+    return { ...this.toSession(id, meta, lastActivity), status: 'ended', usage: null, claudeAccount: undefined, past: true };
+  }
+
   toSession(id: string, meta: SessionMeta, lastActivity: number): TermSession {
     return {
       id,
@@ -347,3 +394,6 @@ export class LocalMachine implements Machine {
     };
   }
 }
+
+// The conversation a session holds, Claude's or Codex's.
+const conversationOf = (s: { claudeSessionId?: string; codexThreadId?: string }) => s.claudeSessionId ?? s.codexThreadId;

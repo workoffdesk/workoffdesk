@@ -11,8 +11,9 @@ export type HeaderItem = NativeStackHeaderItem;
 // Header items as the iOS bar's own buttons, without the glass plate iOS 26 sets them on. Both sides are always
 // set, empty for none: a screen's options are merged into the ones it had, so a side left out would keep the
 // items an earlier render put there.
-export function bareHeader({ left, right }: { left: HeaderItem | null; right: HeaderItem | null }): NativeStackNavigationOptions {
-  const bare = (item: HeaderItem | null) => () => (item ? [item.type === 'spacing' ? item : { hidesSharedBackground: true, ...item }] : []);
+export function bareHeader({ left, right }: { left: HeaderItem | null; right: HeaderItem | HeaderItem[] | null }): NativeStackNavigationOptions {
+  const bare = (items: HeaderItem | HeaderItem[] | null) => () =>
+    [items ?? []].flat().map((item): HeaderItem => (item.type === 'spacing' ? item : { hidesSharedBackground: true, ...item }));
   return { unstable_headerLeftItems: bare(left), unstable_headerRightItems: bare(right) };
 }
 

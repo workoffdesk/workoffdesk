@@ -215,6 +215,19 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   Mac is taken over the same way, without its environment; one held by an editor or the Codex app cannot be.
   (`apps/server/src/agents/codex/threads.ts`, `apps/server/src/sessions/machine/lifecycle.ts` `resumeCodex`,
   `docs/design/2026-10-08-codex-on-the-mac.md`)
+- A Claude or Codex session that leaves tmux (ended here, its agent quit, tmux lost it, the Mac restarted) stays in
+  the list as past, its conversation readable from the journal, until it is deleted; going on with it brings it back
+  as the same session. A shell session is not kept. (`apps/server/src/sessions/machine.ts` `leave`,
+  `apps/server/src/sessions/machine/lifecycle.ts` `revive`, `apps/server/tests/integration/sessions/machine.past.test.ts`,
+  `docs/design/2026-10-11-session-history.md`)
+- Claude Code deletes a transcript at startup once it is older than `cleanupPeriodDays`, 30 days unless set; a past
+  session whose transcript is gone is refused going on with (`409 conversation-gone`) and can still be read.
+  Codex keeps its rollouts under `~/.codex/sessions/`. (`docs/design/2026-10-11-session-history.md`,
+  `apps/server/src/sessions/machine/lifecycle.ts` `conversationGone`)
+- **Conversations on the Mac** lists every Claude Code transcript and every Codex thread people opened (`cli`,
+  `vscode`) that no session here holds, by day, searched by title, folder or last prompt.
+  (`apps/server/src/http/routes/codex.ts`, `libs/client/src/sessions/macHistory.ts`,
+  `libs/client/tests/sessions/macHistory.test.ts`, e2e `sessions.spec.ts`)
 - When a session's conversation is open in a terminal on the Mac as well, the session says so above the
   composer, since two Claudes would each write it. (`apps/server/src/sessions/machine.ts`, `libs/i18n` `alsoOnMac`)
 

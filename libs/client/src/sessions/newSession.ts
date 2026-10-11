@@ -16,12 +16,12 @@ export const agentsOn = (api: Api) => api<{ codex: boolean }>(`/api/m/${MACHINE}
 // is open in a terminal on the Mac, its page there, to take it over from.
 export type GoneOn = { session: TermSession } | { onMac: { agent: Agent; sid: string } };
 
-// The conversation of a session whose agent is gone goes on: in that session while it is still on the Mac (its
-// Claude quit, `inPlace`), in a new one once it is gone from there.
+// The conversation of a session whose agent is gone goes on: in that session while the Mac still has it (its
+// Claude quit, `inPlace`, or it is kept as past), in a new one once it is gone from there.
 export async function goOnWith(api: Api, s: TermSession & { kind: Agent }, inPlace: boolean): Promise<GoneOn> {
   const sid = s.kind === 'codex' ? s.codexThreadId : s.claudeSessionId;
   try {
-    const session = inPlace
+    const session = inPlace || s.past
       ? await api<TermSession>(`/api/m/${MACHINE}/sessions/${s.id}/continue`, { method: 'POST' })
       : await createSession(api, { kind: s.kind, cwd: s.cwd, resumeId: sid });
     return { session };

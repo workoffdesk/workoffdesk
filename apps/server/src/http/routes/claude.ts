@@ -1,5 +1,5 @@
 import { findTranscript, readChat, readChatBefore } from '../../agents/claude/transcript/transcriptFile.js';
-import { heldInBackground, listProjectDirs, listRecentClaudeSessions } from '../../agents/claude/transcript/transcripts.js';
+import { heldInBackground, listAllClaudeSessions, listProjectDirs, listRecentClaudeSessions, type RecentClaudeSession } from '../../agents/claude/transcript/transcripts.js';
 import { isDir } from '../../system/dirs.js';
 import type { AppDeps } from '../app.js';
 import type { RouteModule } from './context.js';
@@ -8,11 +8,20 @@ import type { RouteModule } from './context.js';
 // How old a look at the Mac's terminals the list may show: a page open on a conversation asks every few seconds.
 const MAC_SEEN_MS = 10_000;
 
-export async function recentClaude(deps: AppDeps) {
+export function recentClaude(deps: AppDeps) {
+  return claudeRows(deps, (root) => listRecentClaudeSessions(root));
+}
+
+// Every Claude conversation Claude Code still keeps on this Mac, however old.
+export function allClaude(deps: AppDeps) {
+  return claudeRows(deps, listAllClaudeSessions);
+}
+
+async function claudeRows(deps: AppDeps, list: (root: string) => Promise<RecentClaudeSession[]>) {
   const { machine } = deps;
   if (!deps.claudeProjectsRoot) return [];
   const [recent, sessions, held, onMac] = await Promise.all([
-    listRecentClaudeSessions(deps.claudeProjectsRoot),
+    list(deps.claudeProjectsRoot),
     machine.listSessions(),
     deps.claudeJobsRoot ? heldInBackground(deps.claudeJobsRoot) : () => false,
     machine.openOnMac(MAC_SEEN_MS),

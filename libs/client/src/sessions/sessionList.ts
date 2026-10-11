@@ -218,10 +218,20 @@ export function createSessionList(config: SessionListConfig) {
       };
     },
 
-    // A session ended from here leaves the list at once, without waiting for the Mac to say so.
+    // A session deleted from here leaves the list at once, without waiting for the Mac to say so.
     drop(id: string) {
       if (!current) return;
       settle(current.filter((s) => s.id !== id));
+    },
+
+    // A session ended from here is at once what the Mac will list: a Claude or Codex one past, a shell gone.
+    ends(id: string) {
+      if (!current) return;
+      settle(
+        current.flatMap((s) =>
+          s.id !== id ? [s] : s.kind === 'shell' ? [] : [{ ...s, past: true as const, status: 'ended' as const, usage: null }],
+        ),
+      );
     },
 
     // What a logged-out device, or one now on another account, must not show. The socket of the login that

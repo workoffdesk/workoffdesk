@@ -92,8 +92,13 @@ export class CodexAgent {
   // The threads people had on this Mac, newest first, as the app server lists them: it reads every session file
   // to answer, which takes seconds.
   async listThreads(params: object): Promise<unknown[]> {
-    const { data } = await (await this.link()).request<{ data?: unknown }>('thread/list', params, LIST_MS);
-    return Array.isArray(data) ? data : [];
+    return (await this.listThreadPage(params)).data;
+  }
+
+  // One page of threads, and the cursor of the next; null when it is the last.
+  async listThreadPage(params: object): Promise<{ data: unknown[]; next: string | null }> {
+    const { data, nextCursor } = await (await this.link()).request<{ data?: unknown; nextCursor?: unknown }>('thread/list', params, LIST_MS);
+    return { data: Array.isArray(data) ? data : [], next: typeof nextCursor === 'string' && nextCursor ? nextCursor : null };
   }
 
   // One thread's metadata, read without loading it; undefined when there is no such thread.

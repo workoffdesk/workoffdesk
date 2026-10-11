@@ -1,7 +1,6 @@
 // What the CLI says to the person at the Mac: Chinese when the Mac speaks it, English otherwise.
 // The phone has its own dictionary (@workoffdesk/i18n); errors the server sends it go by code, not words.
 
-
 export type Lang = 'en' | 'zh';
 
 // The same rule as the phone's.
@@ -209,6 +208,7 @@ To restart the service only: launchctl kickstart -k gui/$(id -u)/${o.label}`,
   goOn: {
     onlyClaude: 'only a Claude session whose Claude quit is gone on with in place',
     terminalBusy: "something runs in this session's terminal on the Mac; quit it there first, or start another conversation",
+    conversationGone: (agent: string) => `${agent} no longer keeps this conversation, so it cannot be gone on with; what was said can still be read here`,
   },
   folderGone: (path: string) => `its folder is gone: ${path}`,
 };
@@ -390,6 +390,7 @@ ${o.frontDoor}
   goOn: {
     onlyClaude: '只有 Claude 已退出的 Claude 会话能原地接着',
     terminalBusy: '这个会话在 Mac 的终端里正跑着别的程序；先在那里退出它，或者重新开一个对话',
+    conversationGone: (agent: string) => `${agent} 已不再保留这个对话，没法接着聊了；聊过的内容在这里还能看`,
   },
   folderGone: (path: string) => `它的文件夹已经不在了：${path}`,
 };

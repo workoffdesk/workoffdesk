@@ -172,11 +172,10 @@ export class Status {
     this.s.transcriptWatches.set(id, stop);
   }
 
-  // A session gone from tmux is gone for good, and so are its rows; a device keeps its own copy.
+  // A session gone from tmux: nothing of it runs to follow. Its rows stay while it is kept as past.
   forget(id: string): void {
     this.s.transcriptWatches.get(id)?.();
     this.s.transcriptWatches.delete(id);
-    this.d.journal.drop(id);
     this.s.statuses.delete(id);
     this.workSince.delete(id);
     this.turnLooks.delete(id);

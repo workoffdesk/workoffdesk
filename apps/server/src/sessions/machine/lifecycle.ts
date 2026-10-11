@@ -60,7 +60,12 @@ export class Lifecycle {
 
   async continueSession(id: string): Promise<TermSession> {
     if (!ID.test(id)) throw new InvalidRequest('bad session id');
-    const meta = this.d.store.get().sessions[id];
+    const past = this.d.store.get().past[id];
+    if (past?.kind === 'codex' && past.codexThreadId) {
+      const tid = past.codexThreadId;
+      return this.resumeOnce(tid, () => this.resumeCodex({ kind: 'codex', cwd: past.cwd, resumeId: tid }));
+    }
+    const meta = past ?? this.d.store.get().sessions[id];
     if (!meta) throw new NotFound('no such session');
     const sid = meta.claudeSessionId;
     if (meta.kind !== 'claude' || !sid) throw new InvalidRequest(m.goOn.onlyClaude);
@@ -95,6 +100,10 @@ export class Lifecycle {
       if (stopped.includes(false)) throw new Conflict(m.takeOver.wouldNotQuit('Claude'), 'mac-would-not-quit');
     }
     if (!quit) return this.startSession(spec, id);
+    if (quit.past) {
+      if (this.d.claudeProjectsRoot && !(await findTranscript(this.d.claudeProjectsRoot, spec.resumeId).catch(() => null))) throw conversationGone('Claude');
+      return this.revive(id, spec);
+    }
     // The shell its Claude left is not ended while something runs in it.
     const pane = await this.d.tmux.panePid(tmuxName(id));
     if (pane && (await shellBusy(pane))) throw new Conflict(m.goOn.terminalBusy, 'terminal-busy');
@@ -127,16 +136,36 @@ export class Lifecycle {
   private async resumeCodex(spec: ConversationResume & { kind: 'codex'; takeOver?: boolean }): Promise<TermSession> {
     if (spec.takeOver) this.cancelTakeOver(spec.resumeId);
     const here = (await this.p.sessions.listSessions()).find((s) => s.codexThreadId === spec.resumeId);
-    if (here) return here;
+    if (here && !here.past) return here;
     if (!isDir(expandHome(spec.cwd, homedir()))) throw folderGone(spec.cwd);
-    const holder = (await this.codexWhere(spec.resumeId))?.holder;
-    const id = newId();
+    const thread = await this.codexWhere(spec.resumeId);
+    if (here && !thread) throw conversationGone('Codex');
+    const holder = thread?.holder;
+    const id = here?.id ?? newId();
     if (holder?.at === 'elsewhere') throw new Conflict(m.takeOver.openElsewhere, 'open-elsewhere');
     if (holder?.at === 'terminal') {
       if (!spec.takeOver) throw new Conflict(m.takeOver.openOnMac([holder.tty], 'Codex'), 'open-on-mac');
       if (!(await stopMacProcess(holder, m.takeOver.goneToPhone(id)))) throw new Conflict(m.takeOver.wouldNotQuit('Codex'), 'mac-would-not-quit');
     }
-    return this.startSession({ kind: 'codex', cwd: spec.cwd, resumeId: spec.resumeId, title: spec.title }, id);
+    const codex = { kind: 'codex' as const, cwd: spec.cwd, resumeId: spec.resumeId, title: spec.title };
+    return here ? this.revive(id, codex) : this.startSession(codex, id);
+  }
+
+  // A past session started again in place, going on with its conversation: the same id, name and journal. A name
+  // given it while it was past is given its agent's conversation too.
+  private async revive(id: string, spec: CreateSpec): Promise<TermSession> {
+    const was = this.d.store.get().past[id]!;
+    const started = await this.startSession(spec, id);
+    this.d.store.update((st) => {
+      delete st.past[id];
+      const now = st.sessions[id];
+      if (!now) return;
+      const { title, named, customTitle, aiTitle, createdAt } = was;
+      Object.assign(now, { title, named, customTitle, aiTitle, createdAt });
+      if (named && (spec.kind === 'claude' && spec.resumeId ? this.claudeName(spec.resumeId) : null) !== title) now.naming = title;
+    });
+    this.p.naming.watch();
+    return (await this.p.sessions.listSessions()).find((s) => s.id === id) ?? started;
   }
 
   private codexWhere(threadId: string): Promise<CodexOnMac | null> {
@@ -292,11 +321,16 @@ export class Lifecycle {
     return (await this.p.sessions.listSessions()).find((s) => s.id === id) ?? this.p.sessions.toSession(id, meta, Date.now());
   }
 
+  // Ends a running session, which keeps it as past; deletes a past one, and what its journal held.
   async killSession(id: string): Promise<void> {
     if (!ID.test(id)) throw new InvalidRequest('bad session id');
+    if (this.d.store.get().past[id]) {
+      this.d.store.update((st) => delete st.past[id]);
+      this.d.journal.drop(id);
+      this.s.emit();
+      return;
+    }
     await this.d.tmux.killSession(tmuxName(id));
-    this.d.store.update((st) => delete st.sessions[id]);
-    this.p.status.forget(id);
     await this.p.sessions.listSessions();
   }
 
@@ -304,6 +338,11 @@ export class Lifecycle {
     if (!ID.test(id)) throw new InvalidRequest('bad session id');
     const name = nameLine(title);
     if (!name) throw new InvalidRequest('a name cannot be empty');
+    if (this.d.store.get().past[id]) {
+      this.d.store.update((st) => Object.assign(st.past[id], { title: name, named: true }));
+      this.s.emit();
+      return (await this.p.sessions.listSessions()).find((s) => s.id === id) ?? null;
+    }
     const meta = this.d.store.get().sessions[id];
     if (!meta || !(await this.p.sessions.exists(id))) return null;
     this.d.store.update((st) => {
@@ -351,3 +390,6 @@ export class Lifecycle {
     return this.d.store.get().claudeNames[claudeSessionId] ?? null;
   }
 }
+
+// A conversation its agent no longer keeps: what was said can be read here, not gone on with.
+const conversationGone = (agent: string) => new Conflict(m.goOn.conversationGone(agent), 'conversation-gone');
