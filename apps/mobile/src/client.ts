@@ -15,7 +15,7 @@ import { createReleaseWatch } from '@workoffdesk/client/base/release';
 import { createSessionList } from '@workoffdesk/client/sessions/sessionList';
 import { createSlowReport, SLOW_PATH } from '@workoffdesk/client/base/slow';
 import { createSnippets } from '@workoffdesk/client/composer/snippets';
-import { createThemeChoice } from '@workoffdesk/client/settings/choices';
+import { createGroupingChoice, createThemeChoice } from '@workoffdesk/client/settings/choices';
 import { createTextSize } from '@workoffdesk/client/settings/textSize';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
@@ -122,6 +122,7 @@ export const drafts = createDrafts(storage);
 export const keyBar = createKeyBar(storage);
 export const textSize = createTextSize(storage);
 export const themeChoice = createThemeChoice(storage);
+export const groupingChoice = createGroupingChoice(storage);
 export const snippets = createSnippets(storage);
 
 const newMessageId = () => messageId(getRandomBytes(MESSAGE_ID_BYTES));

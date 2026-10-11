@@ -5,8 +5,11 @@ English · [简体中文](usage.zh-CN.md)
 ## The session list
 
 After you sign in, the sessions running on the Mac are listed like a chat list: each row has the session's
-name, when it last changed, and what Claude said last. Sessions in more than one folder are grouped under
-each folder's name; with one folder, a row shows it beside the name. A badge says **Running** while Claude
+name, when it last changed, and what Claude said last. Sessions are grouped by project: a git repository
+with all its worktrees is one project, under its main folder's name, and a row in a worktree or a folder inside
+it names that folder beside the session's name; a folder outside git is a project of its own. With one project
+there is no heading. **Settings → Session list → Not grouped** lists them all in one, each row naming its
+project; each phone or browser keeps its own choice. A badge says **Running** while Claude
 works, **Needs you** when it waits for you, and **Unread** when it has said something you have not opened.
 The search box at the foot filters by name or folder.
 

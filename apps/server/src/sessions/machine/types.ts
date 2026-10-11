@@ -42,6 +42,8 @@ export type TermSession = {
   claudeAccount?: string;
   // Gone from tmux and kept, to read and go on with, until deleted.
   past?: true;
+  // The main folder of the git repository it is in, a worktree's too; missing outside git.
+  project?: string;
 };
 
 export interface Machine {

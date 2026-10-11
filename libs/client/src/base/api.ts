@@ -224,6 +224,8 @@ export type TermSession = {
   lastReply?: string | null;
   // Gone from the Mac's tmux and kept there, to read and go on with, until deleted.
   past?: true;
+  // The main folder of the git repository it is in, a worktree's too; missing outside git or from an older Mac.
+  project?: string;
 };
 
 // A Claude or Codex conversation people had on this Mac. `automated`: started by a program (an agent runner

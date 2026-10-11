@@ -3,13 +3,13 @@ import { deviceLabel, timeAgo } from '@workoffdesk/client/model/format';
 import type { Listed } from '@workoffdesk/client/base/listed';
 import { TEXT_MAX, TEXT_MIN, TEXT_STEP } from '@workoffdesk/client/settings/textSize';
 import { t } from '@workoffdesk/i18n';
-import { useLooks, useSignIns } from '@workoffdesk/react/settings';
+import { useGrouping, useLooks, useSignIns } from '@workoffdesk/react/settings';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Updates from 'expo-updates';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ActionSheetIOS, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { api, auth, snippets, themeChoice, type Login } from '../client';
+import { api, auth, groupingChoice, snippets, themeChoice, type Login } from '../client';
 import { useAccounts, useLogin } from '../hooks';
 import { setTextSize, setTheme, tint, useTheme, type Theme } from '../theme';
 import { PageHeader } from '../components/header';
@@ -31,9 +31,12 @@ function Section({ title, children, s }: { title: string; children: ReactNode; s
 // that says which, and opens the choices when tapped.
 function Looks({ s, theme }: { s: ReturnType<typeof styles>; theme: Theme }) {
   const { colours, themes, pickTheme, language, languages, pickLanguage } = useLooks({ themeChoice, setTheme, languageChoice, restart: reopenHere });
+  const { grouping, groupings, pickGrouping } = useGrouping(groupingChoice);
   return (
     <Section title={t.appearance} s={s}>
       <ChoiceRow label={t.theme} names={themes} value={colours} onPick={pickTheme} s={s} theme={theme} />
+      <View style={s.rule} />
+      <ChoiceRow label={t.listGrouping} names={groupings} value={grouping} onPick={pickGrouping} s={s} theme={theme} />
       <View style={s.rule} />
       <ChoiceRow label={t.language} note={t.languageRestarts} names={languages} value={language} onPick={pickLanguage} s={s} theme={theme} />
     </Section>

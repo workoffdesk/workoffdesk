@@ -1,4 +1,5 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +34,21 @@ describe('LocalMachine', () => {
     expect(s.title).toBe('my-project');
     expect(s.status).toBeNull();
     expect((await m.listSessions()).map((x) => x.id)).toContain(s.id);
+  });
+
+  it("lists each session with the git repository it is in, a worktree's too, and none outside git", async () => {
+    const { m } = make();
+    const repo = join(dir, 'shop');
+    mkdirSync(repo);
+    const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], { cwd: repo, stdio: 'ignore' });
+    git('init', '-q');
+    git('commit', '-q', '--allow-empty', '-m', 'first');
+    git('worktree', 'add', '-q', join(dir, 'shop-feature'));
+    const inTree = await m.createSession({ kind: 'shell', cwd: join(dir, 'shop-feature') });
+    const outside = await m.createSession({ kind: 'shell', cwd: mkdtempSync(join(dir, 'plain-')) });
+    const rows = await m.listSessions();
+    expect(rows.find((x) => x.id === inTree.id)?.project).toBe(realpathSync(repo));
+    expect(rows.find((x) => x.id === outside.id)).not.toHaveProperty('project');
   });
 
   it('reads the screen with what scrolled off above it, up to a phone-sized history', async () => {

@@ -11,9 +11,9 @@ import { disablePush, enablePush, pushState, type PushState } from '../push';
 import { navigate } from '../router';
 import { snippets } from '../platform';
 import { getTextSize, setTextSize, TEXT_MAX, TEXT_MIN, TEXT_STEP } from '../textSize';
-import { languageChoice, setTheme, themeChoice } from '../looks';
+import { groupingChoice, languageChoice, setTheme, themeChoice } from '../looks';
 import { t } from '@workoffdesk/i18n';
-import { useLooks, useSignIns } from '@workoffdesk/react/settings';
+import { useGrouping, useLooks, useSignIns } from '@workoffdesk/react/settings';
 
 declare const __RELEASE__: string;
 
@@ -53,11 +53,13 @@ function TextSize() {
 // which, and opens the choices when tapped.
 function Looks() {
   const { colours, themes, pickTheme, language, languages, pickLanguage } = useLooks({ themeChoice, setTheme, languageChoice, restart: () => location.reload() });
+  const { grouping, groupings, pickGrouping } = useGrouping(groupingChoice);
   return (
     <section className="section">
       <h2>{t.appearance}</h2>
       <div className="group">
         <ChoiceRow label={t.theme} names={themes} value={colours} onPick={pickTheme} />
+        <ChoiceRow label={t.listGrouping} names={groupings} value={grouping} onPick={pickGrouping} />
         <ChoiceRow label={t.language} note={t.languageRestarts} names={languages} value={language} onPick={pickLanguage} />
       </div>
     </section>

@@ -1,6 +1,6 @@
 import type { Api } from '@workoffdesk/client/base/api';
 import { LOADING, type Listed } from '@workoffdesk/client/base/listed';
-import type { createLanguageChoice, createThemeChoice, LanguageChoice, ThemeChoice } from '@workoffdesk/client/settings/choices';
+import type { createGroupingChoice, createLanguageChoice, createThemeChoice, GroupingChoice, LanguageChoice, ThemeChoice } from '@workoffdesk/client/settings/choices';
 import { fetchLogins, fetchPasskeys, type LoginRow, type PasskeyRow } from '@workoffdesk/client/settings/signIns';
 import { t } from '@workoffdesk/i18n';
 import { useEffect, useState } from 'react';
@@ -27,6 +27,15 @@ export function useLooks(o: {
     o.restart();
   };
   return { colours, themes, pickTheme, language, languages, pickLanguage };
+}
+
+// How the session list is shown, this device's own: by project or as one list. Every page showing it follows a
+// change at once (on the web, Settings is beside the list).
+export function useGrouping(choice: ReturnType<typeof createGroupingChoice>) {
+  const [grouping, setGrouping] = useState(choice.get());
+  useEffect(() => choice.follow(setGrouping), [choice]);
+  const groupings: Record<GroupingChoice, string> = { project: t.groupByProject, none: t.notGrouped };
+  return { grouping, groupings, pickGrouping: (v: GroupingChoice) => choice.keep(v) };
 }
 
 // This server's passkeys and signed-in devices, loaded with the page and again after each change (`load`); a

@@ -227,6 +227,12 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   as the same session. A shell session is not kept. (`apps/server/src/sessions/machine.ts` `leave`,
   `apps/server/src/sessions/machine/lifecycle.ts` `revive`, `apps/server/tests/integration/sessions/machine.past.test.ts`,
   `docs/design/2026-10-11-session-history.md`)
+- Each listed session carries its `project`: the main folder of the git repository its folder is in, read from the
+  `.git` files (a worktree's `commondir`, a bare repository's worktrees too); a submodule, or a `.git` git cannot
+  read, is a project of its own folder; none outside git. The list groups by project, or not at all when
+  **Session list** is set to **Not grouped** on that device. (`apps/server/src/system/project.ts` `projectOf`,
+  `apps/server/tests/unit/system/project.test.ts`, `apps/server/tests/integration/sessions/machine.test.ts`,
+  `libs/client/src/settings/choices.ts` `createGroupingChoice`, `libs/client/tests/settings/choices.test.ts`)
 - The list shows the sessions that have ended (gone from tmux, or their agent quit) after the running ones, in one
   group of their own, the newest first. (`libs/client/src/sessions/sessionListView.ts` `listView`,
   `libs/client/tests/sessions/sessionListView.test.ts`)

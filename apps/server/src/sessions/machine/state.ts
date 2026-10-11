@@ -123,3 +123,6 @@ export function codexOf(d: MachineDeps): CodexAgent {
   if (!d.codex) throw new InvalidRequest('Codex is not set up on this Mac');
   return d.codex;
 }
+
+// The conversation a session holds, Claude's or Codex's.
+export const conversationOf = (s: { claudeSessionId?: string; codexThreadId?: string }) => s.claudeSessionId ?? s.codexThreadId;

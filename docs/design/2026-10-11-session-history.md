@@ -75,6 +75,10 @@ unless asked) with a last activity before `before`, and `more` when there are ot
   the conversations grouped by day (Today, Yesterday, then the date), more as the page is scrolled to its end. A row
   opens the conversation's page, from which it is picked up as now. The list keeps its own section of the last
   24 hours.
+- The running sessions are grouped by project (`project` on each session: the git repository's main folder, so
+  worktrees join their repository; a folder outside git is its own), or not grouped, as Settings says on that
+  device. A row names its folder of the project when that is not the project's own, or its project when there is
+  no heading over it.
 - A past session's row is drawn as a Mac conversation's is (its picture faded), without a status.
 - The sessions that have ended (past, or their agent quit in the terminal left behind: status `ended`) are listed
   after the running ones, in one group of their own, **Ended**, the newest first; their rows name their folder.

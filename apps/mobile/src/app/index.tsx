@@ -8,7 +8,8 @@ import { followMacRecent, keptMacRecent, macShown, notGoneOnHere } from '@workof
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useUpdateReady } from '../appUpdate';
-import { api, seen, sessionList, storage, visibility } from '../client';
+import { api, groupingChoice, seen, sessionList, storage, visibility } from '../client';
+import { useGrouping } from '@workoffdesk/react/settings';
 import { RenameSheet } from '../components/RenameSheet';
 import { useSessions } from '../hooks';
 import { MacRow, Row, rowStyles, type RowAction } from '../components/rows';
@@ -45,7 +46,8 @@ export default function Sessions() {
   const [query, setQuery] = useState('');
   const [renaming, setRenaming] = useState<TermSession | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
-  const { sorted, groups } = listView(sessions ?? null, query);
+  const { grouping } = useGrouping(groupingChoice);
+  const { sorted, groups } = listView(sessions ?? null, query, grouping);
   const unread = sorted ? seen.unreadOf(sorted) : new Set<string>();
   const sections: Section[] = groups.map((g) => ({ group: g, title: g.title, data: g.sessions }));
   const actions = (s: TermSession): RowAction[] => [

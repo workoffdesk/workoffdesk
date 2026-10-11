@@ -13,6 +13,8 @@ import { IconGear, IconHistory, IconPlus, IconSearch, IconChat, IconCode, IconTe
 import { navigate } from '../router';
 import { useSessions } from '../sessions';
 import { seen, sessionList, storage, visibility } from '../platform';
+import { groupingChoice } from '../looks';
+import { useGrouping } from '@workoffdesk/react/settings';
 import { t } from '@workoffdesk/i18n';
 
 const link = (to: string) => (e: React.MouseEvent) => {
@@ -133,7 +135,8 @@ export function Sessions({ current }: { current?: string } = {}) {
   const [renaming, setRenaming] = useState<TermSession | null>(null);
   const [deleting, setDeleting] = useState<TermSession | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const { sorted, shown, groups } = listView(sessions, query);
+  const { grouping } = useGrouping(groupingChoice);
+  const { sorted, shown, groups } = listView(sessions, query, grouping);
   const unread = sorted ? seen.unreadOf(sorted) : new Set<string>();
   const leave = (s: TermSession) => {
     setProblem(null);

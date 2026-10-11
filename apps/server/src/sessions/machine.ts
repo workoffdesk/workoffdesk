@@ -12,6 +12,7 @@ import type { Answer, ClaudeStatus } from '../agents/types.js';
 import { sqliteAvailable } from '../journal/db.js';
 import { Journal, type JournalLog, type Row } from '../journal/index.js';
 import { Conflict, InvalidRequest } from '../system/errors.js';
+import { projectOf } from '../system/project.js';
 import { shownTitle, type PastSession, type SessionMeta, type Store } from '../system/store.js';
 import type { Tmux } from '../system/tmux.js';
 import { Accounts } from './machine/accounts.js';
@@ -20,7 +21,7 @@ import { Naming } from './machine/naming.js';
 import { TakeOvers } from './machine/takeOvers.js';
 import { Input } from './machine/input.js';
 import { Lifecycle } from './machine/lifecycle.js';
-import { CHAT_SIZE, ID, MachineState, UUID, codexOf, type MachineDeps, type Parts } from './machine/state.js';
+import { CHAT_SIZE, ID, MachineState, UUID, codexOf, conversationOf, type MachineDeps, type Parts } from './machine/state.js';
 import { Status } from './machine/status.js';
 import type { ConversationResume, CreateSpec, Machine, OnScreen, StatusNotifier, TermSession } from './machine/types.js';
 import { Outbox, migrateQueueFile, type Queued } from './outbox.js';
@@ -379,6 +380,7 @@ export class LocalMachine implements Machine {
   }
 
   toSession(id: string, meta: SessionMeta, lastActivity: number): TermSession {
+    const project = projectOf(meta.cwd);
     return {
       id,
       title: shownTitle(meta),
@@ -391,9 +393,7 @@ export class LocalMachine implements Machine {
       status: meta.kind === 'shell' ? null : (this.s.statuses.get(id) ?? 'idle'),
       usage: this.s.usages.get(id) ?? null,
       claudeAccount: this.p.accounts.accountLabel(meta),
+      ...(project && { project }),
     };
   }
 }
-
-// The conversation a session holds, Claude's or Codex's.
-const conversationOf = (s: { claudeSessionId?: string; codexThreadId?: string }) => s.claudeSessionId ?? s.codexThreadId;

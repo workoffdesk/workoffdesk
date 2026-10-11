@@ -1,4 +1,4 @@
-import { createLanguageChoice, createThemeChoice, type ThemeChoice } from '@workoffdesk/client/settings/choices';
+import { createGroupingChoice, createLanguageChoice, createThemeChoice, type ThemeChoice } from '@workoffdesk/client/settings/choices';
 import { storage } from './storage';
 
 // The colours and the language chosen in Settings, as the phone has them (apps/mobile/src/theme.ts and
@@ -6,6 +6,7 @@ import { storage } from './storage';
 // loads it, since its words are picked once, as it loads, so a new choice takes the page reloading.
 export const themeChoice = createThemeChoice(storage);
 export const languageChoice = createLanguageChoice(storage);
+export const groupingChoice = createGroupingChoice(storage);
 
 const language = languageChoice.get();
 if (language !== 'system') (globalThis as { workoffdeskLanguage?: string }).workoffdeskLanguage = language;
