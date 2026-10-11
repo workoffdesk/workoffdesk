@@ -1,6 +1,6 @@
 import { sentWords, type ChatItem } from '../agents/claude/transcript/chat.js';
 import { findTranscript, idItems, linesFrom } from '../agents/claude/transcript/transcriptFile.js';
-import { heldInTranscript } from '../agents/claude/transcript/turn.js';
+import { queueInTranscript } from '../agents/claude/transcript/turn.js';
 import type { JournalDb, MessageRow } from './db.js';
 import { backgroundRunning, liveShown, taskList } from './derive.js';
 
@@ -87,7 +87,7 @@ export async function ingest(db: JournalDb, id: string, conv: string | null, o: 
         db.putState(id, 'background', backgroundRunning(all));
       }
       if (items) db.putState(id, 'live', { text: liveShown(o.live(true), db.turnTexts(id, conv)) });
-      if (queueMoved) wrote = inClaudesQueue(db, id, heldInTranscript(path)) || wrote;
+      if (queueMoved) wrote = inClaudesQueue(db, id, queueInTranscript(path), o.log) || wrote;
       db.setConv(id, conv, read.next);
       wrote ||= items;
     });
@@ -127,14 +127,23 @@ export function landFound(db: JournalDb, id: string, log: IngestOptions['log']):
 
 // A message on its way whose words Claude holds in its own queue is enqueued, the oldest first for words held
 // twice: one pasted while the status had not caught up with Claude being at work. One stays enqueued until it
-// lands, or is not found when the turn is over (pulled back into the prompt at the Mac). True when any
-// changed.
-function inClaudesQueue(db: JournalDb, id: string, held: string[]): boolean {
-  const left = held.map((t) => t.trim());
+// lands, or is not found when the turn is over. One whose words were pulled back into the prompt at the Mac
+// after it was sent, and are not held again, is taken back. True when any changed.
+function inClaudesQueue(db: JournalDb, id: string, queue: ReturnType<typeof queueInTranscript>, log: IngestOptions['log']): boolean {
+  const left = queue.held.map((t) => t.trim());
+  const pulled = queue.pulled.map((p) => ({ text: p.text.trim(), at: p.at }));
   let changed = false;
   for (const m of onTheirWay(db, id)) {
     const i = left.indexOf(pasted(m.text));
-    if (i < 0) continue;
+    if (i < 0) {
+      const p = pulled.findIndex((x) => x.text === pasted(m.text) && !(x.at - m.sentAt < LANDS_AFTER_MS));
+      if (p < 0) continue;
+      pulled.splice(p, 1);
+      db.putMessage(id, { ...m, state: 'taken', ord: null });
+      log('message pulled back at the Mac', { session: id, qid: m.id });
+      changed = true;
+      continue;
+    }
     left.splice(i, 1);
     if (m.state === 'enqueued') continue;
     db.putMessage(id, { ...m, state: 'enqueued' });

@@ -530,6 +530,57 @@ describe('Journal', () => {
         expect(Object.fromEntries(j.messages(S).map((m) => [m.id, m.state]))).toEqual({ q1: 'enqueued', q2: 'delivered' });
       });
 
+      describe('pulled back out of Claude\'s queue into the prompt at the Mac (popAll)', () => {
+        const op = (operation: string, at: number, content = 'and the tests') => ({ type: 'queue-operation', operation, timestamp: iso(at), content });
+        const reads = async (...batches: object[][]) => {
+          const t = transcript();
+          const o = open({ root: t.root });
+          o.j.putMessage(S, message('q1', 'and the tests', 'delivered'));
+          t.prompt('fix it', T0 - 60_000);
+          for (const batch of batches) {
+            for (const e of batch) t.add(e);
+            await o.j.ingest(S, CONV);
+          }
+          return o;
+        };
+
+        it.each<[string, object[][], MessageState]>([
+          ['enqueued, then pulled back', [[op('enqueue', T0 + 1000)], [op('popAll', T0 + 2000)]], 'taken'],
+          ['enqueued and pulled back within one read', [[op('enqueue', T0 + 1000), op('popAll', T0 + 2000)]], 'taken'],
+          ['pulled back, changed and sent as a prompt of its own', [[op('enqueue', T0 + 1000)], [op('popAll', T0 + 2000), { type: 'user', timestamp: iso(T0 + 3000), message: { role: 'user', content: 'and the tests too' } }]], 'taken'],
+          ['pulled back and put back as it was', [[op('enqueue', T0 + 1000)], [op('popAll', T0 + 2000), op('enqueue', T0 + 3000)]], 'enqueued'],
+          ['taken into the turn under way', [[op('enqueue', T0 + 1000)], [op('remove', T0 + 2000)]], 'enqueued'],
+          ['not it: the same words pulled back well before it was sent', [[op('enqueue', T0 - 50_000), op('popAll', T0 - 40_000)]], 'delivered'],
+        ])('is taken back when %s, or not', async (_, batches, state) => {
+          const { j } = await reads(...batches);
+          expect(j.messages(S)[0].state).toBe(state);
+        });
+
+        it('takes back the message of the words pulled back, one for each time they were', async () => {
+          const t = transcript();
+          const { j } = open({ root: t.root });
+          j.putMessage(S, message('q1', 'and the docs', 'delivered'));
+          j.putMessage(S, message('q2', 'and the tests', 'delivered', T0 + 100));
+          j.putMessage(S, message('q3', 'and the tests', 'delivered', T0 + 200));
+          t.prompt('fix it', T0 - 60_000);
+          for (const e of [op('enqueue', T0 + 1000, 'and the docs'), op('enqueue', T0 + 1100), op('enqueue', T0 + 1200), op('popAll', T0 + 2000)]) t.add(e);
+          await j.ingest(S, CONV);
+          expect(Object.fromEntries(j.messages(S).map((m) => [m.id, m.state]))).toEqual({ q1: 'delivered', q2: 'taken', q3: 'delivered' });
+        });
+
+        it('is said in the log', async () => {
+          const { logged } = await reads([op('enqueue', T0 + 1000), op('popAll', T0 + 2000)]);
+          expect(logged).toContainEqual(['message pulled back at the Mac', { session: S, qid: 'q1' }]);
+        });
+
+        it('is not found unconfirmed when the turn ends', async () => {
+          const { j } = await reads([op('enqueue', T0 + 1000), op('popAll', T0 + 2000)]);
+          j.status(S, 'idle');
+          await new Promise((r) => setTimeout(r, 200));
+          expect(j.messages(S)[0].state).toBe('taken');
+        });
+      });
+
       it("leaves one the turn ended without unconfirmed; one sent after it ended is the next turn's", async () => {
         const t = transcript();
         const { j, logged } = open({ root: t.root });

@@ -124,10 +124,24 @@ export function transcriptTail(path: string): string[] | null {
   }
 }
 
+// The messages pulled back out of Claude's queue into its prompt at the Mac, each with when: from there they are
+// the person's to change, send or drop, so none of them goes on as it was sent.
+function pulledBack(lines: string[]): { text: string; at: number }[] {
+  return entries(lines, (l) => l.includes('"popAll"')).flatMap((e) =>
+    e.type === 'queue-operation' && e.operation === 'popAll' && typeof e.content === 'string' ? [{ text: e.content, at: Date.parse(String(e.timestamp)) }] : [],
+  );
+}
+
 // heldByClaude for a transcript on disk; none when it cannot be read.
 export function heldInTranscript(path: string): string[] {
   const lines = transcriptTail(path);
   return lines ? heldByClaude(lines) : [];
+}
+
+// Claude's queue in a transcript on disk: what it holds, and what was pulled back out of it.
+export function queueInTranscript(path: string): { held: string[]; pulled: ReturnType<typeof pulledBack> } {
+  const lines = transcriptTail(path) ?? [];
+  return { held: heldByClaude(lines), pulled: pulledBack(lines) };
 }
 
 // lastTurn for a transcript on disk, where a turn that ended with a message still in Claude's own queue goes

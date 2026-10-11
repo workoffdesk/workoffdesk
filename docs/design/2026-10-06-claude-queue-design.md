@@ -55,7 +55,8 @@ One user's own use backs the change: 117 of 257 sends were followed by Send now,
   the transcript's end. That now returns the words, not a count, and handles `popAll`. A `delivering` or
   `delivered` message whose words Claude holds (oldest first, word for word as pasted) becomes `enqueued`;
   this covers a status that had not yet caught up with Claude being at work. A message never goes back from
-  `enqueued`: it lands through the `queued_command` item that follows, or becomes `unconfirmed` at the end of
+  `enqueued`: it lands through the `queued_command` item that follows, is `taken` when a `popAll` after it was
+  sent pulls its words back into the prompt (and they are not held again), or becomes `unconfirmed` at the end of
   the turn. Going back would race the paste, since the transcript can be read between the paste and Claude
   writing `enqueue`.
 - **Message states:** `queued` (held by the Mac), `delivering`, `delivered`, **`enqueued`** (in Claude's
@@ -90,7 +91,7 @@ Each message Claude has not read waits in one of three places (`Waits`):
 | Sent while a dialog is open | Held on the Mac (`waiting`), editable; pasted when the dialog closes and Claude works again |
 | A dialog opened mid-turn without a status change (`/effort`) | The paste finds the dialog and the message waits on the Mac; it is tried again at the next look |
 | Sent before Claude started, while compacting, after it ended | Held on the Mac, as before |
-| Changed at the Mac with `popAll` | Stays "In Claude's queue" until the turn ends; if the edited text never lands, it is then `unconfirmed` |
+| Pulled back into the prompt at the Mac (`popAll`) | `taken` as soon as the transcript says so, and drawn nowhere: it is the person's at the Mac to change, send or drop; what they send shows as a prompt typed there |
 | Pictures | workoffdesk sends them as quoted paths, and Claude's queue records them as they are (checked), so they match |
 | The Mac restarts with messages enqueued | On start the Mac lands what the transcript has; the rest stay enqueued until the turn ends |
 | Older apps (before 2.18.8) | See `enqueued` as an unknown state and draw nothing for it until they update, which the next start does |
