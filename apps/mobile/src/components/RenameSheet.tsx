@@ -1,23 +1,24 @@
 import type { TermSession } from '@workoffdesk/client/base/api';
 import { dirName } from '@workoffdesk/client/model/format';
 import { t } from '@workoffdesk/i18n';
-import { useMemo } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Keyboard, LayoutAnimation, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View, type KeyboardEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, sessionList } from '../client';
 import { useRename } from '@workoffdesk/react/rename';
 import { useTheme, type Theme } from '../theme';
 import { Button } from './ui';
 
-// A small dialog high on the screen, clear of the keyboard on the smallest phone. A save closes it at once.
+// A small dialog that rides up with the keyboard and sits on it. A save closes it at once.
 export function RenameSheet({ session, onClose }: { session: TermSession; onClose: () => void }) {
   const theme = useTheme();
   const s = useMemo(() => styles(theme), [theme]);
   const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardHeight();
   const { name, setName, canSave, save } = useRename(api, sessionList, session, onClose, (why) => Alert.alert(why));
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[s.page, { paddingTop: insets.top + 56 }]} accessibilityViewIsModal>
+      <View style={[s.page, { paddingTop: insets.top + 12, paddingBottom: (keyboard || insets.bottom) + 12 }]} accessibilityViewIsModal>
         <Pressable style={[StyleSheet.absoluteFill, s.backdrop]} accessible={false} onPress={onClose} />
         <View style={s.card}>
           <Text style={s.title} accessibilityRole="header">
@@ -48,9 +49,31 @@ export function RenameSheet({ session, onClose }: { session: TermSession; onClos
   );
 }
 
+// How much of the screen the keyboard covers, its changes moved as the keyboard moves.
+function useKeyboardHeight(): number {
+  const [height, setHeight] = useState(() => Keyboard.metrics()?.height ?? 0);
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const move = (e: KeyboardEvent, h: number) => {
+      if (ios) LayoutAnimation.configureNext(LayoutAnimation.create(e.duration || 250, 'keyboard', 'opacity'));
+      setHeight(h);
+    };
+    const shown = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', (e) => move(e, e.endCoordinates.height));
+    const hidden = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', (e) => move(e, 0));
+    // A keyboard that came up before this listened is caught once it is up.
+    const up = Keyboard.addListener('keyboardDidShow', (e) => setHeight(e.endCoordinates.height));
+    return () => {
+      shown.remove();
+      hidden.remove();
+      up.remove();
+    };
+  }, []);
+  return height;
+}
+
 const styles = ({ c, fs }: Theme) =>
   StyleSheet.create({
-    page: { flex: 1, alignItems: 'center', paddingHorizontal: 24 },
+    page: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 12 },
     backdrop: { backgroundColor: 'rgba(0,0,0,0.3)' },
     card: {
       width: '100%',
