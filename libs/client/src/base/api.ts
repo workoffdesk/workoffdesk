@@ -229,9 +229,11 @@ export type TermSession = {
 // A Claude or Codex conversation people had on this Mac. `automated`: started by a program (an agent runner
 // such as Paperclip), not by a person. background: held where it cannot be gone on with here (a Claude
 // background session, another Codex app). lastPrompt: what the person said last. onMac: open in a terminal
-// on the Mac other than workoffdesk's (in `terminals` of them), and what the agent does there; takingOver:
+// on the Mac other than workoffdesk's (in `terminals` of them), and what the agent does there (background: its
+// turn is over, only commands it left running go on); takingOver:
 // waited on to be idle there to go on here. agent: missing means Claude. The last four are missing from a
 // list kept from an older server.
+export type MacStatus = 'idle' | 'busy' | 'background' | 'waiting';
 export type RecentConversation = {
   sessionId: string;
   cwd: string | null;
@@ -241,7 +243,7 @@ export type RecentConversation = {
   openIn: string | null;
   background: boolean;
   lastPrompt?: string | null;
-  onMac?: { status: 'idle' | 'busy' | 'waiting'; terminals: number } | null;
+  onMac?: { status: MacStatus; terminals: number } | null;
   takingOver?: boolean;
   // Its folder is not on the Mac any more (a worktree removed): it cannot be started there again.
   folderGone?: boolean;

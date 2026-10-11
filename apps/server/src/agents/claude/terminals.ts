@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { open } from 'node:fs/promises';
+import { turnInTranscript } from './transcript/turn.js';
 
 // The interactive Claude sessions open on this Mac outside WorkOffDesk, as Claude Code itself lists them
 // (`claude agents --json`, once for every config dir a running Claude uses): each one's process, the conversation it writes and whether it is at work. busy: a turn or a shell it started
@@ -7,10 +8,19 @@ import { open } from 'node:fs/promises';
 export type MacClaude = { pid: number; sessionId: string; cwd: string; status: 'idle' | 'busy' | 'waiting'; tty: string | null };
 
 // A conversation can be open in more than one terminal at once, each writing it: it is idle only when all are.
-export type MacOpen = { claudes: MacClaude[]; status: MacClaude['status'] };
+// background: busy as Claude Code says, with its turn over, so only commands it left running go on.
+export type MacOpen = { claudes: MacClaude[]; status: MacClaude['status'] | 'background' };
 
-export const busiest = (claudes: MacClaude[]): MacClaude['status'] =>
+const busiest = (claudes: MacClaude[]): MacClaude['status'] =>
   claudes.some((c) => c.status === 'waiting') ? 'waiting' : claudes.some((c) => c.status === 'busy') ? 'busy' : 'idle';
+
+// What a conversation open in these terminals is doing, its transcript read only when Claude Code calls it busy.
+export async function openStatus(claudes: MacClaude[], transcript: () => Promise<string | null> | null): Promise<MacOpen['status']> {
+  const status = busiest(claudes);
+  if (status !== 'busy') return status;
+  const path = await transcript();
+  return path && turnInTranscript(path)?.over ? 'background' : status;
+}
 
 const LIST_MS = 5_000;
 // How long a Claude told to stop is given to write the rest of its transcript and go: it took under a second.

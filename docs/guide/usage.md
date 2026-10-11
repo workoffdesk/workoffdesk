@@ -40,14 +40,16 @@ The ⊕ button at the top offers:
 
 ### Taking over from the Mac
 
-A conversation still open in a terminal on the Mac is marked **Open on the Mac**, **Working on the Mac** or
-**Asking you on the Mac**. Taking it over quits Claude or Codex in that terminal and goes on in a session
+A conversation still open in a terminal on the Mac is marked **Open on the Mac**, **Working on the Mac**,
+**Asking you on the Mac** or **Commands left running on the Mac**. Taking it over quits Claude or Codex in that terminal and goes on in a session
 here; the terminal is told how to attach to it. A Claude taken over keeps the terminal's environment; a Codex
 runs its commands in the service's Codex app server instead.
 
 - Open: **Take over to the phone**.
 - Working: **Take over when this step is done**, or **Take over now (stops this step)**.
 - Asking you: take over now; its question is dropped, so ask it to redo that step.
+- Commands left running: Claude's turn is over and only commands it started go on. Take it over now; those
+  commands stop with it. A take-over waiting for the step to be done goes ahead then too.
 
 A Claude started with `workoffdesk claude`, or a Codex with `workoffdesk codex`, is a session already and
 needs no taking over. A Codex conversation open in an editor or the Codex app cannot be taken over: close it

@@ -233,7 +233,7 @@ Every test file is listed under the risks it guards; one that guards several is 
 ### The Mac and its user's things are left alone
 
 - The tests themselves: `apps/server/tests/unit/package/isolation.test.ts`
-- Server: `apps/server/tests/integration/agents/claude/terminals.test.ts`,
+- Server: `apps/server/tests/integration/agents/claude/terminals.test.ts`, `apps/server/tests/integration/sessions/machine.onMac.test.ts`,
   `apps/server/tests/integration/sessions/machine.codex.test.ts`,
   `apps/server/tests/integration/http/routes/claude.test.ts`, `apps/server/tests/integration/http/routes/codex.test.ts`,
   `apps/server/tests/integration/sessions/terminalEnv.test.ts`, `apps/server/tests/unit/agents/codex/threads.test.ts`,

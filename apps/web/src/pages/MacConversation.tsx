@@ -5,7 +5,7 @@ import { useChat } from '../components/ChatView';
 import { TurnView } from '../components/TurnView';
 import { ToolsRow } from '../components/turn/ToolsRow';
 import { shortPath, timeAgo } from '@workoffdesk/client/model/format';
-import { previewChatUrl } from '@workoffdesk/client/sessions/newSession';
+import { onMacSays, previewChatUrl } from '@workoffdesk/client/sessions/newSession';
 import { useMacConversation } from '@workoffdesk/react/macConversation';
 import { PageHeader } from '../components/PageHeader';
 import { navigate } from '../router';
@@ -73,7 +73,7 @@ export function MacConversation({ agent, sid }: { agent: Agent; sid: string }) {
         {info === null && <div className="alert">{t.notOnMac}</div>}
         {pick?.do === 'takeOver' && (
           <strong>
-            {[pick.status === 'busy' ? t.onMacBusy : pick.status === 'waiting' ? t.onMacWaiting : t.onMacIdle, pick.terminals > 1 && t.openInTerminals(pick.terminals)]
+            {[onMacSays(pick.status), pick.terminals > 1 && t.openInTerminals(pick.terminals)]
               .filter(Boolean)
               .join(' · ')}
           </strong>
@@ -90,7 +90,8 @@ export function MacConversation({ agent, sid }: { agent: Agent; sid: string }) {
           </>
         ) : pick?.do === 'takeOver' ? (
           <>
-            {pick.status === 'idle' && (
+            {pick.status === 'background' && <span className="muted">{t.takeOverStopsCommands}</span>}
+            {(pick.status === 'idle' || pick.status === 'background') && (
               <button className="btn primary" disabled={busy} onClick={takeOverNow}>
                 {t.takeOverNow}
               </button>

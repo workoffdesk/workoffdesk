@@ -1,7 +1,7 @@
 import { t } from '@workoffdesk/i18n';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api, type RecentConversation } from '../../src/base/api';
-import { canGoOn, canPickUp, cancelTakeOver, createSession, goOnWith, pickUpOf, previewChatUrl, macConversation, recentConversations, recentFound, recentNote, takeOver } from '../../src/sessions/newSession';
+import { canGoOn, canPickUp, cancelTakeOver, createSession, goOnWith, onMacSays, pickUpOf, previewChatUrl, macConversation, recentConversations, recentFound, recentNote, takeOver } from '../../src/sessions/newSession';
 import { aSession } from '../helpers/fakes';
 
 const recent = (o: Partial<RecentConversation> & { sessionId: string }): RecentConversation => ({
@@ -241,5 +241,19 @@ describe('cancelTakeOver', () => {
     const api = vi.fn(async () => undefined) as unknown as Api;
     await cancelTakeOver(api, recent({ sessionId: 'login', ...o }));
     expect(api).toHaveBeenCalledWith(path, { method: 'DELETE' });
+  });
+});
+
+describe('onMacSays', () => {
+  const statuses = ['idle', 'busy', 'background', 'waiting'] as const;
+  it('says each thing a conversation can be doing on the Mac in words of its own', () => {
+    const said = statuses.map(onMacSays);
+    expect(said.every((w) => typeof w === 'string' && w.length > 0)).toBe(true);
+    expect(new Set(said).size).toBe(statuses.length);
+  });
+
+  it('says commands left running are not work on a turn', () => {
+    expect(onMacSays('background')).toBe(t.onMacBackground);
+    expect(onMacSays('busy')).toBe(t.onMacBusy);
   });
 });

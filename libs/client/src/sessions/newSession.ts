@@ -1,5 +1,5 @@
 import { t } from '@workoffdesk/i18n';
-import { agentOf, ApiError, MACHINE, type Agent, type Api, type RecentConversation, type TermSession } from '../base/api';
+import { agentOf, ApiError, MACHINE, type Agent, type Api, type MacStatus, type RecentConversation, type TermSession } from '../base/api';
 
 // A Claude to start in a folder: new, or picking up a conversation from this Mac by its id.
 export type NewClaude = { kind: 'claude'; cwd: string; resumeId?: string; title?: string };
@@ -80,7 +80,11 @@ export type PickUp =
   | { do: 'none' }
   | { do: 'gone' }
   | { do: 'resume' }
-  | { do: 'takeOver'; status: 'idle' | 'busy' | 'waiting'; terminals: number; waiting: boolean };
+  | { do: 'takeOver'; status: MacStatus; terminals: number; waiting: boolean };
+
+// What a conversation open on the Mac is doing there, in words.
+export const onMacSays = (status: MacStatus): string =>
+  ({ idle: t.onMacIdle, busy: t.onMacBusy, background: t.onMacBackground, waiting: t.onMacWaiting })[status];
 
 export function pickUpOf(r: RecentConversation): PickUp {
   if (r.openIn) return { do: 'open', id: r.openIn };

@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { findTranscript } from '../../agents/claude/transcript/transcriptFile.js';
-import { busiest, listMacClaudes, stopMacProcess, type MacClaude, type MacOpen } from '../../agents/claude/terminals.js';
+import { listMacClaudes, openStatus, stopMacProcess, type MacClaude, type MacOpen } from '../../agents/claude/terminals.js';
 import { tuiCommand } from '../../agents/codex/appServer.js';
 import type { CodexOnMac } from '../../agents/codex/threads.js';
 import type { Titles } from '../../journal/ingest.js';
@@ -24,6 +24,8 @@ const MOVE_QUIT_MS = 5_000;
 // How often a conversation waited on is looked at on the Mac, and for how long at most.
 const TAKE_OVER_LOOK_MS = 2_000;
 const TAKE_OVER_WAIT_MS = 12 * 3600_000;
+// The step a take-over waits for is done once the conversation is open nowhere, or its turn is over there.
+const stepDone = (s: MacOpen['status'] | undefined) => !s || s === 'idle' || s === 'background';
 
 // A program in the alternate screen keeps its output out of the scrollback, where a dialog taller than the screen starts.
 // Claude Code goes there by default; this keeps it inline, for claude typed into a shell session too.
@@ -188,7 +190,8 @@ export class Lifecycle {
     for (const [id, meta] of Object.entries(this.d.store.get().sessions)) {
       if (meta.kind === 'claude' && meta.claudeSessionId) this.d.journal.onMac(id, open.get(meta.claudeSessionId)?.length ?? 0);
     }
-    return new Map([...open].map(([sid, list]) => [sid, { claudes: list, status: busiest(list) }]));
+    const transcript = (sid: string) => (this.d.claudeProjectsRoot ? findTranscript(this.d.claudeProjectsRoot, sid).catch(() => null) : null);
+    return new Map(await Promise.all([...open].map(async ([sid, list]) => [sid, { claudes: list, status: await openStatus(list, () => transcript(sid)) }] as const)));
   }
 
   async takeOverWhenIdle(spec: ConversationResume): Promise<TermSession | null> {
@@ -196,7 +199,7 @@ export class Lifecycle {
     if (this.takeOvers.has(sid)) return null;
     const there = await this.onMacStatus(spec);
     const takeOver: CreateSpec = spec.kind === 'claude' ? { ...spec, kind: 'claude', takeOver: true } : { ...spec, kind: 'codex', takeOver: true };
-    if (!there || there === 'idle') return this.createSession(takeOver);
+    if (stepDone(there)) return this.createSession(takeOver);
     const until = Date.now() + TAKE_OVER_WAIT_MS;
     let stop: () => void;
     const done = () => {
@@ -207,7 +210,7 @@ export class Lifecycle {
     const look = async () => {
       const now = await this.onMacStatus(spec).catch(() => there);
       if (this.takeOvers.get(sid) !== done) return;
-      if (now && now !== 'idle') {
+      if (!stepDone(now)) {
         if (Date.now() > until) return done();
         stop = this.s.later(TAKE_OVER_LOOK_MS, () => void look());
         return;

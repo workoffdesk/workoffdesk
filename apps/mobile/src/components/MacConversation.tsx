@@ -1,7 +1,7 @@
 import { agentName, type Agent } from '@workoffdesk/client/base/api';
 import { rows, turns } from '@workoffdesk/client/model/chat';
 import { shortPath, timeAgo } from '@workoffdesk/client/model/format';
-import { previewChatUrl } from '@workoffdesk/client/sessions/newSession';
+import { onMacSays, previewChatUrl } from '@workoffdesk/client/sessions/newSession';
 import { useMacConversation } from '@workoffdesk/react/macConversation';
 import { t } from '@workoffdesk/i18n';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
@@ -80,7 +80,7 @@ export function MacConversation({ agent }: { agent: Agent }) {
           <View style={s.onMac}>
             <View style={[s.dot, { backgroundColor: pick.status === 'busy' ? theme.c.working : pick.status === 'waiting' ? theme.c.waiting : theme.c.idle }]} />
             <Text style={s.onMacText}>
-              {[pick.status === 'busy' ? t.onMacBusy : pick.status === 'waiting' ? t.onMacWaiting : t.onMacIdle, pick.terminals > 1 && t.openInTerminals(pick.terminals)]
+              {[onMacSays(pick.status), pick.terminals > 1 && t.openInTerminals(pick.terminals)]
                 .filter(Boolean)
                 .join(' · ')}
             </Text>
@@ -94,7 +94,8 @@ export function MacConversation({ agent }: { agent: Agent }) {
           </>
         ) : pick?.do === 'takeOver' ? (
           <>
-            {pick.status === 'idle' && <Button kind="primary" label={t.takeOverNow} busy={busy} onPress={takeOverNow} />}
+            {pick.status === 'background' && <Text style={s.waitText}>{t.takeOverStopsCommands}</Text>}
+            {(pick.status === 'idle' || pick.status === 'background') && <Button kind="primary" label={t.takeOverNow} busy={busy} onPress={takeOverNow} />}
             {pick.status === 'busy' && <Button kind="primary" label={t.takeOverWhenDone} busy={busy} onPress={takeOverWhenDone} />}
             {pick.status === 'busy' && <Button label={t.takeOverInterrupt} disabled={busy} onPress={takeOverNow} />}
             {pick.status === 'waiting' && <Text style={s.waitText}>{t.takeOverDropsQuestion}</Text>}

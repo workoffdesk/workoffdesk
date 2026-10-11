@@ -212,9 +212,10 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   `apps/server/src/agents/codex/`, `docs/design/2026-10-07-codex-sessions.md`)
 - A Claude Code conversation open in a terminal on the Mac, outside workoffdesk, can be taken over: Claude quits
   there (SIGTERM, as its own Ctrl-C) and the conversation goes on in a session here. While Claude works or asks
-  something on the Mac, it can be taken over once that step is done, or at once. Taken over, it keeps the
-  terminal's environment. (`apps/server/src/sessions/machine/lifecycle.ts` `openOnMac`, `createSession` `takeOver`,
-  `apps/server/src/sessions/terminalEnv.ts`, `docs/design/2026-10-07-take-over-mac-sessions.md`)
+  something on the Mac, it can be taken over once that step is done, or at once. The step is done when its
+  transcript says the turn is over, though Claude Code still calls it busy for commands it left running.
+  Taken over, it keeps the terminal's environment. (`apps/server/src/sessions/machine/lifecycle.ts` `openOnMac`, `createSession` `takeOver`,
+  `apps/server/src/agents/claude/terminals.ts` `openStatus`, `apps/server/src/sessions/terminalEnv.ts`, `docs/design/2026-10-07-take-over-mac-sessions.md`)
 - A Codex thread is open where its lock in `~/.codex/thread-writer-locks` is held: a Codex in a terminal on the
   Mac is taken over the same way, without its environment; one held by an editor or the Codex app cannot be.
   (`apps/server/src/agents/codex/threads.ts`, `apps/server/src/sessions/machine/lifecycle.ts` `resumeCodex`,
