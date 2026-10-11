@@ -22,7 +22,8 @@
   /* A row of the session list, and one held down or open. */
   --row: var(--surface);
   --row-held: var(--surface-2);
-  --claude: var(--accent);
+  /* The logo's blue, in the light theme too. */
+  --claude: #2f81f7;
   /* The bubble of what you sent. */
   --mine: var(--accent);
   --mine-text: var(--accent-text);

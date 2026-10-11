@@ -21,6 +21,7 @@ const dark = {
   added: '#3fb950',
   addedBg: 'rgba(63, 185, 80, 0.16)',
   removedBg: 'rgba(248, 81, 73, 0.16)',
+  // The logo's blue, in the light theme too.
   claude: '#2f81f7',
   codex: '#8957e5',
   shell: '#3d4450',
@@ -51,7 +52,6 @@ const light: Colors = {
   mine: '#0969da',
   danger: '#cf222e',
   working: '#0969da',
-  claude: '#0969da',
   codex: '#8250df',
   waiting: '#bf8700',
   idle: '#1a7f37',

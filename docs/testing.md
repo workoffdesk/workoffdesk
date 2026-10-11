@@ -282,7 +282,7 @@ Every test file is listed under the risks it guards; one that guards several is 
 - Words, errors and settings: `libs/client/tests/model/format.test.ts`, `libs/client/tests/base/api.test.ts`,
   `libs/client/tests/settings/textSize.test.ts`, `libs/client/tests/settings/choices.test.ts`, `libs/client/tests/base/api.test.ts`,
   `libs/i18n/tests/index.test.ts`, `apps/server/tests/unit/system/messages.test.ts`,
-  `apps/server/tests/unit/system/errors.test.ts`, `apps/web/tests/unit/styles.css.test.ts`,
+  `apps/server/tests/unit/system/errors.test.ts`, `apps/web/tests/unit/styles.css.test.ts`, `apps/mobile/tests/theme.test.mjs`,
   `apps/mac/Tests/WorkOffDeskKitTests/WordsTests.swift`,
   `apps/mac/Tests/WorkOffDeskUITests/MenuViewTests.swift`
 - End to end: `apps/server/tests/e2e/chat.spec.ts`, `apps/server/tests/e2e/composer.spec.ts`,

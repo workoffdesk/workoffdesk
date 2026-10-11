@@ -35,3 +35,27 @@ describe('styles.css', () => {
     });
   });
 });
+
+// A theme's value of a custom property, following var() through the blocks that theme reads, later ones winning.
+const themeVar = (theme: 'dark' | 'light', name: string): string => {
+  const blocks = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^}]*)\}/g)]
+    .filter((m) => {
+      const selectors = m[1].split(',').map((s) => s.trim());
+      return selectors.includes(':root') || (theme === 'light' && selectors.includes(":root[data-theme='light']"));
+    })
+    .map((m) => m[2]);
+  expect(blocks.length, `precondition: the ${theme} theme is read`).toBe(theme === 'light' ? 2 : 1);
+  const vars = new Map<string, string>();
+  for (const body of blocks) for (const m of body.matchAll(/(--[\w-]+)\s*:\s*([^;]+)/g)) vars.set(m[1], m[2].trim());
+  const resolve = (v: string): string => v.replace(/var\((--[\w-]+)\)/g, (_, n) => resolve(vars.get(n) ?? ''));
+  return resolve(vars.get(name) ?? '');
+};
+
+describe("Claude's avatar", () => {
+  const logo = readFileSync(new URL('../../public/icon.svg', import.meta.url), 'utf8').match(/<rect[^>]*fill="(#[0-9a-f]{6})"/i)?.[1];
+
+  it.each(['dark', 'light'] as const)('is the blue of the logo in the %s theme', (theme) => {
+    expect(logo, 'precondition: the logo has its blue').toMatch(/^#[0-9a-f]{6}$/i);
+    expect(themeVar(theme, '--claude').toLowerCase()).toBe(logo?.toLowerCase());
+  });
+});
