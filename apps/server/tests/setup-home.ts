@@ -20,6 +20,11 @@ delete process.env.WORKOFFDESK_HOME;
 // It lists no one open, and runs nothing. TEST_REAL_PATH finds the real one, for the test that asks for it.
 delete process.env.CLAUDE_CONFIG_DIR;
 delete process.env.CODEX_HOME;
+// Nor are they marked as run inside a session here or a Claude, as they are when one runs them: a process a
+// test starts would carry the mark, and read as open in a session, not in the terminal the test means.
+delete process.env.WORKOFFDESK_SESSION;
+delete process.env.CLAUDECODE;
+delete process.env.CLAUDE_CODE_ENTRYPOINT;
 process.env.TEST_REAL_PATH ??= process.env.PATH;
 const bin = mkdtempSync(join(tmpdir(), 'ts-bin-'));
 writeFileSync(join(bin, 'claude'), `#!/bin/sh\n[ "$1 $2" = "agents --json" ] && exec echo '[]'\necho "tests run no Claude Code: claude $*" >&2\nexit 127\n`);

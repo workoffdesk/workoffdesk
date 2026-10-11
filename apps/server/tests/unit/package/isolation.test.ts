@@ -32,6 +32,17 @@ describe('test isolation', () => {
     expect(process.env.CODEX_HOME).toBeUndefined();
   });
 
+  // A Codex a test starts would read as open in a session here, not in a terminal, when run from inside one.
+  it.each(['WORKOFFDESK_SESSION', 'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT'])(
+    'starts no process marked as run inside another program (%s)',
+    (name) => {
+      expect(process.env.TEST_REAL_HOME).toBeTruthy();
+      expect(process.env[name]).toBeUndefined();
+      const child = execFileSync(process.execPath, ['-p', `process.env.${name} ?? ''`], { encoding: 'utf8' }).trim();
+      expect(child).toBe('');
+    },
+  );
+
   // A session a test starts runs `claude` from PATH unless the test names one; the Claude Code installed here
   // would open the conversation it is given with the account signed in.
   it.each([
