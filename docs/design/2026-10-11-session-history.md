@@ -76,6 +76,8 @@ unless asked) with a last activity before `before`, and `more` when there are ot
   opens the conversation's page, from which it is picked up as now. The list keeps its own section of the last
   24 hours.
 - A past session's row is drawn as a Mac conversation's is (its picture faded), without a status.
+- The sessions that have ended (past, or their agent quit in the terminal left behind: status `ended`) are listed
+  after the running ones, in one group of their own, **Ended**, the newest first; their rows name their folder.
 - Holding a row (phone) opens a menu: **Rename**, **End session** for a running one or **Delete** for a past one,
   **Cancel**. Swiping a row (web) shows the same two beside each other. Delete asks first, saying the conversation
   will be gone from WorkOffDesk and that Claude's or Codex's own record is left as it is.

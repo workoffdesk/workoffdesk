@@ -182,7 +182,7 @@ export function Sessions({ current }: { current?: string } = {}) {
         <div className="sess-list">
           {groups.map((g) => [
             g.title && (
-              <h2 key={`g-${g.cwd}`} className="sess-group">
+              <h2 key={`g-${g.cwd ?? 'ended'}`} className="sess-group">
                 {g.title}
                 <small>{g.sessions.length}</small>
               </h2>
@@ -191,7 +191,7 @@ export function Sessions({ current }: { current?: string } = {}) {
             <Row
               key={s.id}
               s={s}
-              folder={folderBeside(s, g.title)}
+              folder={folderBeside(s, g)}
               unread={unread.has(s.id)}
               open={openId === s.id}
               current={s.id === current}

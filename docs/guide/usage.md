@@ -17,7 +17,7 @@ on the Mac, so every device sees it, and the conversation takes it in Claude Cod
 too.
 
 A Claude or Codex session stays in the list after it ends, whether you ended it, its agent quit, or the Mac
-restarted: its picture is faded and it opens to the conversation, kept on the Mac, with **Continue this
+restarted: it moves to the **Ended** group at the end of the list, its picture faded, and it opens to the conversation, kept on the Mac, with **Continue this
 conversation** to go on with it in the same session. It is kept even after Claude Code deletes the conversation's
 transcript (after 30 days, unless `cleanupPeriodDays` is set longer), though it can then only be read. Swipe a
 row left (on the phone, hold it) for **End session** on a running one or **Delete** on an ended one; deleting

@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { listView, matches } from '../../src/sessions/sessionListView';
+import { folderBeside, listView, matches } from '../../src/sessions/sessionListView';
 import { aSession } from '../helpers/fakes';
 
 const app = aSession({ id: 'a', title: 'Fix the build', cwd: '/Users/me/code/app', lastActivity: 30 });
 const api = aSession({ id: 'b', title: 'Rate limits', cwd: '/srv/api', lastActivity: 50 });
 const app2 = aSession({ id: 'c', title: 'Dark mode', cwd: '/Users/me/code/app', lastActivity: 10 });
 const root = aSession({ id: 'd', title: '/', cwd: '/', lastActivity: 20 });
+// Nothing runs in these: one gone from tmux, one whose Claude quit in its terminal.
+const past = aSession({ id: 'e', title: 'Old fix', cwd: '/srv/api', lastActivity: 60, status: 'ended', past: true });
+const quit = aSession({ id: 'f', title: 'Quit one', cwd: '/Users/me/code/app', lastActivity: 40, status: 'ended' });
+const shell = aSession({ id: 'g', title: 'zsh', kind: 'shell', cwd: '/srv/api', lastActivity: 5, status: null });
 
 describe('matches', () => {
   it.each([
@@ -51,5 +55,33 @@ describe('listView', () => {
     expect(v.sorted).toHaveLength(3);
     expect(v.shown).toEqual([app2]);
     expect(v.groups).toEqual([{ cwd: '/Users/me/code/app', title: null, sessions: [app2] }]);
+  });
+
+  it('puts the sessions nothing runs in last, in one group of their own, the newest first', () => {
+    expect(listView([app, past, api, quit, app2, shell], '').groups).toEqual([
+      { cwd: '/srv/api', title: 'api', sessions: [api, shell] },
+      { cwd: '/Users/me/code/app', title: 'app', sessions: [app, app2] },
+      { cwd: null, title: 'Ended', sessions: [past, quit] },
+    ]);
+  });
+
+  it('names the ended group even when it is the only one, and names no single running folder', () => {
+    expect(listView([past, quit], '').groups.map((g) => g.title)).toEqual(['Ended']);
+    expect(listView([app, quit], '').groups.map((g) => g.title)).toEqual([null, 'Ended']);
+  });
+
+  it('searches the ended ones too', () => {
+    expect(listView([app, past, quit], 'old').groups).toEqual([{ cwd: null, title: 'Ended', sessions: [past] }]);
+  });
+});
+
+describe('folderBeside', () => {
+  const named = aSession({ title: 'Fix the build', cwd: '/srv/api' });
+  it.each<[string, { cwd: string | null; title: string | null }, string | null]>([
+    ['under its folder', { cwd: '/srv/api', title: 'api' }, null],
+    ['with no heading', { cwd: '/srv/api', title: null }, 'api'],
+    ['under the ended heading, which names no folder', { cwd: null, title: 'Ended' }, 'api'],
+  ])('says a named row\'s folder only where no heading says it: %s', (_, group, folder) => {
+    expect(folderBeside(named, { ...group, sessions: [named] })).toBe(folder);
   });
 });

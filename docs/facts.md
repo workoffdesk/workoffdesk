@@ -227,6 +227,9 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   as the same session. A shell session is not kept. (`apps/server/src/sessions/machine.ts` `leave`,
   `apps/server/src/sessions/machine/lifecycle.ts` `revive`, `apps/server/tests/integration/sessions/machine.past.test.ts`,
   `docs/design/2026-10-11-session-history.md`)
+- The list shows the sessions that have ended (gone from tmux, or their agent quit) after the running ones, in one
+  group of their own, the newest first. (`libs/client/src/sessions/sessionListView.ts` `listView`,
+  `libs/client/tests/sessions/sessionListView.test.ts`)
 - Claude Code deletes a transcript at startup once it is older than `cleanupPeriodDays`, 30 days unless set; a past
   session whose transcript is gone is refused going on with (`409 conversation-gone`) and can still be read.
   Codex keeps its rollouts under `~/.codex/sessions/`. (`docs/design/2026-10-11-session-history.md`,

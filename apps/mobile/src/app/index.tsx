@@ -1,6 +1,6 @@
 import { errorText, type RecentConversation, type TermSession } from '@workoffdesk/client/base/api';
 import { leaveSession } from '@workoffdesk/client/sessions/leave';
-import { folderBeside, listView } from '@workoffdesk/client/sessions/sessionListView';
+import { folderBeside, listView, type SessionGroup } from '@workoffdesk/client/sessions/sessionListView';
 import { t } from '@workoffdesk/i18n';
 import { router, Stack } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
@@ -15,7 +15,7 @@ import { MacRow, Row, rowStyles, type RowAction } from '../components/rows';
 import { useTheme, type Theme } from '../theme';
 import { bareHeader } from '../components/header';
 
-type Section = { cwd: string; title: string | null; data: TermSession[] };
+type Section = { group: SessionGroup; title: string | null; data: TermSession[] };
 
 // Claude and Codex conversations people had on this Mac lately and not opened here (macRecent.ts); asked
 // again whenever a session here starts or stops following one.
@@ -46,7 +46,7 @@ export default function Sessions() {
   const [renaming, setRenaming] = useState<TermSession | null>(null);
   const { sorted, groups } = listView(sessions ?? null, query);
   const unread = sorted ? seen.unreadOf(sorted) : new Set<string>();
-  const sections: Section[] = groups.map((g) => ({ cwd: g.cwd, title: g.title, data: g.sessions }));
+  const sections: Section[] = groups.map((g) => ({ group: g, title: g.title, data: g.sessions }));
   const actions = (s: TermSession): RowAction[] => [
     { label: t.renameAction, run: () => setRenaming(s) },
     s.past ? { label: t.delete, destructive: true, run: () => confirmDelete(s) } : { label: t.endSession, destructive: true, run: () => leave(s) },
@@ -104,7 +104,7 @@ export default function Sessions() {
         contentInsetAdjustmentBehavior="automatic"
         sections={sections}
         keyExtractor={(s) => s.id}
-        renderItem={({ item, section }) => <Row s={item} folder={folderBeside(item, section.title)} unread={unread.has(item.id)} theme={theme} actions={actions(item)} />}
+        renderItem={({ item, section }) => <Row s={item} folder={folderBeside(item, section.group)} unread={unread.has(item.id)} theme={theme} actions={actions(item)} />}
         renderSectionHeader={({ section }) =>
           section.title ? (
             <Text style={rs.group}>
