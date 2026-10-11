@@ -80,6 +80,9 @@ export type Limit = { used: number; resetsAt?: number };
 // What a Claude account had used when one of its sessions last said; at: when, in ms.
 export type AccountLimits = { fiveHour?: Limit; sevenDay?: Limit; at: number };
 
+// A conversation open in a terminal on the Mac, to be taken over once the step there is done, until then.
+export type WaitedTakeOver = { kind: 'claude' | 'codex'; cwd: string; title?: string; until: number };
+
 export type State = {
   user?: User;
   passkeys: Passkey[];
@@ -90,6 +93,8 @@ export type State = {
   past: Record<string, PastSession>;
   // The names given here to sessions, by the Claude conversation each held, kept after the session ends.
   claudeNames: Record<string, string>;
+  // The take-overs waited on, by the conversation each is of.
+  takeOvers?: Record<string, WaitedTakeOver>;
   // The Claude account picked for sessions started here (its config dir, "" the default); unset until one is.
   claudeAccount?: string;
   // What each Claude account had used when its sessions last said, by config dir.

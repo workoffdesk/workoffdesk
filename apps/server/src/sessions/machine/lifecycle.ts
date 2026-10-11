@@ -21,12 +21,6 @@ const STARTING_MAX_MS = 20_000;
 // How long a Claude asked to quit, to start again on another account, is waited for.
 const MOVE_QUIT_MS = 5_000;
 
-// How often a conversation waited on is looked at on the Mac, and for how long at most.
-const TAKE_OVER_LOOK_MS = 2_000;
-const TAKE_OVER_WAIT_MS = 12 * 3600_000;
-// The step a take-over waits for is done once the conversation is open nowhere, or its turn is over there.
-const stepDone = (s: MacOpen['status'] | undefined) => !s || s === 'idle' || s === 'background';
-
 // A program in the alternate screen keeps its output out of the scrollback, where a dialog taller than the screen starts.
 // Claude Code goes there by default; this keeps it inline, for claude typed into a shell session too.
 const KEEP_OUTPUT_IN_SCROLLBACK = { CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN: '1' };
@@ -42,9 +36,6 @@ function newId(): string {
 
 // Starting and ending sessions: new, gone on with, taken over from the Mac, restarted, killed, named.
 export class Lifecycle {
-  // Per Claude conversation waited on to be idle on the Mac, the way to stop waiting.
-  private readonly takeOvers = new Map<string, () => void>();
-
   constructor(
     private readonly s: MachineState,
     private readonly d: MachineDeps,
@@ -87,7 +78,7 @@ export class Lifecycle {
   // a terminal on the Mac is quit there before it is resumed here, or it is not resumed. A session here whose
   // Claude quit holding it goes on with it (`into`, when asked of that one), rather than a second session.
   private async resumeClaude(spec: ConversationResume & { kind: 'claude'; takeOver?: boolean; env?: Record<string, string> }, into?: string): Promise<TermSession> {
-    if (spec.takeOver) this.cancelTakeOver(spec.resumeId);
+    if (spec.takeOver) this.p.takeOvers.cancel(spec.resumeId);
     const here = (await this.p.sessions.listSessions()).filter((s) => s.claudeSessionId === spec.resumeId);
     // Asked of its process: the listing does not look at a session while it is gone on with.
     for (const s of here) if (s.status !== 'ended' && (await this.p.status.agentRuns(s.id))) return s;
@@ -136,7 +127,7 @@ export class Lifecycle {
   // A Codex in a terminal is quit there first; another app's is left alone, and the thread is not resumed.
   // The taken-over Codex's environment stays behind: its commands run in this server's app server.
   private async resumeCodex(spec: ConversationResume & { kind: 'codex'; takeOver?: boolean }): Promise<TermSession> {
-    if (spec.takeOver) this.cancelTakeOver(spec.resumeId);
+    if (spec.takeOver) this.p.takeOvers.cancel(spec.resumeId);
     const here = (await this.p.sessions.listSessions()).find((s) => s.codexThreadId === spec.resumeId);
     if (here && !here.past) return here;
     if (!isDir(expandHome(spec.cwd, homedir()))) throw folderGone(spec.cwd);
@@ -175,13 +166,6 @@ export class Lifecycle {
     return this.d.codexThreads.where(threadId);
   }
 
-  // What a conversation is doing in a terminal on the Mac: undefined when it is open in none.
-  private async onMacStatus(spec: ConversationResume): Promise<MacOpen['status'] | undefined> {
-    if (spec.kind === 'claude') return (await this.openOnMac()).get(spec.resumeId)?.status;
-    const t = await this.codexWhere(spec.resumeId);
-    return t?.holder?.at === 'terminal' ? (t.busy ? 'busy' : 'idle') : undefined;
-  }
-
   // Each session here learns from it whether its conversation is open on the Mac too. recentMs: as
   // listMacClaudes takes it, for what is only shown.
   async openOnMac(recentMs = 0): Promise<Map<string, MacOpen>> {
@@ -194,47 +178,9 @@ export class Lifecycle {
     return new Map(await Promise.all([...open].map(async ([sid, list]) => [sid, { claudes: list, status: await openStatus(list, () => transcript(sid)) }] as const)));
   }
 
-  async takeOverWhenIdle(spec: ConversationResume): Promise<TermSession | null> {
-    const sid = spec.resumeId;
-    if (this.takeOvers.has(sid)) return null;
-    const there = await this.onMacStatus(spec);
-    const takeOver: CreateSpec = spec.kind === 'claude' ? { ...spec, kind: 'claude', takeOver: true } : { ...spec, kind: 'codex', takeOver: true };
-    if (stepDone(there)) return this.createSession(takeOver);
-    const until = Date.now() + TAKE_OVER_WAIT_MS;
-    let stop: () => void;
-    const done = () => {
-      stop();
-      this.takeOvers.delete(sid);
-      this.s.emit();
-    };
-    const look = async () => {
-      const now = await this.onMacStatus(spec).catch(() => there);
-      if (this.takeOvers.get(sid) !== done) return;
-      if (!stepDone(now)) {
-        if (Date.now() > until) return done();
-        stop = this.s.later(TAKE_OVER_LOOK_MS, () => void look());
-        return;
-      }
-      done();
-      await this.createSession(takeOver).catch((e) =>
-        console.error(`workoffdesk: conversation ${sid} could not be taken over from the Mac: ${e instanceof Error ? e.message : String(e)}`),
-      );
-    };
-    this.takeOvers.set(sid, done);
-    stop = this.s.later(TAKE_OVER_LOOK_MS, () => void look());
-    this.s.emit();
-    return null;
-  }
-
   // Waited on, or being taken over now (Claude on the Mac quitting, the session here starting).
-  takingOver(claudeSessionId: string): boolean {
-    return this.takeOvers.has(claudeSessionId) || this.s.resuming.has(claudeSessionId);
-  }
-
-  cancelTakeOver(claudeSessionId: string): boolean {
-    const done = this.takeOvers.get(claudeSessionId);
-    done?.();
-    return !!done;
+  takingOver(sid: string): boolean {
+    return this.p.takeOvers.waiting(sid) || this.s.resuming.has(sid);
   }
 
   private async startSession(spec: CreateSpec, id: string): Promise<TermSession> {

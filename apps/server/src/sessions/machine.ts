@@ -17,6 +17,7 @@ import type { Tmux } from '../system/tmux.js';
 import { Accounts } from './machine/accounts.js';
 import { Moves } from './machine/moves.js';
 import { Naming } from './machine/naming.js';
+import { TakeOvers } from './machine/takeOvers.js';
 import { Input } from './machine/input.js';
 import { Lifecycle } from './machine/lifecycle.js';
 import { CHAT_SIZE, ID, MachineState, UUID, codexOf, type MachineDeps, type Parts } from './machine/state.js';
@@ -139,8 +140,10 @@ export class LocalMachine implements Machine {
     p.accounts = new Accounts(this.d, p);
     p.moves = new Moves(this.s, this.d, p);
     p.naming = new Naming(this.s, this.d, p);
+    p.takeOvers = new TakeOvers(this.s, this.d, p);
     this.p = p;
     p.naming.watch();
+    p.takeOvers.resume();
   }
 
   codexOnMac = async (): Promise<CodexOnMac[]> => (this.d.codexThreads ? this.d.codexThreads.list() : []);
@@ -299,9 +302,9 @@ export class LocalMachine implements Machine {
   createSession(spec: CreateSpec): Promise<TermSession> { return this.p.lifecycle.createSession(spec); }
   continueSession(id: string): Promise<TermSession> { return this.p.lifecycle.continueSession(id); }
   openOnMac(recentMs?: number): Promise<Map<string, MacOpen>> { return this.p.lifecycle.openOnMac(recentMs); }
-  takeOverWhenIdle(spec: ConversationResume): Promise<TermSession | null> { return this.p.lifecycle.takeOverWhenIdle(spec); }
+  takeOverWhenIdle(spec: ConversationResume): Promise<TermSession | null> { return this.p.takeOvers.whenIdle(spec); }
   takingOver(claudeSessionId: string): boolean { return this.p.lifecycle.takingOver(claudeSessionId); }
-  cancelTakeOver(claudeSessionId: string): boolean { return this.p.lifecycle.cancelTakeOver(claudeSessionId); }
+  cancelTakeOver(claudeSessionId: string): boolean { return this.p.takeOvers.cancel(claudeSessionId); }
   killSession(id: string): Promise<void> { return this.p.lifecycle.killSession(id); }
   renameSession(id: string, title: string): Promise<TermSession | null> { return this.p.lifecycle.renameSession(id, title); }
   claudeName(claudeSessionId: string): string | null { return this.p.lifecycle.claudeName(claudeSessionId); }
