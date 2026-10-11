@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RecentConversation } from '../../src/base/api';
-import { followMacRecent, keptMacRecent, MAC_KEY, MAC_RECENT_MS, MAC_SHOWN, macShown } from '../../src/sessions/macRecent';
-import { brokenStorage, fakeVisibility, memoryStorage } from '../helpers/fakes';
+import { followMacRecent, keptMacRecent, MAC_KEY, MAC_RECENT_MS, MAC_SHOWN, macShown, notGoneOnHere } from '../../src/sessions/macRecent';
+import { aSession, brokenStorage, fakeVisibility, memoryStorage } from '../helpers/fakes';
 
 const NOW = Date.UTC(2026, 9, 5, 12);
 const r = (over: Partial<RecentConversation> = {}): RecentConversation => ({
@@ -29,6 +29,14 @@ describe('macShown', () => {
       r({ sessionId: 'old', lastActivity: NOW - MAC_RECENT_MS - 1 }),
     ];
     expect(macShown(all, NOW).map((x) => x.sessionId)).toEqual(['ok']);
+  });
+
+  // The session here shows the moment it starts; the Mac's list says it is open here only once asked again.
+  it('leaves out a conversation a session here goes on with, before the Mac says so', () => {
+    const all = [r({ sessionId: 'claude' }), r({ sessionId: 'thread' }), r({ sessionId: 'ended' }), r({ sessionId: 'ok' })];
+    const here = [aSession({ claudeSessionId: 'claude' }), aSession({ codexThreadId: 'thread' }), aSession({ claudeSessionId: 'ended', past: true })];
+    expect(macShown(all, NOW, here).map((x) => x.sessionId)).toEqual(['ended', 'ok']);
+    expect(notGoneOnHere(all, here).map((x) => x.sessionId)).toEqual(['ended', 'ok']);
   });
 
   it('shows at most MAC_SHOWN, in the order the Mac gave', () => {

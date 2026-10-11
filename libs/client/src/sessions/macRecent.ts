@@ -1,4 +1,4 @@
-import type { Api, RecentConversation } from '../base/api';
+import type { Api, RecentConversation, TermSession } from '../base/api';
 import { recentConversations } from './newSession';
 import type { KeyValue, Visibility } from '../base/platform';
 
@@ -13,8 +13,15 @@ const LONGEST_WAIT_MS = 30_000;
 // How old a row's state on the Mac (at work, waiting for the person) may get while the list is in front.
 export const MAC_LOOK_MS = 15_000;
 
-export const macShown = (recent: RecentConversation[], now: number) =>
-  recent.filter((r) => !r.automated && !r.openIn && r.cwd && r.lastActivity > now - MAC_RECENT_MS).slice(0, MAC_SHOWN);
+export const macShown = (recent: RecentConversation[], now: number, here: TermSession[] = []) =>
+  notGoneOnHere(recent, here).filter((r) => !r.automated && !r.openIn && r.cwd && r.lastActivity > now - MAC_RECENT_MS).slice(0, MAC_SHOWN);
+
+// The conversations no session shown here goes on with: one that starts leaves its conversation out at once,
+// before the Mac is asked again.
+export function notGoneOnHere(recent: RecentConversation[], here: TermSession[]): RecentConversation[] {
+  const followed = new Set(here.flatMap((s) => (s.past ? [] : (s.claudeSessionId ?? s.codexThreadId ?? []))));
+  return recent.filter((r) => !followed.has(r.sessionId));
+}
 
 // What was kept, to show before anything is asked.
 export function keptMacRecent(storage: KeyValue): RecentConversation[] {

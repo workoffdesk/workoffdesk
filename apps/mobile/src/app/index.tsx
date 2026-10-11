@@ -4,7 +4,7 @@ import { folderBeside, listView } from '@workoffdesk/client/sessions/sessionList
 import { t } from '@workoffdesk/i18n';
 import { router, Stack } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { followMacRecent, keptMacRecent, macShown } from '@workoffdesk/client/sessions/macRecent';
+import { followMacRecent, keptMacRecent, macShown, notGoneOnHere } from '@workoffdesk/client/sessions/macRecent';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useUpdateReady } from '../appUpdate';
@@ -23,7 +23,7 @@ function useMacSessions(sessions: TermSession[] | null): RecentConversation[] {
   const [recent, setRecent] = useState(() => macShown(keptMacRecent(storage), Date.now()));
   const followed = (sessions ?? []).flatMap((s) => s.claudeSessionId ?? s.codexThreadId ?? []).sort().join(' ');
   useEffect(() => followMacRecent({ api, storage, visibility }, (all) => setRecent(macShown(all, Date.now()))), [followed]);
-  return recent;
+  return notGoneOnHere(recent, sessions ?? []);
 }
 
 // Ending or deleting a session from its row; what went wrong is said in an alert, as no page is there to say it.

@@ -26,7 +26,7 @@ function useMacSessions(sessions: TermSession[] | null): RecentConversation[] {
   const [recent, setRecent] = useState(() => keptMacRecent(storage));
   const followed = (sessions ?? []).flatMap((s) => s.claudeSessionId ?? s.codexThreadId ?? []).sort().join(' ');
   useEffect(() => followMacRecent({ api, storage, visibility }, setRecent), [followed]);
-  return macShown(recent, Date.now());
+  return macShown(recent, Date.now(), sessions ?? []);
 }
 
 // How wide each action a row slides to show is, and how far a finger moves before it is a swipe, not a tap.
