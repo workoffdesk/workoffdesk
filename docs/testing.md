@@ -277,7 +277,7 @@ Every test file is listed under the risks it guards; one that guards several is 
 - The composer: `libs/client/tests/composer/composer.test.ts`, `libs/client/tests/composer/slash.test.ts`,
   `libs/client/tests/composer/snippets.test.ts`, `libs/client/tests/composer/talk.test.ts`,
   `libs/client/tests/composer/keyBar.test.ts`
-- Lists and new sessions: `libs/client/tests/sessions/sessionListView.test.ts`, `libs/client/tests/base/listed.test.ts`,
+- Lists and new sessions: `libs/client/tests/sessions/sessionListView.test.ts`, `libs/client/tests/sessions/rowSwipe.test.ts`, `libs/client/tests/base/listed.test.ts`,
   `libs/client/tests/sessions/seen.test.ts`, `libs/client/tests/sessions/newSession.test.ts`,
   `libs/client/tests/sessions/projectSearch.test.ts`, `apps/server/tests/unit/system/dirs.test.ts`,
   `apps/server/tests/unit/package/name.test.ts`, `apps/server/tests/unit/sessions/sessionName.test.ts`,

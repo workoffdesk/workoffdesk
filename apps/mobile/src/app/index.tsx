@@ -44,6 +44,7 @@ export default function Sessions() {
   const mac = useMacSessions(sessions ?? null);
   const [query, setQuery] = useState('');
   const [renaming, setRenaming] = useState<TermSession | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const { sorted, groups } = listView(sessions ?? null, query);
   const unread = sorted ? seen.unreadOf(sorted) : new Set<string>();
   const sections: Section[] = groups.map((g) => ({ group: g, title: g.title, data: g.sessions }));
@@ -104,7 +105,7 @@ export default function Sessions() {
         contentInsetAdjustmentBehavior="automatic"
         sections={sections}
         keyExtractor={(s) => s.id}
-        renderItem={({ item, section }) => <Row s={item} folder={folderBeside(item, section.group)} unread={unread.has(item.id)} theme={theme} actions={actions(item)} />}
+        renderItem={({ item, section }) => <Row s={item} folder={folderBeside(item, section.group)} unread={unread.has(item.id)} theme={theme} actions={actions(item)} open={openId === item.id} setOpen={setOpenId} />}
         renderSectionHeader={({ section }) =>
           section.title ? (
             <Text style={rs.group}>
@@ -131,6 +132,7 @@ export default function Sessions() {
             </View>
           ) : null
         }
+        onScrollBeginDrag={() => setOpenId(null)}
         keyboardDismissMode="on-drag"
       />
       {renaming && <RenameSheet session={renaming} onClose={() => setRenaming(null)} />}

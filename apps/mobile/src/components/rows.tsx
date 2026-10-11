@@ -3,15 +3,19 @@ import { dirName, listTime, sessionPreview, shortPath } from '@workoffdesk/clien
 import { t } from '@workoffdesk/i18n';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo } from 'react';
+import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import { ActionSheetIOS, Pressable, StyleSheet, Text, View } from 'react-native';
 import { tint, type Theme } from '../theme';
+import { SwipeRow } from './SwipeRow';
 
 export type RowAction = { label: string; run: () => void; destructive?: boolean };
 
-// A session here. A long press opens its actions in a sheet, as a swipe shows them on the web; VoiceOver has
-// them as its actions. A past one is drawn as a conversation on the Mac is, with no status: nothing runs in it.
-export function Row({ s, folder, unread, theme, actions }: { s: TermSession; folder: string | null; unread: boolean; theme: Theme; actions: RowAction[] }) {
+// A session here. It slides left to show its actions, as on the web, and a long press opens them in a sheet;
+// VoiceOver has them as its actions. open: whether it is the one row the list has open; a tap on an open row
+// shuts it rather than opening the session. A past one is drawn as a conversation on the Mac is, with no status:
+// nothing runs in it.
+type OpenRow = { open: boolean; setOpen: Dispatch<SetStateAction<string | null>> };
+export function Row({ s, folder, unread, theme, actions, open, setOpen }: { s: TermSession; folder: string | null; unread: boolean; theme: Theme; actions: RowAction[] } & OpenRow) {
   const st = useMemo(() => rowStyles(theme), [theme]);
   const { c } = theme;
   const status = isAgent(s.kind) && !s.past ? s.status : null;
@@ -23,46 +27,48 @@ export function Row({ s, folder, unread, theme, actions }: { s: TermSession; fol
     );
   };
   return (
-    <Pressable
-      testID="session-card"
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/session/[id]', params: { id: s.id } })}
-      onLongPress={hold}
-      accessibilityActions={actions.map((a, i) => ({ name: String(i), label: a.label }))}
-      onAccessibilityAction={(e) => actions[Number(e.nativeEvent.actionName)]?.run()}
-      style={({ pressed }) => [st.item, pressed && { backgroundColor: c.rowHeld }]}
-    >
-      <View style={[st.avatar, s.past && st.macAvatar, { backgroundColor: s.kind === 'codex' ? c.codex : isAgent(s.kind) ? c.claude : c.shell }]}>
-        <SymbolView
-          name={s.kind === 'codex' ? 'chevron.left.forwardslash.chevron.right' : isAgent(s.kind) ? 'bubble.left' : 'terminal'}
-          tintColor="#fff"
-          size={s.kind === 'codex' ? 22 : 26}
-        />
-        {status === 'waiting' && <View style={[st.needsYou, { borderColor: c.row }]} />}
-        {status === 'working' && <View style={[st.busy, { borderColor: c.row, backgroundColor: c.accent }]} />}
-      </View>
-      <View style={st.main}>
-        <View style={st.top}>
-          {status === 'working' && <Text style={[st.badge, { color: c.working, backgroundColor: tint(c.working, 16) }]}>{t.busy}</Text>}
-          {status === 'waiting' && <Text style={[st.badge, { color: c.waiting, backgroundColor: tint(c.waiting, 16) }]}>{t.needsYou}</Text>}
-          {unread && status !== 'working' && status !== 'waiting' && (
-            <Text style={[st.badge, { color: c.accentText, backgroundColor: c.accent }]}>{t.unread}</Text>
-          )}
-          <Text style={st.name} numberOfLines={1}>
-            {s.title}
-          </Text>
-          {!!folder && (
-            <Text style={st.dir} numberOfLines={1}>
-              {folder}
-            </Text>
-          )}
-          <Text style={st.time}>{listTime(s.lastActivity)}</Text>
+    <SwipeRow id={s.id} open={open} setOpen={setOpen} actions={actions} theme={theme}>
+      <Pressable
+        testID="session-card"
+        accessibilityRole="button"
+        onPress={() => (open ? setOpen(null) : router.push({ pathname: '/session/[id]', params: { id: s.id } }))}
+        onLongPress={hold}
+        accessibilityActions={actions.map((a, i) => ({ name: String(i), label: a.label }))}
+        onAccessibilityAction={(e) => actions[Number(e.nativeEvent.actionName)]?.run()}
+        style={({ pressed }) => [st.item, pressed && { backgroundColor: c.rowHeld }]}
+      >
+        <View style={[st.avatar, s.past && st.macAvatar, { backgroundColor: s.kind === 'codex' ? c.codex : isAgent(s.kind) ? c.claude : c.shell }]}>
+          <SymbolView
+            name={s.kind === 'codex' ? 'chevron.left.forwardslash.chevron.right' : isAgent(s.kind) ? 'bubble.left' : 'terminal'}
+            tintColor="#fff"
+            size={s.kind === 'codex' ? 22 : 26}
+          />
+          {status === 'waiting' && <View style={[st.needsYou, { borderColor: c.row }]} />}
+          {status === 'working' && <View style={[st.busy, { borderColor: c.row, backgroundColor: c.accent }]} />}
         </View>
-        <Text style={st.preview} numberOfLines={1}>
-          {s.past ? s.lastReply || shortPath(s.cwd) : sessionPreview(s)}
-        </Text>
-      </View>
-    </Pressable>
+        <View style={st.main}>
+          <View style={st.top}>
+            {status === 'working' && <Text style={[st.badge, { color: c.working, backgroundColor: tint(c.working, 16) }]}>{t.busy}</Text>}
+            {status === 'waiting' && <Text style={[st.badge, { color: c.waiting, backgroundColor: tint(c.waiting, 16) }]}>{t.needsYou}</Text>}
+            {unread && status !== 'working' && status !== 'waiting' && (
+              <Text style={[st.badge, { color: c.accentText, backgroundColor: c.accent }]}>{t.unread}</Text>
+            )}
+            <Text style={st.name} numberOfLines={1}>
+              {s.title}
+            </Text>
+            {!!folder && (
+              <Text style={st.dir} numberOfLines={1}>
+                {folder}
+              </Text>
+            )}
+            <Text style={st.time}>{listTime(s.lastActivity)}</Text>
+          </View>
+          <Text style={st.preview} numberOfLines={1}>
+            {s.past ? s.lastReply || shortPath(s.cwd) : sessionPreview(s)}
+          </Text>
+        </View>
+      </Pressable>
+    </SwipeRow>
   );
 }
 

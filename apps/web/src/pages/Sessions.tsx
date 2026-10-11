@@ -8,6 +8,7 @@ import { NewSessionSheet } from '../components/NewSessionSheet';
 import { RenameSheet } from '../components/RenameSheet';
 import { listTime, sessionPreview, shortPath } from '@workoffdesk/client/model/format';
 import { folderBeside, listView } from '@workoffdesk/client/sessions/sessionListView';
+import { ACTION_PX, gestureOf, rowShift, staysOpen } from '@workoffdesk/client/sessions/rowSwipe';
 import { IconGear, IconHistory, IconPlus, IconSearch, IconChat, IconCode, IconTerminal } from '../icons';
 import { navigate } from '../router';
 import { useSessions } from '../sessions';
@@ -28,10 +29,6 @@ function useMacSessions(sessions: TermSession[] | null): RecentConversation[] {
   useEffect(() => followMacRecent({ api, storage, visibility }, setRecent), [followed]);
   return macShown(recent, Date.now(), sessions ?? []);
 }
-
-// How wide each action a row slides to show is, and how far a finger moves before it is a swipe, not a tap.
-const ACTION_PX = 88;
-const SWIPE_PX = 10;
 
 // A row slides left under the finger to show its actions, as a long press shows them on the phone. Opening one
 // row closes the others; a tap on an open row closes it rather than opening the session. A past session is
@@ -55,17 +52,17 @@ function Row({ s, folder, open, current, unread, onOpen, actions }: { s: TermSes
     const mx = e.clientX - d.x;
     const my = e.clientY - d.y;
     if (!d.swiping && !d.moved) {
-      if (Math.abs(mx) < SWIPE_PX && Math.abs(my) < SWIPE_PX) return;
+      const gesture = gestureOf(mx, my);
+      if (!gesture) return;
       d.moved = true;
-      // Up and down is scrolling the list.
-      if (Math.abs(mx) <= Math.abs(my)) return;
+      if (gesture === 'scroll') return;
       d.swiping = true;
       e.currentTarget.setPointerCapture(e.pointerId);
     }
-    if (d.swiping) setDx(Math.min(0, Math.max(-width, base + mx)));
+    if (d.swiping) setDx(rowShift(open, width, mx));
   };
   const onPointerUp = () => {
-    if (drag.current?.swiping && dx !== null) onOpen(dx < -width / 2);
+    if (drag.current?.swiping && dx !== null) onOpen(staysOpen(dx, width));
     setDx(null);
   };
   const onClick = (e: React.MouseEvent) => {
