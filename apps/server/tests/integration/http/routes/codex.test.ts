@@ -353,3 +353,40 @@ describe('GET /api/conversations', () => {
     expect(ids).not.toContain(CLAUDE);
   });
 });
+
+// What a conversation's page asks of it, however old: the row the lists have for it.
+describe('GET /api/conversations/:agent/:sid', () => {
+  const one = async (s: Awaited<ReturnType<typeof start>>, agent: string, sid: string) => s.api(`/api/conversations/${agent}/${sid}`);
+
+  it('has a Claude one older than the recent list goes, as the list of all has it', async () => {
+    const s = await start();
+    const newer = (i: number) => `0c0c0c0c-1111-4222-8333-${String(i).padStart(12, '0')}`;
+    for (let i = 0; i < 60; i++) {
+      const file = join(s.at, 'claude-projects', '-proj', `${newer(i)}.jsonl`);
+      writeFileSync(file, `${JSON.stringify({ type: 'user', cwd: '/work/proj', message: { content: `said ${i}` } })}\n`);
+    }
+    expect(await s.row(CLAUDE), 'precondition: past the recent list').toBeUndefined();
+    const res = await one(s, 'claude', CLAUDE);
+    expect(res.status).toBe(200);
+    const all = (await (await s.api('/api/conversations?limit=200')).json()) as { conversations: Row[] };
+    expect(await res.json()).toEqual(all.conversations.find((r) => r.sessionId === CLAUDE));
+  });
+
+  it('has a Codex one older than the recent list goes', async () => {
+    const s = await start({ list: () => ({ data: [] }) });
+    expect(await s.row(OLD), 'precondition: past the recent list').toBeUndefined();
+    const res = await one(s, 'codex', OLD);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ sessionId: OLD, agent: 'codex', title: 'Older one', cwd: s.at, openIn: null });
+  });
+
+  it.each([
+    ['claude', '0c0c0c0c-1111-4222-8333-999999999999'],
+    ['codex', '0199aaaa-0000-7000-8000-0000000000ff'],
+    ['claude', 'not-a-uuid'],
+    ['shell', CLAUDE],
+  ])('says there is none for %s %s', async (agent, sid) => {
+    const s = await start();
+    expect((await one(s, agent, sid)).status).toBe(404);
+  });
+});

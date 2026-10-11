@@ -143,14 +143,11 @@ export class LocalMachine implements Machine {
     p.naming.watch();
   }
 
-  async codexOnMac(): Promise<CodexOnMac[]> {
-    return this.d.codexThreads ? this.d.codexThreads.list() : [];
-  }
-
+  codexOnMac = async (): Promise<CodexOnMac[]> => (this.d.codexThreads ? this.d.codexThreads.list() : []);
   // Every Codex thread people opened on the Mac, however old.
-  async allCodexOnMac(): Promise<CodexOnMac[]> {
-    return this.d.codexThreads ? this.d.codexThreads.all() : [];
-  }
+  allCodexOnMac = async (): Promise<CodexOnMac[]> => (this.d.codexThreads ? this.d.codexThreads.all() : []);
+  // One Codex thread, however old; null when there is none.
+  oneCodexOnMac = async (id: string): Promise<CodexOnMac | null> => (this.d.codexThreads ? this.d.codexThreads.where(id).catch(() => null) : null);
 
   codexChat(threadId: string): Promise<Entry[]> {
     if (!UUID.test(threadId)) throw new InvalidRequest('thread id must be a uuid');

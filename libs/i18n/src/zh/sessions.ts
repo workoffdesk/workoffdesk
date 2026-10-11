@@ -47,6 +47,7 @@ export const sessions: typeof en = {
   dismissSuggestion: '不要这条建议',
 
   macSession: 'Mac 上的会话',
+  notOnMac: 'Mac 上已经没有这个对话了',
   readOnly: '只读',
   cannotRead: '读不到这个对话',
   openAlreadyOnPhone: '打开（已经在手机上开着）',

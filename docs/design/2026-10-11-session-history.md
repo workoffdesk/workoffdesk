@@ -65,6 +65,9 @@ unless asked) with a last activity before `before`, and `more` when there are ot
   holds, running or past (they are in the list).
 - `q` keeps those whose title, folder or last prompt has it, ignoring case.
 - Each has the shape of `/api/recent`'s, so a row opens the same read-before-picking-up page.
+- `GET /api/conversations/:agent/:sid` gives one of them in that shape, however old, or 404 when the agent keeps
+  none by that id. The read-before-picking-up page asks it for its conversation, so a row from any list opens a page
+  that can pick it up; until the Mac answers, its button shows it is asking.
 
 ## In the apps
 

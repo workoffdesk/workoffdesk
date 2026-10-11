@@ -1,5 +1,5 @@
-import { agentOf, errorText, type Agent, type Api, type RecentConversation } from '@workoffdesk/client/base/api';
-import { cancelTakeOver, createSession, pickUpOf, recentConversations, takeOver } from '@workoffdesk/client/sessions/newSession';
+import { errorText, type Agent, type Api, type RecentConversation } from '@workoffdesk/client/base/api';
+import { cancelTakeOver, createSession, macConversation, pickUpOf, takeOver } from '@workoffdesk/client/sessions/newSession';
 import { t } from '@workoffdesk/i18n';
 import { useEffect, useState } from 'react';
 
@@ -8,9 +8,10 @@ import { useEffect, useState } from 'react';
 const MAC_LOOK_MS = 3_000;
 
 // A Claude or Codex conversation from this Mac, read before picking it up here: what the Mac says of it, and
-// picking it up, after which the page goes to the session it became (`go`).
+// picking it up, after which the page goes to the session it became (`go`). info is undefined until the Mac
+// answers, null when it has no such conversation.
 export function useMacConversation(api: Api, agent: Agent, sid: string, go: (id: string) => void) {
-  const [info, setInfo] = useState<RecentConversation | null>(null);
+  const [info, setInfo] = useState<RecentConversation | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The last time the Mac was asked, it could not be reached; it is asked again until it answers.
@@ -22,10 +23,9 @@ export function useMacConversation(api: Api, agent: Agent, sid: string, go: (id:
   useEffect(() => {
     let gone = false;
     let again: ReturnType<typeof setTimeout> | undefined;
-    recentConversations(api).then(
-      (all) => {
+    macConversation(api, agent, sid).then(
+      (r) => {
         if (gone) return;
-        const r = all.find((x) => x.sessionId === sid && agentOf(x) === agent) ?? null;
         setUnreachable(false);
         setInfo(r);
         if (r?.takingOver) setFollowing(true);

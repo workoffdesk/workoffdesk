@@ -1,7 +1,7 @@
 import { t } from '@workoffdesk/i18n';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api, type RecentConversation } from '../../src/base/api';
-import { canGoOn, canPickUp, cancelTakeOver, createSession, goOnWith, pickUpOf, previewChatUrl, recentConversations, recentFound, recentNote, takeOver } from '../../src/sessions/newSession';
+import { canGoOn, canPickUp, cancelTakeOver, createSession, goOnWith, pickUpOf, previewChatUrl, macConversation, recentConversations, recentFound, recentNote, takeOver } from '../../src/sessions/newSession';
 import { aSession } from '../helpers/fakes';
 
 const recent = (o: Partial<RecentConversation> & { sessionId: string }): RecentConversation => ({
@@ -120,6 +120,26 @@ describe('goOnWith and canGoOn', () => {
 
   it('allows it only for a session that holds a conversation', () => {
     expect([canGoOn(claude), canGoOn(codex), canGoOn(aSession({ kind: 'claude' })), canGoOn(aSession({ kind: 'codex', claudeSessionId: 'conv-1' })), canGoOn(aSession({ kind: 'shell' }))]).toEqual([true, true, false, false, false]);
+  });
+});
+
+describe('macConversation', () => {
+  it.each(['claude', 'codex'] as const)('asks the Mac for that one %s conversation, however old', async (agent) => {
+    const row = recent({ sessionId: 'login', agent });
+    const api = vi.fn(async () => row) as unknown as Api;
+    await expect(macConversation(api, agent, 'login')).resolves.toBe(row);
+    expect(api).toHaveBeenCalledWith(`/api/conversations/${agent}/login`);
+  });
+
+  it('is null when the Mac has none by that id, and throws when it cannot be asked', async () => {
+    const none = vi.fn(async () => {
+      throw new ApiError(404, 'no such conversation');
+    }) as unknown as Api;
+    await expect(macConversation(none, 'claude', 'gone')).resolves.toBeNull();
+    const down = vi.fn(async () => {
+      throw new ApiError(502, 'bad gateway');
+    }) as unknown as Api;
+    await expect(macConversation(down, 'claude', 'x')).rejects.toBeInstanceOf(ApiError);
   });
 });
 

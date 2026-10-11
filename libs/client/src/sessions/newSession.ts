@@ -42,6 +42,13 @@ export const recentConversations = (api: Api) =>
     throw e;
   });
 
+// One conversation on the Mac, however old, as the lists have it; null when the Mac has none by that id.
+export const macConversation = (api: Api, agent: Agent, id: string) =>
+  api<RecentConversation>(`/api/conversations/${agent}/${id}`).catch((e: unknown) => {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  });
+
 // Where a conversation on the Mac is read before it is gone on with here.
 export const previewChatUrl = (agent: Agent, id: string) =>
   agent === 'codex' ? `/api/codex/threads/${id}/chat` : `/api/claude/sessions/${id}/chat`;

@@ -47,6 +47,7 @@ export const sessions = {
 
   // Read-only conversation from the Mac
   macSession: 'Session on the Mac',
+  notOnMac: 'This conversation is no longer on the Mac',
   readOnly: 'Read-only',
   cannotRead: 'Cannot read this conversation',
   openAlreadyOnPhone: 'Open (already open on the phone)',

@@ -1,7 +1,7 @@
 import { isDir } from '../../system/dirs.js';
 import type { AppDeps } from '../app.js';
 import type { CodexOnMac } from '../../agents/codex/threads.js';
-import { allClaude, recentClaude } from './claude.js';
+import { allClaude, oneClaude, recentClaude } from './claude.js';
 import type { RouteModule } from './context.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -63,6 +63,18 @@ export const register: RouteModule = (app, ctx) => {
       .filter((r) => !r.automated && !held.has(r.sessionId) && r.lastActivity < before && found(r))
       .sort((a, b) => b.lastActivity - a.lastActivity);
     return { conversations: rows.slice(0, limit), more: rows.length > limit };
+  });
+
+  // One conversation, however old, as the lists have it: what its page shows and offers.
+  app.get<{ Params: { agent: string; sid: string } }>('/api/conversations/:agent/:sid', async (req, reply) => {
+    const { agent, sid } = req.params;
+    const row =
+      agent === 'claude'
+        ? await oneClaude(deps, sid)
+        : agent === 'codex' && UUID.test(sid)
+          ? ((await codexRows(deps, async () => [await machine.oneCodexOnMac(sid)].filter((t) => t !== null)))[0] ?? null)
+          : null;
+    return row ?? reply.code(404).send({ error: 'no such conversation' });
   });
 
   // A thread's conversation, to read before picking it up here; the same shape and paging as a Claude one's,

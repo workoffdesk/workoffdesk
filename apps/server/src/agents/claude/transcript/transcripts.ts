@@ -2,6 +2,7 @@ import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { unpasted, type TranscriptRecord } from './chat.js';
+import { findTranscript } from './transcriptFile.js';
 
 // Claude Code's transcript format is undocumented: every field read here is
 // optional, and a file that yields nothing parseable is skipped, never thrown.
@@ -39,11 +40,10 @@ async function listRecent(root: string, limit: number): Promise<RecentClaudeSess
   const latest = (list: RecentClaudeSession[]) => (list.length < limit ? -Infinity : list[limit - 1].lastActivity);
   for (const f of files.slice(0, limit * 6)) {
     if (f.mtimeMs < latest(kept.people) && f.mtimeMs < latest(kept.programs)) break;
-    const parsed = await parsedOnce(f);
-    if (!parsed || isScratch(parsed.cwd)) continue;
-    const { saidAt, ...shown } = parsed;
-    const list = kept[parsed.automated ? 'programs' : 'people'];
-    list.push({ sessionId: basename(f.path, '.jsonl'), ...shown, lastActivity: saidAt ?? Math.round(f.mtimeMs) });
+    const r = await rowOf(f);
+    if (!r || isScratch(r.cwd)) continue;
+    const list = kept[r.automated ? 'programs' : 'people'];
+    list.push(r);
     list.sort((a, b) => b.lastActivity - a.lastActivity);
     list.splice(limit);
   }
@@ -64,12 +64,24 @@ export function listAllClaudeSessions(root: string): Promise<RecentClaudeSession
 async function listAll(root: string): Promise<RecentClaudeSession[]> {
   const all: RecentClaudeSession[] = [];
   for (const f of await transcriptFiles(root)) {
-    const parsed = await parsedOnce(f);
-    if (!parsed || isScratch(parsed.cwd)) continue;
-    const { saidAt, ...shown } = parsed;
-    all.push({ sessionId: basename(f.path, '.jsonl'), ...shown, lastActivity: saidAt ?? Math.round(f.mtimeMs) });
+    const r = await rowOf(f);
+    if (r && !isScratch(r.cwd)) all.push(r);
   }
   return all.sort((a, b) => b.lastActivity - a.lastActivity);
+}
+
+// One conversation Claude Code still keeps, as the lists have it, however old; null when it keeps none by that id.
+export async function oneClaudeSession(root: string, sessionId: string): Promise<RecentClaudeSession | null> {
+  const path = await findTranscript(root, sessionId);
+  const st = path ? await stat(path).catch(() => null) : null;
+  return path && st ? rowOf({ path, size: st.size, mtimeMs: st.mtimeMs }) : null;
+}
+
+async function rowOf(f: { path: string; size: number; mtimeMs: number }): Promise<RecentClaudeSession | null> {
+  const parsed = await parsedOnce(f);
+  if (!parsed) return null;
+  const { saidAt, ...shown } = parsed;
+  return { sessionId: basename(f.path, '.jsonl'), ...shown, lastActivity: saidAt ?? Math.round(f.mtimeMs) };
 }
 
 // A conversation in a temporary folder is a throwaway run (a test, a probe), not work to come back to.

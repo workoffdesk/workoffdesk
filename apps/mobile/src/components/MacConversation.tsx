@@ -75,6 +75,7 @@ export function MacConversation({ agent }: { agent: Agent }) {
         {error && <Text style={s.alert}>{error}</Text>}
         {unreachable && !error && <Text style={s.alert}>{t.noServer}</Text>}
         {missed && !error && <Text style={s.alert}>{t.takeOverMissed}</Text>}
+        {info === null && <Text style={s.alert}>{t.notOnMac}</Text>}
         {pick?.do === 'takeOver' && (
           <Text style={s.onMac}>
             {[pick.status === 'busy' ? t.onMacBusy : pick.status === 'waiting' ? t.onMacWaiting : t.onMacIdle, pick.terminals > 1 && t.openInTerminals(pick.terminals)]
@@ -107,7 +108,7 @@ export function MacConversation({ agent }: { agent: Agent }) {
             kind="primary"
             label={pick?.do === 'open' ? t.openAlreadyOnPhone : pick?.do === 'none' ? (agent === 'codex' ? t.openElsewhereNoResume : t.inBackgroundNoResume) : t.continueOnPhone}
             disabled={busy || !info?.cwd || !pick || pick.do === 'none'}
-            busy={busy}
+            busy={busy || info === undefined}
             onPress={() => (pick?.do === 'open' ? go(pick.id) : void resume())}
           />
         )}

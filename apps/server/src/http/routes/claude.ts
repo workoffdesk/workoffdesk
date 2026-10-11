@@ -1,5 +1,5 @@
 import { findTranscript, readChat, readChatBefore } from '../../agents/claude/transcript/transcriptFile.js';
-import { heldInBackground, listAllClaudeSessions, listProjectDirs, listRecentClaudeSessions, type RecentClaudeSession } from '../../agents/claude/transcript/transcripts.js';
+import { heldInBackground, listAllClaudeSessions, listProjectDirs, listRecentClaudeSessions, oneClaudeSession, type RecentClaudeSession } from '../../agents/claude/transcript/transcripts.js';
 import { isDir } from '../../system/dirs.js';
 import type { AppDeps } from '../app.js';
 import type { RouteModule } from './context.js';
@@ -15,6 +15,15 @@ export function recentClaude(deps: AppDeps) {
 // Every Claude conversation Claude Code still keeps on this Mac, however old.
 export function allClaude(deps: AppDeps) {
   return claudeRows(deps, listAllClaudeSessions);
+}
+
+// One Claude conversation on this Mac, as the lists have it; null when Claude Code keeps none by that id.
+export async function oneClaude(deps: AppDeps, sid: string) {
+  const [row] = await claudeRows(deps, async (root) => {
+    const r = await oneClaudeSession(root, sid);
+    return r ? [r] : [];
+  });
+  return row ?? null;
 }
 
 async function claudeRows(deps: AppDeps, list: (root: string) => Promise<RecentClaudeSession[]>) {

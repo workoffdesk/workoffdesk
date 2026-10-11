@@ -70,6 +70,7 @@ export function MacConversation({ agent, sid }: { agent: Agent; sid: string }) {
         {error && <div className="alert">{error}</div>}
         {unreachable && !error && <div className="alert">{t.noServer}</div>}
         {missed && !error && <div className="alert">{t.takeOverMissed}</div>}
+        {info === null && <div className="alert">{t.notOnMac}</div>}
         {pick?.do === 'takeOver' && (
           <strong>
             {[pick.status === 'busy' ? t.onMacBusy : pick.status === 'waiting' ? t.onMacWaiting : t.onMacIdle, pick.terminals > 1 && t.openInTerminals(pick.terminals)]
@@ -125,6 +126,7 @@ export function MacConversation({ agent, sid }: { agent: Agent; sid: string }) {
           <button
             className="btn primary"
             disabled={busy || !info?.cwd || !pick || pick.do === 'none'}
+            aria-busy={info === undefined}
             onClick={() => (pick?.do === 'open' ? navigate(`/m/${MACHINE}/s/${pick.id}`) : void resume())}
           >
             {pick?.do === 'open' ? t.openAlreadyOnPhone : pick?.do === 'none' ? (agent === 'codex' ? t.openElsewhereNoResume : t.inBackgroundNoResume) : t.continueOnPhone}
