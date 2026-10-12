@@ -1,3 +1,4 @@
+import { t } from '@workoffdesk/i18n';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api, type ClaudeStatus } from '../../src/base/api';
 import { emptyView, type JournalItem, type SessionView } from '../../src/journal/journalRows';
@@ -130,10 +131,10 @@ describe('createAccountMove', () => {
   });
 
   it('shows why, says nothing, keeps the offer open and moves no other session when this one is not moved', async () => {
-    const { m, calls, sent } = await loaded({ refuse: 'Claude is at work in a terminal on the Mac' });
+    const { m, calls, sent } = await loaded({ refuse: 'said by the Mac' });
     m.offer('继续', false);
     await m.move(WORK.id);
-    expect(m.getSnapshot()).toMatchObject({ asking: { text: '继续', typed: false }, moving: null, waiting: null, error: 'Claude is at work in a terminal on the Mac' });
+    expect(m.getSnapshot()).toMatchObject({ asking: { text: '继续', typed: false }, moving: null, waiting: null, error: t.serverErrors['open-on-mac-busy'] });
     expect(calls.map(([c]) => c)).not.toContain('POST /api/claude/account/move');
     m.seen('work@example.com');
     expect(sent).toEqual([]);

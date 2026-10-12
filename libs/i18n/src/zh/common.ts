@@ -60,6 +60,10 @@ export const common: typeof en = {
     'account-unusable': '这个账号现在用不了。',
     'account-none-picked': '先选一个账号。',
     'folder-gone': '它的文件夹已经不在这台 Mac 上了。',
+    'session-busy': '等 Claude 这轮回复完才能换，回复完再试一次。',
+    'cannot-move': '只有 Claude 还在跑、文件夹也还在的会话才能换账号。',
+    'move-failed': '它的 Claude 没有及时退出，还在原来的账号上，再试一次。',
+    'open-on-mac-busy': '这个对话在 Mac 的终端里也开着，那边的 Claude 正在干活或在问你问题；先让它在那边停下来。',
     'terminal-busy': '这个会话在电脑的终端里正跑着别的程序，先在那边退出它，或者开一个新对话',
   },
 
