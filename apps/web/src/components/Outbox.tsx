@@ -35,14 +35,14 @@ export function OnMacBar({ terminals, sessionId, onError }: { terminals: number;
     });
   };
   return (
-    <div className="send-held stacked" role="status" aria-label={t.alsoOnMac(terminals)}>
+    <div className="on-mac-note" role="status" aria-label={t.alsoOnMac(terminals)}>
+      <b>{t.alsoOnMac(terminals)}</b>
       <span>
-        <b>{t.alsoOnMac(terminals)}</b>
         <small>{t.alsoOnMacSub}</small>
+        <button className="btn small" disabled={quitting} aria-busy={quitting} onClick={quit}>
+          {t.quitOnMac}
+        </button>
       </span>
-      <button className="btn small" disabled={quitting} aria-busy={quitting} onClick={quit}>
-        {t.quitOnMac}
-      </button>
       {asking && (
         <ActionSheet
           title={t.alsoOnMac(terminals)}

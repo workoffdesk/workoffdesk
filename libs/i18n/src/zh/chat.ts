@@ -61,7 +61,7 @@ export const chat: typeof en = {
   compactingQueued: (n) => `你的 ${n} 条消息在排队，压缩完按顺序自动发出`,
   compactingWillQueue: '现在发的消息会先排队，压缩完自动发出',
   alsoOnMac: (n) => (n === 1 ? '这个对话在 Mac 的终端里也开着' : `这个对话在 Mac 的 ${n} 个终端里也开着`),
-  alsoOnMacSub: '两个 Claude 在同时写它，各自只看得见自己那几轮。',
+  alsoOnMacSub: '两边各写各的，互相看不见。',
   quitOnMac: '退出那边的 Claude',
   quitOnMacBusy: '那边的 Claude 正在干活或在问你问题，现在退出会打断它。',
   quitAnyway: '仍然退出',

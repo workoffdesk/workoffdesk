@@ -81,12 +81,12 @@ export function OnMacBar({ terminals, sessionId }: { terminals: number; sessionI
     });
   };
   return (
-    <View style={[s.held, s.heldStacked]} accessibilityLabel={t.alsoOnMac(terminals)}>
-      <View style={[s.heldText, s.heldTextStacked]}>
-        <Text style={s.heldTitle}>{t.alsoOnMac(terminals)}</Text>
-        <Text style={s.heldSub}>{t.alsoOnMacSub}</Text>
+    <View style={s.onMac} accessibilityLabel={t.alsoOnMac(terminals)}>
+      <Text style={s.heldTitle}>{t.alsoOnMac(terminals)}</Text>
+      <View style={s.onMacRow}>
+        <Text style={s.onMacSub}>{t.alsoOnMacSub}</Text>
+        <Button small label={t.quitOnMac} busy={quitting} onPress={quit} />
       </View>
-      <Button small label={t.quitOnMac} busy={quitting} onPress={quit} style={s.heldAction} />
     </View>
   );
 }

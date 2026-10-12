@@ -11,6 +11,7 @@ import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-nat
 import { useUpdateReady } from '../appUpdate';
 import { api, groupingChoice, seen, sessionList, storage, visibility } from '../client';
 import { useGrouping } from '@workoffdesk/react/settings';
+import { scrollHolds } from '../scrollHold';
 import { RenameSheet } from '../components/RenameSheet';
 import { useSessions } from '../hooks';
 import { MacRow, Row, rowStyles, type RowAction } from '../components/rows';
@@ -51,13 +52,15 @@ export default function Sessions() {
   const [query, setQuery] = useState('');
   const [renaming, setRenaming] = useState<TermSession | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [held, setHeld] = useState(false);
+  const [holdScroll] = useState(() => scrollHolds(setHeld));
   const { grouping } = useGrouping(groupingChoice);
   const { sorted, groups } = listView(sessions ?? null, query, grouping);
   const unread = sorted ? seen.unreadOf(sorted) : new Set<string>();
   const sections: Section[] = groups.map((g) => ({ group: g, title: g.title, data: g.sessions }));
   const actions = (s: TermSession): RowAction[] => [
     pinRow(s),
-    { label: t.renameAction, run: () => setRenaming(s) },
+    { label: t.renameAction, neutral: true, run: () => setRenaming(s) },
     s.past ? { label: t.delete, destructive: true, run: () => confirmDelete(s) } : { label: t.endSession, destructive: true, run: () => leave(s) },
   ];
 
@@ -110,10 +113,11 @@ export default function Sessions() {
       />
       <SectionList
         style={st.list}
+        scrollEnabled={!held}
         contentInsetAdjustmentBehavior="automatic"
         sections={sections}
         keyExtractor={(s) => s.id}
-        renderItem={({ item, section }) => <Row s={item} folder={folderBeside(item, section.group)} unread={unread.has(item.id)} theme={theme} actions={actions(item)} open={openId === item.id} setOpen={setOpenId} />}
+        renderItem={({ item, section }) => <Row s={item} folder={folderBeside(item, section.group)} unread={unread.has(item.id)} theme={theme} actions={actions(item)} open={openId === item.id} setOpen={setOpenId} holdScroll={holdScroll} />}
         renderSectionHeader={({ section }) =>
           section.title ? (
             <Text style={rs.group}>

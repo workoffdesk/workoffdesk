@@ -84,7 +84,7 @@ function Row({ s, folder, open, current, unread, onOpen, actions }: { s: TermSes
       {shift < 0 && (
         <span className="sess-actions" style={{ width }}>
           {actions.map((a) => (
-            <button key={a.label} className={a.destructive ? 'sess-action danger' : 'sess-action'} onClick={a.run}>
+            <button key={a.label} className={a.destructive ? 'sess-action danger' : a.neutral ? 'sess-action neutral' : 'sess-action'} onClick={a.run}>
               {a.label}
             </button>
           ))}
@@ -157,7 +157,7 @@ export function Sessions({ current }: { current?: string } = {}) {
           void pin.run().then(setProblem);
         }),
       },
-      { label: t.renameAction, run: then(() => setRenaming(s)) },
+      { label: t.renameAction, neutral: true, run: then(() => setRenaming(s)) },
       s.past ? { label: t.delete, destructive: true, run: then(() => setDeleting(s)) } : { label: t.endSession, destructive: true, run: then(() => leave(s)) },
     ];
   };

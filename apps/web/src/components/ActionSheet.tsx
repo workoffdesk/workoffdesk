@@ -2,7 +2,8 @@ import { t } from '@workoffdesk/i18n';
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
-export type Action = { label: string; run: () => void; destructive?: boolean };
+// neutral: drawn grey where a row's actions are, beside the main one.
+export type Action = { label: string; run: () => void; destructive?: boolean; neutral?: boolean };
 
 // The phone's choices as iOS draws them: one card in the middle of the dimmed page, each choice a pill and
 // Cancel the last. A destructive choice is red, and picking it is its confirmation. A choice runs before the card

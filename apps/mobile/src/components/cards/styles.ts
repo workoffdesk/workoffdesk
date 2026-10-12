@@ -101,10 +101,21 @@ const styles = ({ c, fs }: Theme) =>
       borderColor: c.waiting,
     },
     heldText: { flex: 1, gap: 2 },
-    // The words above, the action under them at the end, each with the width to itself.
-    heldStacked: { flexDirection: 'column', alignItems: 'stretch', gap: 8, paddingVertical: 10, paddingRight: 12 },
-    heldAction: { alignSelf: 'flex-end' },
-    heldTextStacked: { flex: 0 },
+    // A note rather than a hold: the page's own surface, marked at its edge.
+    onMac: {
+      gap: 4,
+      paddingVertical: 10,
+      paddingRight: 10,
+      paddingLeft: 12,
+      borderRadius: 10,
+      backgroundColor: c.surface,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderLeftWidth: 3,
+      borderLeftColor: c.waiting,
+    },
+    onMacRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    onMacSub: { flex: 1, fontSize: fs(13), color: c.muted },
     heldTitle: { fontSize: fs(14), fontWeight: '600', color: c.text },
     heldSub: { fontSize: fs(13), color: c.muted },
   });

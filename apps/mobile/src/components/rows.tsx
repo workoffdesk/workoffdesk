@@ -8,14 +8,15 @@ import { ActionSheetIOS, Pressable, StyleSheet, Text, View } from 'react-native'
 import { tint, type Theme } from '../theme';
 import { SwipeRow } from './SwipeRow';
 
-export type RowAction = { label: string; run: () => void; destructive?: boolean };
+// neutral: grey beside the main action.
+export type RowAction = { label: string; run: () => void; destructive?: boolean; neutral?: boolean };
 
 // A session here. It slides left to show its actions, as on the web, and a long press opens them in a sheet;
 // VoiceOver has them as its actions. open: whether it is the one row the list has open; a tap on an open row
 // shuts it rather than opening the session. A past one is drawn as a conversation on the Mac is, with no status:
 // nothing runs in it.
-type OpenRow = { open: boolean; setOpen: Dispatch<SetStateAction<string | null>> };
-export function Row({ s, folder, unread, theme, actions, open, setOpen }: { s: TermSession; folder: string | null; unread: boolean; theme: Theme; actions: RowAction[] } & OpenRow) {
+type OpenRow = { open: boolean; setOpen: Dispatch<SetStateAction<string | null>>; holdScroll: () => () => void };
+export function Row({ s, folder, unread, theme, actions, open, setOpen, holdScroll }: { s: TermSession; folder: string | null; unread: boolean; theme: Theme; actions: RowAction[] } & OpenRow) {
   const st = useMemo(() => rowStyles(theme), [theme]);
   const { c } = theme;
   const status = isAgent(s.kind) && !s.past ? s.status : null;
@@ -27,7 +28,7 @@ export function Row({ s, folder, unread, theme, actions, open, setOpen }: { s: T
     );
   };
   return (
-    <SwipeRow id={s.id} open={open} setOpen={setOpen} actions={actions} theme={theme}>
+    <SwipeRow id={s.id} open={open} setOpen={setOpen} holdScroll={holdScroll} actions={actions} theme={theme}>
       <Pressable
         testID="session-card"
         accessibilityRole="button"

@@ -15,6 +15,7 @@
   --waiting: #d29922;
   --idle: #3fb950;
   --ended: #6e7681;
+  --neutral: #6e7681;
   --added: #3fb950;
   --added-bg: rgba(63, 185, 80, 0.16);
   --removed-bg: rgba(248, 81, 73, 0.16);
@@ -59,6 +60,7 @@
   --waiting: #bf8700;
   --idle: #1a7f37;
   --ended: #8c959f;
+  --neutral: #636c76;
   --added: #1a7f37;
   --added-bg: rgba(26, 127, 55, 0.12);
   --removed-bg: rgba(207, 34, 46, 0.1);
@@ -91,6 +93,7 @@
   --danger: #e7000b;
   --waiting: #9c6900;
   --ended: #899989;
+  --neutral: #505f50;
   --term-bg: #edf9ed;
 }
 
@@ -207,6 +210,7 @@ input, textarea { font: inherit; color: inherit; }
   font-size: calc(15px * var(--text-scale)); font-weight: 600;
 }
 .sess-action.danger { background: var(--danger); color: #fff; }
+.sess-action.neutral { background: var(--neutral); color: #fff; }
 .sess-row > .sess-item { background: var(--row); touch-action: pan-y; transition: transform 0.2s; }
 .sess-row.dragging > .sess-item { transition: none; }
 .sess-row + .sess-row > .sess-item::before,
@@ -720,8 +724,12 @@ input, textarea { font: inherit; color: inherit; }
 .send-held span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .send-held small { font-size: calc(13px * var(--text-scale)); font-weight: 400; color: var(--muted); }
 .send-held .btn { flex: none; }
-.send-held.stacked { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; }
-.send-held.stacked .btn { align-self: flex-end; }
+.on-mac-note {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 10px 10px 12px; border-radius: 10px; font-size: calc(14px * var(--text-scale));
+  color: var(--text); background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--waiting);
+}
+.on-mac-note > span { display: flex; align-items: center; gap: 10px; }
+.on-mac-note small { flex: 1; min-width: 0; font-size: calc(13px * var(--text-scale)); color: var(--muted); }
 .send-held.nudged { animation: send-held-nudge 0.4s; }
 @keyframes send-held-nudge { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 .panel-title { font-size: calc(14px * var(--text-scale)); font-weight: 600; padding: 0 2px; }

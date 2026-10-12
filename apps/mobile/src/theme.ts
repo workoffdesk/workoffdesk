@@ -18,6 +18,8 @@ const dark = {
   waiting: '#d29922',
   idle: '#3fb950',
   ended: '#6e7681',
+  // A grey white reads on, for an action that is neither the main one nor destructive.
+  neutral: '#6e7681',
   added: '#3fb950',
   addedBg: 'rgba(63, 185, 80, 0.16)',
   removedBg: 'rgba(248, 81, 73, 0.16)',
@@ -56,6 +58,7 @@ const light: Colors = {
   waiting: '#bf8700',
   idle: '#1a7f37',
   ended: '#8c959f',
+  neutral: '#636c76',
   added: '#1a7f37',
   addedBg: 'rgba(26, 127, 55, 0.12)',
   removedBg: 'rgba(207, 34, 46, 0.1)',
@@ -91,6 +94,7 @@ const eye: Colors = {
   danger: '#e7000b',
   waiting: '#9c6900',
   ended: '#899989',
+  neutral: '#505f50',
 };
 
 // A colour over transparency, as the stylesheet's color-mix(… n%, transparent).

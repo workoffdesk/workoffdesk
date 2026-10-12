@@ -62,7 +62,7 @@ export const chat = {
   compactingQueued: (n: number) => `Your ${n} message${n === 1 ? ' is' : 's are'} queued and will go out in order after compacting`,
   compactingWillQueue: 'Messages sent now are queued and go out after compacting',
   alsoOnMac: (n: number) => (n === 1 ? 'Also open in a terminal on the Mac' : `Also open in ${n} terminals on the Mac`),
-  alsoOnMacSub: 'Two Claudes are writing this conversation, each seeing only its own turns.',
+  alsoOnMacSub: 'Each writes its own turns, unseen by the other.',
   quitOnMac: 'Quit it on the Mac',
   quitOnMacBusy: 'Claude there is at work or asking something. Quitting it now stops what it is doing.',
   quitAnyway: 'Quit it',

@@ -309,6 +309,7 @@ test.describe('the session list', () => {
       const pin = page.getByRole('button', { name: '置顶', exact: true });
       await swipeRow(page, row, -120);
       await expect(pin).toBeVisible();
+      await shot(page, '28-pin-row-actions');
       await pin.click();
       await expect(names).toHaveText([below, top]);
       // What is not pinned keeps a heading, or it would read as pinned too.

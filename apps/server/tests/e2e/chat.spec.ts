@@ -696,7 +696,7 @@ test.describe('the chat', () => {
       await composer.fill('看看');
       await composer.press('Enter');
       const bar = page.getByRole('status', { name: '这个对话在 Mac 的终端里也开着' });
-      await expect(bar).toContainText('两个 Claude 在同时写它', { timeout: 20_000 });
+      await expect(bar).toContainText('两边各写各的', { timeout: 20_000 });
       await shot(page, '62-chat-also-on-mac');
       await bar.getByRole('button', { name: '退出那边的 Claude' }).click();
       await expect(bar).toBeHidden({ timeout: 20_000 });
