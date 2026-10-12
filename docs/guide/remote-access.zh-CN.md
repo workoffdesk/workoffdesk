@@ -84,12 +84,20 @@ ssh -N -R 7681:127.0.0.1:7681 you@your-server
 ```caddyfile
 # 在服务器上,Caddyfile
 workoffdesk.example.com {
-    reverse_proxy 127.0.0.1:7681
+    reverse_proxy 127.0.0.1:7681 {
+        header_up CF-Connecting-IP {remote_host}
+    }
 }
 ```
 
 Caddy 会自己申请证书，也会转发 WebSocket。用 nginx 的话，要转发 `Upgrade` 和 `Connection` 两个请求头。
 TLS 在服务器上解开，所以能控制这台服务器的人能读到流量。
+
+服务从 `CF-Connecting-IP` 取访问者的地址，用来锁定反复登录失败的来源，所以这个请求头要由代理自己设置;
+要是原样转发访问者发来的，对方每试一次就能换一个地址。
+
+想保留已有的地址(比如 Cloudflare 隧道)、再加上这一个，把它写进 [config.json](configuration.zh-CN.md#configjson)
+的 `extraOrigins`,然后重启服务。
 
 ## 千万别做的事
 

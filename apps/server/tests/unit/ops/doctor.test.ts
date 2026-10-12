@@ -142,6 +142,20 @@ describe('runDoctor', () => {
     expect(c?.detail).toContain('origin');
   });
 
+  it('checks every address the site is reached at, and names the one that does not reach it', async () => {
+    const home = setUpHome();
+    writeFileSync(join(home, 'config.json'), JSON.stringify({ origin: 'https://workoffdesk.example.com', extraOrigins: ['https://relay.example.net'] }));
+    const all = async (fetch: DoctorDeps['fetch']) => (await runDoctor(deps({ home, fetch }))).filter((c) => c.id === 'origin');
+    expect(await all(async () => ({ ok: true }))).toEqual([
+      { id: 'origin', ok: true, detail: 'https://workoffdesk.example.com' },
+      { id: 'origin', ok: true, detail: 'https://relay.example.net' },
+    ]);
+    const [primary, extra] = await all(async (u) => ({ ok: !u.startsWith('https://relay.example.net/') }));
+    expect(primary.ok).toBe(true);
+    expect(extra).toMatchObject({ ok: false, detail: expect.stringContaining('https://relay.example.net') });
+    expect(extra.fix).toContain('https://relay.example.net');
+  });
+
   it('passes a local address without asking it, and says only this Mac reaches it', async () => {
     const asked: string[] = [];
     const c = await check(deps({ home: setUpHome('http://localhost:7681'), fetch: async (u) => (asked.push(u), { ok: true }) }), 'origin');

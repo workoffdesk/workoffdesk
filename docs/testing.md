@@ -16,7 +16,7 @@ Each risk is the rule the tests hold the code to, then how they hold it.
 ### Who gets in
 
 Only a person signed in on this server reaches a session: by password, passkey or the app's token, from the
-server's own origin. A route added without a login check fails `auth/guard`, which asks every route Fastify
+server's own addresses (`origin` and `extraOrigins`). A route added without a login check fails `auth/guard`, which asks every route Fastify
 has, not a list kept by hand. A socket lives only as long as the login that opened it. Passkeys are made and
 used end to end with an authenticator in software, including a forged, copied or replayed one.
 
@@ -148,7 +148,7 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/integration/http/auth/passkey.test.ts`,
   `apps/server/tests/integration/http/auth/passkey.ceremony.test.ts`,
   `apps/server/tests/integration/http/auth/lockout.test.ts`, `apps/server/tests/integration/http/auth/guard.test.ts`,
-  `apps/server/tests/integration/http/app.auth.test.ts`
+  `apps/server/tests/integration/http/app.auth.test.ts`, `apps/server/tests/integration/http/auth/guard.sites.test.ts`
 - Client: `libs/client/tests/base/login.test.ts`, `libs/client/tests/mac/setup.test.ts`
 - End to end: `apps/server/tests/e2e/login.spec.ts`, `apps/server/tests/e2e/settings.spec.ts`
 

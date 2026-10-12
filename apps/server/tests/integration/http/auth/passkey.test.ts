@@ -64,7 +64,7 @@ beforeAll(async () => {
     origin: ORIGIN,
     rpId: RP_ID,
     auditPath: join(dir, 'audit.log'),
-    extend: (a, ctx) => registerPasskeyRoutes(a, ctx, { store, origin: ORIGIN, rpId: RP_ID }),
+    extend: (a, ctx) => registerPasskeyRoutes(a, ctx, { store }),
   });
   await app.listen({ port: 0, host: '127.0.0.1' });
   base = `http://127.0.0.1:${(app.server.address() as any).port}`;

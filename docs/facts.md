@@ -157,8 +157,10 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   anywhere within an hour lock sign-in for an hour. Attempts go to `logs/audit.log`. (`apps/server/src/http/auth/lockout.ts`)
 - A sign-in lasts 30 days; signed-in devices are listed in Settings and can be revoked.
   (`apps/server/src/http/auth/sessions.ts`, `auth/guard.ts`)
-- Requests that change anything, and every WebSocket, must come from the configured origin.
-  (`apps/server/src/http/app.ts`)
+- Requests that change anything, and every WebSocket, must come from the configured origin or one of
+  `extraOrigins`, which must be `https://`. A passkey is made and checked for the address the page is on: an
+  extra address shares `rpId` when its host is under it, and otherwise uses its own hostname.
+  (`apps/server/src/http/app.ts`, `apps/server/src/system/config.ts` `sites`, `apps/server/src/http/auth/guard.ts` `siteOf`)
 - The Content Security Policy loads everything from the site itself (images also from `data:`) and forbids
   framing the page. Images from the web in Claude's replies are shown as a "Web image" link with the host,
   never loaded. The server does not trust `X-Forwarded-*` headers (`trustProxy: false`).
@@ -187,6 +189,9 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   only when the address is unchanged. The service reads `config.json` when it starts.
   (`apps/server/src/commands/setup.ts`, `apps/server/src/commands/common.ts` `configForSetup`,
   `apps/server/src/commands/serve.ts`)
+- The address a sign-in is counted against is the `CF-Connecting-IP` header when there is one, else the
+  connection's. Caddy's `header_up` sets a header on the request it forwards, replacing the visitor's.
+  (`apps/server/src/http/auth/guard.ts` `clientIp`; Caddy docs, reverse_proxy)
 - Caddy's `reverse_proxy` gets a certificate on its own and passes WebSockets through; nginx needs the
   `Upgrade` and `Connection` headers forwarded. (Caddy docs, reverse_proxy; nginx docs, WebSocket proxying)
 - Browsers offer passkeys (WebAuthn) and web push only in a secure context: HTTPS, or `localhost`.

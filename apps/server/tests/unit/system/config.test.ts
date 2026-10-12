@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ConfigError, loadConfig, parseConfig } from '../../../src/system/config';
+import { ConfigError, loadConfig, parseConfig, sites } from '../../../src/system/config';
 
 const ok = { origin: 'https://workoffdesk.example.com' };
 
@@ -11,6 +11,7 @@ describe('parseConfig', () => {
     expect(parseConfig(ok)).toEqual({
       port: 7681,
       origin: 'https://workoffdesk.example.com',
+      extraOrigins: [],
       rpId: 'workoffdesk.example.com',
       pinnedDirs: [],
       serviceLabel: 'local.workoffdesk',
@@ -47,6 +48,12 @@ describe('parseConfig', () => {
     ['serviceLabel', { ...ok, serviceLabel: '' }],
     ['claudeArgs', { ...ok, claudeArgs: '--chrome' }],
     ['claudeArgs', { ...ok, claudeArgs: [true] }],
+    ['extraOrigins', { ...ok, extraOrigins: 'https://other.example.com' }],
+    ['extraOrigins', { ...ok, extraOrigins: [1] }],
+    ['extraOrigins', { ...ok, extraOrigins: ['http://other.example.com'] }],
+    ['extraOrigins', { ...ok, extraOrigins: ['http://localhost:7681'] }],
+    ['extraOrigins', { ...ok, extraOrigins: ['https://other.example.com/path'] }],
+    ['extraOrigins', { ...ok, extraOrigins: ['other.example.com'] }],
   ])('refuses a bad %s, naming it', (field, raw) => {
     const e = (() => {
       try {
@@ -65,6 +72,33 @@ describe('parseConfig', () => {
   });
 });
 
+describe('extraOrigins', () => {
+  it('keeps each other address once, leaving out the one that is the origin', () => {
+    const extraOrigins = ['https://b.example.net', 'https://workoffdesk.example.com', 'https://b.example.net', 'https://c.example.org'];
+    expect(parseConfig({ ...ok, extraOrigins }).extraOrigins).toEqual(['https://b.example.net', 'https://c.example.org']);
+  });
+});
+
+describe('sites', () => {
+  it('gives each address its passkey domain: the rpId when the host is under it, else the host', () => {
+    const config = parseConfig({
+      origin: 'https://a.example.com',
+      rpId: 'example.com',
+      extraOrigins: ['https://b.example.com', 'https://relay.example.net', 'https://example.com'],
+    });
+    expect(sites(config)).toEqual([
+      { origin: 'https://a.example.com', rpId: 'example.com' },
+      { origin: 'https://b.example.com', rpId: 'example.com' },
+      { origin: 'https://relay.example.net', rpId: 'relay.example.net' },
+      { origin: 'https://example.com', rpId: 'example.com' },
+    ]);
+  });
+
+  it('is the origin alone when there are no other addresses', () => {
+    expect(sites(parseConfig(ok))).toEqual([{ origin: 'https://workoffdesk.example.com', rpId: 'workoffdesk.example.com' }]);
+  });
+});
+
 describe('loadConfig', () => {
   it('loads a v1 config file unchanged in behavior', () => {
     const home = mkdtempSync(join(tmpdir(), 'ts-cfg-'));
@@ -75,6 +109,7 @@ describe('loadConfig', () => {
     expect(loadConfig(home)).toEqual({
       port: 7681,
       origin: 'https://workoffdesk.example.com',
+      extraOrigins: [],
       rpId: 'workoffdesk.example.com',
       pinnedDirs: ['/a'],
       serviceLabel: 'local.workoffdesk',

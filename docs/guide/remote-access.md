@@ -90,12 +90,21 @@ ssh -N -R 7681:127.0.0.1:7681 you@your-server
 ```caddyfile
 # on the server, Caddyfile
 workoffdesk.example.com {
-    reverse_proxy 127.0.0.1:7681
+    reverse_proxy 127.0.0.1:7681 {
+        header_up CF-Connecting-IP {remote_host}
+    }
 }
 ```
 
 Caddy gets the certificate and passes WebSockets through. With nginx, forward the `Upgrade` and
 `Connection` headers. The server terminates TLS, so whoever controls it can read the traffic.
+
+The service takes the visitor's address from `CF-Connecting-IP` to lock out repeated failed sign-ins, so the
+proxy sets that header itself; passed through from the visitor, it would let them pick a new address for
+each try.
+
+To keep an address you already have, such as a Cloudflare tunnel, and add this one beside it, list it in
+`extraOrigins` in [config.json](configuration.md#configjson) and restart the service.
 
 ## What not to do
 

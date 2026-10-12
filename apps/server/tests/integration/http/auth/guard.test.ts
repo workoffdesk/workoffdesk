@@ -49,7 +49,7 @@ beforeAll(async () => {
     claudeProjectsRoot: join(dir, 'none'),
     media: { uploadsDir: join(dir, 'uploads') },
     extend: (a, ctx) => {
-      registerPasskeyRoutes(a, ctx, { store, origin: ORIGIN, rpId: RP_ID });
+      registerPasskeyRoutes(a, ctx, { store });
       a.get('/api/added-later', async () => ({ secret: true }));
       a.get('/added-outside-api', async () => ({ secret: true }));
     },

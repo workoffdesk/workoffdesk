@@ -5,6 +5,7 @@ import type { WebSocket } from 'ws';
 import { Guard, clientIp, sessionCookie } from './auth/guard.js';
 import { LoginSessions } from './auth/sessions.js';
 import { findTranscript, lastSaid } from '../agents/claude/transcript/transcriptFile.js';
+import { sites } from '../system/config.js';
 import { DomainError, errorReply } from '../system/errors.js';
 import { EventHub } from '../sessions/events.js';
 import type { LocalMachine } from '../sessions/machine.js';
@@ -33,6 +34,7 @@ export type AppDeps = {
   machine: LocalMachine;
   origin: string;
   rpId: string;
+  extraOrigins?: string[];
   auditPath: string;
   webDir?: string;
   now?: () => number;
@@ -84,7 +86,7 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     return reply.code(status).send(body);
   });
   const logins = new LoginSessions(store, now);
-  const guard = new Guard(logins, origin);
+  const guard = new Guard(logins, sites({ origin, rpId: deps.rpId, extraOrigins: deps.extraOrigins ?? [] }));
   const secure = origin.startsWith('https://');
   const hub = new EventHub(machine, async (s) => {
     if (s.kind === 'codex') return { reply: machine.lastReply(s.id), at: null };

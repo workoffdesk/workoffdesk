@@ -79,11 +79,13 @@ async function serviceChecks(d: DoctorDeps, doc: Messages['doctor'], config: Con
         ? fail('service', doc.otherVersion(local, service.version, d.version), doc.restartFix(config.serviceLabel))
         : pass('service', doc.running(local, service.version)),
   ];
-  if (LOCAL.test(config.origin)) {
-    checks.push(pass('origin', doc.localOnly(config.origin)));
-  } else {
-    const there = await d.fetch(`${config.origin}/healthz`);
-    checks.push(there.ok ? pass('origin', config.origin) : fail('origin', doc.notReached(config.origin), doc.originFix(config.origin, local)));
+  for (const origin of [config.origin, ...config.extraOrigins]) {
+    if (LOCAL.test(origin)) {
+      checks.push(pass('origin', doc.localOnly(origin)));
+      continue;
+    }
+    const there = await d.fetch(`${origin}/healthz`);
+    checks.push(there.ok ? pass('origin', origin) : fail('origin', doc.notReached(origin), doc.originFix(origin, local)));
   }
   return checks;
 }

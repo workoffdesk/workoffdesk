@@ -25,6 +25,7 @@ the service after changing it.
 | Field | Default | Meaning |
 |---|---|---|
 | `origin` | — (required) | The address the phone opens, like `https://workoffdesk.example.com`. `http://localhost:<port>` for this Mac only. |
+| `extraOrigins` | `[]` | Other `https://` addresses the same service is reached at, like a second tunnel or your own server: `["https://other.example.com"]`. A browser signs in on each. A passkey works on the address it was made on, unless `rpId` is a domain above both. |
 | `port` | `7681` | The port the service listens on, on `127.0.0.1`. |
 | `rpId` | the origin's hostname | The passkey domain: the hostname or a domain above it. Changing it makes existing passkeys stop working. |
 | `pinnedDirs` | `[]` | Folders always offered when starting a new Claude. |

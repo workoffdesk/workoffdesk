@@ -47,14 +47,15 @@ function deviceName(ua: string): string {
 export function registerPasskeyRoutes(
   app: FastifyInstance,
   ctx: AppContext,
-  deps: { store: Store; origin: string; rpId: string; now?: () => number },
+  deps: { store: Store; now?: () => number },
 ): void {
-  const { store, origin, rpId } = deps;
+  const { store } = deps;
   const now = deps.now ?? Date.now;
   const challenges = new ChallengeStore(now);
   const expect = (purpose: Purpose) => (c: string) => challenges.consume(c, purpose);
 
-  app.post('/api/auth/passkey/register/options', async () => {
+  app.post('/api/auth/passkey/register/options', async (req) => {
+    const { rpId } = ctx.guard.siteOf(req);
     const user = store.get().user!;
     const options = await generateRegistrationOptions({
       rpName: 'WorkOffDesk',
@@ -75,6 +76,7 @@ export function registerPasskeyRoutes(
   app.post<{ Body: { response?: RegistrationResponseJSON; name?: unknown } }>('/api/auth/passkey/register/verify', async (req, reply) => {
     const response = req.body?.response;
     if (!response) return reply.code(400).send({ error: 'registration failed' });
+    const { origin, rpId } = ctx.guard.siteOf(req);
     let result;
     try {
       result = await verifyRegistrationResponse({
@@ -109,7 +111,7 @@ export function registerPasskeyRoutes(
 
   app.post('/api/auth/passkey/login/options', PUBLIC, async (req, reply) => {
     if (!ctx.guard.originOk(req)) return reply.code(403).send({ error: 'bad origin' });
-    const options = await generateAuthenticationOptions({ rpID: rpId, userVerification: 'required' });
+    const options = await generateAuthenticationOptions({ rpID: ctx.guard.siteOf(req).rpId, userVerification: 'required' });
     challenges.add(options.challenge, 'login');
     return options;
   });
@@ -123,6 +125,7 @@ export function registerPasskeyRoutes(
       return reply.code(401).send({ error: 'passkey not accepted' });
     };
     if (!passkey || !response) return fail();
+    const { origin, rpId } = ctx.guard.siteOf(req);
     let result;
     try {
       result = await verifyAuthenticationResponse({

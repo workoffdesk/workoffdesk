@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { Site } from '../../system/config.js';
 import type { Login } from '../../system/store.js';
 import type { LoginSessions } from './sessions.js';
 
@@ -36,11 +37,16 @@ export function clientIp(req: FastifyRequest): string {
 export class Guard {
   constructor(
     private readonly logins: LoginSessions,
-    private readonly origin: string,
+    private readonly sites: Site[],
   ) {}
 
   originOk(req: FastifyRequest): boolean {
-    return req.headers.origin === this.origin;
+    return this.sites.some((s) => s.origin === req.headers.origin);
+  }
+
+  // The address the page is on, or the origin for a request that names none of them.
+  siteOf(req: FastifyRequest): Site {
+    return this.sites.find((s) => s.origin === req.headers.origin) ?? this.sites[0];
   }
 
   // The login a request claims, and whether it came in the cookie. A browser sends the cookie by itself to

@@ -132,6 +132,7 @@ ${o.frontDoor}
     pinnedDirs: '文件夹路径的数组',
     serviceLabel: '由字母、数字、点和连字符组成的 launchd 标签',
     claudeArgs: '启动 claude 时带的参数数组，比如 ["--chrome"]',
+    extraOrigins: '站点另外几个 https 访问地址的数组，比如 ["https://other.example.com"]',
     preventSleep: 'true（服务运行时不让 Mac 空闲睡眠）或 false',
     missing: (file) => `已设置的，但 ${file} 还不存在；先运行 workoffdesk setup`,
     format: '格式',

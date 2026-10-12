@@ -13,7 +13,7 @@ const exe = (dir: string, name: string, body: string) => {
   chmodSync(file, 0o755);
   return file;
 };
-const CONFIG: Config = { port: 7681, origin: 'https://workoffdesk.example.com', rpId: 'workoffdesk.example.com', pinnedDirs: [], serviceLabel: 'local.workoffdesk', claudeArgs: [], preventSleep: false };
+const CONFIG: Config = { port: 7681, origin: 'https://workoffdesk.example.com', extraOrigins: [], rpId: 'workoffdesk.example.com', pinnedDirs: [], serviceLabel: 'local.workoffdesk', claudeArgs: [], preventSleep: false };
 const plan = (o: { cliBuilt?: boolean; tunnel?: boolean; credentials?: boolean } = {}): InstallPlan => {
   const root = mkdtempSync(join(tmpdir(), 'ts-install-'));
   const userHome = join(root, 'user');

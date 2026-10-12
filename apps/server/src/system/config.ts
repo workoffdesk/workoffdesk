@@ -3,7 +3,19 @@ import { join } from 'node:path';
 import { m } from './messages.js';
 import { writeJsonAtomic } from './paths.js';
 
-export type Config = { port: number; origin: string; rpId: string; pinnedDirs: string[]; serviceLabel: string; claudeArgs: string[]; preventSleep: boolean };
+export type Config = {
+  port: number;
+  origin: string;
+  extraOrigins: string[];
+  rpId: string;
+  pinnedDirs: string[];
+  serviceLabel: string;
+  claudeArgs: string[];
+  preventSleep: boolean;
+};
+
+// An address the site is reached at, with the passkey domain used there.
+export type Site = { origin: string; rpId: string };
 
 export const DEFAULT_PORT = 7681;
 export const DEFAULT_SERVICE_LABEL = 'local.workoffdesk';
@@ -40,6 +52,9 @@ export function parseConfig(raw: unknown): Config {
   if (typeof rpId !== 'string' || !(url.hostname === rpId || url.hostname.endsWith(`.${rpId}`))) {
     throw new ConfigError('rpId', m.config.rpId(url.hostname));
   }
+  const extra = r.extraOrigins ?? [];
+  if (!isStrings(extra) || !extra.every((o) => originUrl(o)?.protocol === 'https:')) throw new ConfigError('extraOrigins', m.config.extraOrigins);
+  const extraOrigins = [...new Set(extra)].filter((o) => o !== url.origin);
   const pinnedDirs = r.pinnedDirs ?? [];
   if (!isStrings(pinnedDirs)) throw new ConfigError('pinnedDirs', m.config.pinnedDirs);
   const serviceLabel = r.serviceLabel ?? DEFAULT_SERVICE_LABEL;
@@ -50,7 +65,19 @@ export function parseConfig(raw: unknown): Config {
   if (!isStrings(claudeArgs)) throw new ConfigError('claudeArgs', m.config.claudeArgs);
   const preventSleep = r.preventSleep ?? true;
   if (typeof preventSleep !== 'boolean') throw new ConfigError('preventSleep', m.config.preventSleep);
-  return { port, origin: url.origin, rpId, pinnedDirs, serviceLabel, claudeArgs, preventSleep };
+  return { port, origin: url.origin, extraOrigins, rpId, pinnedDirs, serviceLabel, claudeArgs, preventSleep };
+}
+
+// The origin first. Another address shares the rpId when its host is under it; else its passkeys are its own.
+export function sites(c: Pick<Config, 'origin' | 'rpId' | 'extraOrigins'>): Site[] {
+  const under = (host: string) => host === c.rpId || host.endsWith(`.${c.rpId}`);
+  return [
+    { origin: c.origin, rpId: c.rpId },
+    ...c.extraOrigins.map((origin) => {
+      const host = new URL(origin).hostname;
+      return { origin, rpId: under(host) ? c.rpId : host };
+    }),
+  ];
 }
 
 export function loadConfig(home: string): Config {

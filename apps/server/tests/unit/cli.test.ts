@@ -115,7 +115,7 @@ describe('workoffdesk setup', () => {
     expect(state.user.username).toBe('alice');
     expect(await verifyPassword('a long enough passphrase', state.user.hash)).toBe(true);
     const config = JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8'));
-    expect(config).toEqual({ port: 7681, origin: SITE, rpId: 'workoffdesk.example.com', pinnedDirs: [], serviceLabel: 'local.workoffdesk', claudeArgs: [], preventSleep: true });
+    expect(config).toEqual({ port: 7681, origin: SITE, extraOrigins: [], rpId: 'workoffdesk.example.com', pinnedDirs: [], serviceLabel: 'local.workoffdesk', claudeArgs: [], preventSleep: true });
   });
 
   it('says, without an origin and with no config yet, how to give one, and changes nothing', () => {

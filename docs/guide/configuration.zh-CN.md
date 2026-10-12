@@ -23,6 +23,7 @@
 | 字段 | 默认值 | 含义 |
 |---|---|---|
 | `origin` | —(必填) | 手机打开的地址，比如 `https://workoffdesk.example.com`。`http://localhost:<端口>` 只限本机。 |
+| `extraOrigins` | `[]` | 同一个服务的其他 `https://` 访问地址，比如第二条隧道或你自己的服务器:`["https://other.example.com"]`。浏览器在每个地址上都能登录。Passkey 只在创建它的那个地址上能用，除非 `rpId` 是这些地址共同的上级域名。 |
 | `port` | `7681` | 服务在 `127.0.0.1` 上监听的端口。 |
 | `rpId` | origin 的主机名 | Passkey 绑定的域名：主机名或它的上级域名。改了以后，已有的 Passkey 都会失效。 |
 | `pinnedDirs` | `[]` | 新开 Claude 时总会列出的目录。 |

@@ -137,6 +137,7 @@ export async function startServer(o: ServerOptions) {
     machine,
     origin: o.config.origin,
     rpId: o.config.rpId,
+    extraOrigins: o.config.extraOrigins,
     auditPath: join(o.home, 'logs/audit.log'),
     webDir: o.webDir,
     pusher,
@@ -148,7 +149,7 @@ export async function startServer(o: ServerOptions) {
     media: { uploadsDir: join(o.home, 'uploads') },
     appUpdate: o.appUpdate && { ...o.appUpdate, bundlesDir: join(o.home, 'app-bundles') },
     ops: o.ops,
-    extend: (a, ctx) => registerPasskeyRoutes(a, ctx, { store, origin: o.config.origin, rpId: o.config.rpId }),
+    extend: (a, ctx) => registerPasskeyRoutes(a, ctx, { store }),
   });
 
   return {
