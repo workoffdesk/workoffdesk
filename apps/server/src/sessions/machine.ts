@@ -78,11 +78,11 @@ export class LocalMachine implements Machine {
       titled: (id, found, fresh) => this.p.lifecycle.conversationNamed(id, found, fresh),
     });
     migrateQueueFile(deps.queueFile ?? join(dirname(deps.store.file), 'queue.json'), this.journal);
+    const log = deps.journal?.log ?? (() => {});
     const outbox = new Outbox({
       store: this.journal,
       status: (id) => this.getStatus(id),
-      // Claude is at work on it from the moment it goes in: the next waits until it is done, not until a
-      // hook says it started.
+      // Claude is at work on it from when it goes in, the next waiting until it is done, not on a hook.
       deliver: async (id, text, qid) => {
         if (deps.store.get().sessions[id]?.kind === 'codex') return codexOf(this.d).send(id, text, qid);
         if (!(await this.p.status.agentRuns(id))) throw new AgentQuit();
@@ -92,10 +92,10 @@ export class LocalMachine implements Machine {
         if (!text.startsWith('/') && (this.s.statuses.get(id) === 'idle' || !this.s.statuses.has(id))) this.setStatus(id, 'working');
       },
       changed: () => this.s.emit(),
+      held: (id, qid, why) => log('message held', { session: id, qid, why: why instanceof Error ? why.constructor.name : why }),
       failed: (id, e) => e instanceof DialogOpen || e instanceof AgentQuit || console.error(`workoffdesk: a message to session ${id} could not go and waits: ${e instanceof Error ? e.message : String(e)}`),
     });
     const shell = deps.shell ?? process.env.SHELL ?? '/bin/zsh';
-    const log = deps.journal?.log ?? (() => {});
     const codex = deps.codex
       ? new CodexAgent(
           { tmux: deps.tmux, sock: deps.codex.sock, codexBin: deps.codex.bin, shell },

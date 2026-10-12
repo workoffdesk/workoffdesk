@@ -48,6 +48,7 @@ export class Outbox {
   private readonly deliver: (id: string, text: string, qid: string) => Promise<void>;
   private readonly changed: () => void;
   private readonly failed: (id: string, e: unknown) => void;
+  private readonly held: (id: string, qid: string, why: unknown) => void;
   private readonly gapMs: number;
   private readonly running = new Map<string, Promise<void>>();
   private readonly again = new Set<string>();
@@ -62,6 +63,9 @@ export class Outbox {
     changed: () => void;
     // A message that could not go, and why; it waits for the next try, unless it may have gone in.
     failed?: (id: string, e: unknown) => void;
+    // A message kept back rather than typed in, and why: what Claude is doing, others waiting before it, or
+    // what stopped its paste.
+    held?: (id: string, qid: string, why: unknown) => void;
     gapMs?: number;
   }) {
     this.store = deps.store;
@@ -69,6 +73,7 @@ export class Outbox {
     this.deliver = deps.deliver;
     this.changed = deps.changed;
     this.failed = deps.failed ?? (() => {});
+    this.held = deps.held ?? (() => {});
     this.gapMs = deps.gapMs ?? GAP_MS;
   }
 
@@ -86,9 +91,11 @@ export class Outbox {
     if (known?.state === 'queued') return queued(known);
     if (known && known.state !== 'taken') return null;
     const m: MessageRow = { id: qid, text, sentAt: Date.now(), state: 'queued', ord: null, item: null };
-    if (!this.waiting(id).length && !HOLDS.has(this.status(id))) {
+    const status = this.status(id);
+    if (!this.waiting(id).length && !HOLDS.has(status)) {
       return this.pasting(qid, async () => ((await this.paste(id, m)) ? null : (this.put(id, { ...m, ord: this.lastOrd(id) + 1 }), queued(m))));
     }
+    this.held(id, qid, HOLDS.has(status) ? status : 'behind');
     this.put(id, { ...m, ord: this.lastOrd(id) + 1 });
     void this.flush(id);
     return queued(m);
@@ -178,6 +185,7 @@ export class Outbox {
     } catch (e) {
       this.failed(id, e);
       went = mayHaveRun(e);
+      if (!went) this.held(id, m.id, e);
     }
     // The transcript may have shown it landed before the paste answered.
     if (went && this.store.messages(id).find((r) => r.id === m.id)?.state === 'delivering') this.put(id, { ...m, state: 'delivered', ord: null });

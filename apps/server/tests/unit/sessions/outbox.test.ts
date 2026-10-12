@@ -14,6 +14,7 @@ function setup(status: ClaudeStatus | null = 'idle', file = join(mkdtempSync(joi
   const statuses = new Map<string, ClaudeStatus | null>([['abc', status]]);
   const delivered: string[] = [];
   const failures: [string, string][] = [];
+  const held: [string, string][] = [];
   let failNext = false;
   let unknownNext = false;
   let changes = 0;
@@ -38,6 +39,7 @@ function setup(status: ClaudeStatus | null = 'idle', file = join(mkdtempSync(joi
     },
     changed: () => changes++,
     failed: (id, e) => failures.push([id, (e as Error).message]),
+    held: (id, _qid, why) => held.push([id, why instanceof Error ? why.message : String(why)]),
   });
   return {
     outbox,
@@ -45,6 +47,7 @@ function setup(status: ClaudeStatus | null = 'idle', file = join(mkdtempSync(joi
     journal,
     delivered,
     failures,
+    held,
     // Each message and where it is, as the page reads it from the journal.
     states: () => journal.messages('abc').map((m) => [m.text, m.state]),
     set: (s: ClaudeStatus) => statuses.set('abc', s),
@@ -91,6 +94,31 @@ describe('Outbox', () => {
     expect(delivered).toEqual([]);
     expect(texts(outbox)).toEqual(['first']);
     expect(changes()).toBeGreaterThan(0);
+  });
+
+  it('says why each message is held: what Claude is doing, others before it, or a paste that did not go', async () => {
+    const { outbox, held, set, failOnce } = setup('waiting');
+    await outbox.send('abc', 'asked');
+    await outbox.flush('abc');
+    set('idle');
+    await outbox.send('abc', 'behind');
+    await outbox.flush('abc');
+    expect(outbox.list('abc'), 'precondition: none left waiting').toEqual([]);
+    failOnce();
+    await outbox.send('abc', 'refused');
+    expect(held).toEqual([
+      ['abc', 'waiting'],
+      ['abc', 'behind'],
+      ['abc', 'session gone'],
+    ]);
+  });
+
+  it('says nothing is held of a message that goes straight in, or may have', async () => {
+    const { outbox, held, unknownOnce } = setup('working');
+    await outbox.send('abc', 'meanwhile');
+    unknownOnce();
+    await outbox.send('abc', 'maybe');
+    expect(held).toEqual([]);
   });
 
   it('keeps what is held through a restart, readable by its owner only', async () => {
