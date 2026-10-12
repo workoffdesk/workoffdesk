@@ -1,13 +1,16 @@
+import { execFile } from 'node:child_process';
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { afterAll, describe, expect, it } from 'vitest';
 import { Tmux, TmuxTimeout } from '../../../src/system/tmux.js';
 import { until } from '../../helpers/until.js';
 import { testTmux } from '../../helpers/tmux.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'ts-tmux-'));
-const { tmux, conf } = testTmux(dir, 't');
+const { tmux, socket, conf } = testTmux(dir, 't');
+const execFileAsync = promisify(execFile);
 
 afterAll(() => tmux.killServer());
 
@@ -66,6 +69,19 @@ describe('Tmux', () => {
     expect(await until(async () => (await tmux.capture('ts-hist', 10)).includes('done-2'))).toBe(true);
     const out = await tmux.capture('ts-hist', 10000);
     expect(out.split('\n')).toContain('42');
+  });
+
+  // A command run by if-shell has no target of its own, and tmux would pick the newest session for it.
+  it('leaves copy mode in the session asked for, whichever session is newest', async () => {
+    const inMode = (name: string) => execFileAsync('tmux', ['-L', socket, 'display', '-p', '-t', `=${name}:`, '#{pane_in_mode}']).then((r) => r.stdout.trim());
+    await tmux.newSession('ts-copy', { cwd: dir, env: {}, command: 'sleep 60' });
+    await execFileAsync('tmux', ['-L', socket, 'copy-mode', '-t', '=ts-copy:']);
+    await tmux.newSession('ts-newer', { cwd: dir, env: {}, command: 'sleep 60' });
+    expect(await inMode('ts-copy')).toBe('1');
+    await tmux.leaveCopyMode('ts-copy');
+    expect(await inMode('ts-copy')).toBe('0');
+    await tmux.leaveCopyMode('ts-newer');
+    expect(await inMode('ts-newer')).toBe('0');
   });
 
   it('kills a session', async () => {

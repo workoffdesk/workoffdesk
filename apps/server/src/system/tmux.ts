@@ -143,7 +143,7 @@ export class Tmux {
 
   // One tmux command, so nothing can slip in between the check and the cancel.
   async leaveCopyMode(name: string): Promise<void> {
-    await this.run(['if-shell', '-F', '-t', `=${name}:`, '#{pane_in_mode}', 'send-keys -X cancel']);
+    await this.run(['if-shell', '-F', '-t', `=${name}:`, '#{pane_in_mode}', `send-keys -t =${name}: -X cancel`]);
   }
 
   async capture(name: string, lines: number): Promise<string> {
