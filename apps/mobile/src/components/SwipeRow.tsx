@@ -15,7 +15,7 @@ export function SwipeRow({ id, open, setOpen, actions, theme, children }: { id: 
   // Made again only when the row opens or shuts, which is between gestures.
   const pan = useMemo(() => {
     const letGo = (dx: number) => {
-      const to = staysOpen(rowShift(open, width, dx), width);
+      const to = staysOpen(open, rowShift(open, width, dx), width);
       Animated.timing(x, { toValue: to ? -width : 0, duration: 200, useNativeDriver: true }).start();
       setOpen((now) => (to ? id : now === id ? null : now));
     };

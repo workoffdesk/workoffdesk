@@ -86,6 +86,20 @@ export const register: RouteModule = (app, ctx) => {
     },
   );
 
+  // Pinned to the top of the list for every device, or unpinned; asking twice is asking once.
+  for (const method of ['PUT', 'DELETE'] as const) {
+    app.route<{ Params: { machine: string; id: string } }>({
+      method,
+      url: '/api/m/:machine/sessions/:id/pin',
+      handler: async (req, reply) => {
+        const m = machineOr404(req, reply);
+        if (!m) return reply;
+        if (!(await m.pinSession(req.params.id, method === 'PUT'))) return reply.code(404).send({ error: 'no such session' });
+        return reply.code(204).send();
+      },
+    });
+  }
+
   // A name of the session's own, for every device and for its agent's conversation; never an empty one.
   app.patch<{ Params: { machine: string; id: string }; Body: { title?: unknown } }>('/api/m/:machine/sessions/:id', async (req, reply) => {
     const m = machineOr404(req, reply);

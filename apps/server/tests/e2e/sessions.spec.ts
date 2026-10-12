@@ -287,6 +287,44 @@ test.describe('the session list', () => {
     await expect(page).toHaveURL(/\/claude\/3f2a1b4c-0000-4000-8000-000000000001$/);
   });
 
+  test('is pinned from its row to the top, under 置顶, and unpinned', async ({ page }) => {
+    test.skip(!test.info().project.use.hasTouch, 'swiping is for touch screens');
+    // Claude stays at its prompt.
+    const stays = join(E2E_HOME, 'claude-stays');
+    writeFileSync(stays, '');
+    try {
+      await login(page);
+      await clearSessions(page);
+      for (const name of ['甲', '乙']) {
+        const { id } = await newClaude(page);
+        await api(page, 'PATCH', `/api/m/local/sessions/${id}`, { title: name });
+        await page.getByRole('button', { name: '返回' }).click();
+      }
+      const names = page.getByTestId('session-card').locator('.sess-name');
+      const headings = page.locator('.sess-list .sess-group').filter({ hasNotText: 'Mac 上的其他会话' });
+      await expect(names.filter({ hasText: /^[甲乙]$/ })).toHaveCount(2);
+      await expect(headings).toHaveCount(0);
+      const [top, below] = await names.allTextContents();
+      const row = page.getByTestId('session-card').filter({ hasText: below });
+      const pin = page.getByRole('button', { name: '置顶', exact: true });
+      await swipeRow(page, row, -120);
+      await expect(pin).toBeVisible();
+      await pin.click();
+      await expect(names).toHaveText([below, top]);
+      // What is not pinned keeps a heading, or it would read as pinned too.
+      await expect(headings).toHaveText([/^置顶/, /^project-a/]);
+      await shot(page, '29-pinned-in-list');
+      // Read back from the Mac rather than from what this page remembers.
+      await page.reload();
+      await expect(names).toHaveText([below, top]);
+      await swipeRow(page, row, -120);
+      await page.getByRole('button', { name: '取消置顶' }).click();
+      await expect(headings).toHaveCount(0);
+    } finally {
+      rmSync(stays, { force: true });
+    }
+  });
+
   test.describe("a session's name", () => {
     test('is offered as 改名 on a swipe to the left on a row, kept and found', async ({ page }) => {
       test.skip(!test.info().project.use.hasTouch, 'swiping is for touch screens');

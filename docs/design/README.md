@@ -23,3 +23,4 @@ in each are the code's at that time; the code as it is now is mapped in [archite
 - 2026-10-10: [A conversation's folder is the one it last ran in](2026-10-10-conversation-folder.md)
 - 2026-10-10: [Only the page in front asks the Mac](2026-10-10-page-in-front.md)
 - 2026-10-11: [One reading of what the agents write down](2026-10-11-transcript-events.md)
+- 2026-10-12: [Pinned sessions](2026-10-12-pinned-sessions.md)

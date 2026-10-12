@@ -173,8 +173,8 @@ export class Lifecycle {
       delete st.past[id];
       const now = st.sessions[id];
       if (!now) return;
-      const { title, named, customTitle, aiTitle, createdAt } = was;
-      Object.assign(now, { title, named, customTitle, aiTitle, createdAt });
+      const { title, named, customTitle, aiTitle, createdAt, pinned } = was;
+      Object.assign(now, { title, named, customTitle, aiTitle, createdAt, pinned });
       if (named && (spec.kind === 'claude' && spec.resumeId ? this.claudeName(spec.resumeId) : null) !== title) now.naming = title;
     });
     this.p.naming.watch();
@@ -301,6 +301,22 @@ export class Lifecycle {
     }
     await this.d.tmux.killSession(tmuxName(id));
     await this.p.sessions.listSessions();
+  }
+
+  async pinSession(id: string, on: boolean): Promise<boolean> {
+    if (!ID.test(id)) throw new InvalidRequest('bad session id');
+    const st = this.d.store.get();
+    const meta = st.past[id] ?? ((await this.p.sessions.exists(id)) ? st.sessions[id] : undefined);
+    if (!meta) return false;
+    if (!!meta.pinned === on) return true;
+    this.d.store.update((next) => {
+      const now = next.past[id] ?? next.sessions[id];
+      if (!now) return;
+      if (on) now.pinned = Date.now();
+      else delete now.pinned;
+    });
+    this.s.emit();
+    return true;
   }
 
   async renameSession(id: string, title: string): Promise<TermSession | null> {

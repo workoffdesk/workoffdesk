@@ -134,6 +134,43 @@ describe('listView, by project', () => {
   });
 });
 
+describe('listView, with pinned sessions', () => {
+  const shop = '/Users/me/code/shop';
+  const main = aSession({ id: 'm', title: 'Main', cwd: shop, project: shop, lastActivity: 70 });
+  const cart = aSession({ id: 'c', title: 'Cart', cwd: '/Users/me/worktrees/shop/cart', project: shop, lastActivity: 90 });
+  const notes = aSession({ id: 'n', title: 'Notes', cwd: '/Users/me/notes', lastActivity: 80 });
+  // Pinned one after the other, the first long since worked in, the second ended.
+  const first = aSession({ id: 'p1', title: 'First pin', cwd: '/Users/me/notes', lastActivity: 99, pinned: 1000 });
+  const second = aSession({ id: 'p2', title: 'Second pin', cwd: shop, project: shop, lastActivity: 5, pinned: 2000, status: 'ended', past: true });
+  const old = aSession({ id: 'o', title: 'Old', cwd: shop, project: shop, lastActivity: 60, status: 'ended', past: true });
+
+  it.each(['project', 'none'] as const)('puts them first, the one pinned last on top, whenever each was worked in, and nowhere else (%s)', (grouping) => {
+    const { groups } = listView([main, cart, notes, first, second, old], '', grouping);
+    expect(groups[0]).toEqual({ cwd: null, title: 'Pinned', sessions: [second, first] });
+    expect(groups.slice(1).flatMap((g) => g.sessions)).toEqual(grouping === 'project' ? [cart, main, notes, old] : [cart, notes, main, old]);
+    expect(groups.at(-1)).toEqual({ cwd: null, title: 'Ended', sessions: [old] });
+  });
+
+  it('leaves no group unheaded under them: a single project keeps its heading, the ungrouped are Others', () => {
+    expect(listView([main, cart, first], '', 'project').groups.map((g) => g.title)).toEqual(['Pinned', 'shop']);
+    expect(listView([main, cart, first], '', 'none').groups.map((g) => g.title)).toEqual(['Pinned', 'Others']);
+  });
+
+  it('groups as before when none is pinned, or none that fits the search', () => {
+    expect(listView([main, cart], '', 'project').groups.map((g) => g.title)).toEqual([null]);
+    expect(listView([main, cart, first], 'cart', 'none').groups).toEqual([{ cwd: null, title: null, sessions: [cart] }]);
+  });
+
+  it('narrows them by the search as the rest', () => {
+    expect(listView([main, first, second], 'second', 'project').groups).toEqual([{ cwd: null, title: 'Pinned', sessions: [second] }]);
+  });
+
+  it('says the project beside a pinned row', () => {
+    const [pinned] = listView([second, cart], '', 'project').groups;
+    expect(folderBeside(second, pinned)).toBe('shop');
+  });
+});
+
 describe('folderBeside', () => {
   const named = aSession({ title: 'Fix the build', cwd: '/srv/api' });
   it.each<[string, { cwd: string | null; title: string | null }, string | null]>([

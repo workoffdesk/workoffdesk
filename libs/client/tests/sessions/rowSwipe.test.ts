@@ -36,7 +36,27 @@ describe('staysOpen', () => {
     ['let go at half', -width / 2, false],
     ['let go short of half', -10, false],
     ['let go shut', 0, false],
-  ])('a row %s', (_, shift, open) => {
-    expect(staysOpen(shift, width)).toBe(open);
+  ])('a shut row %s', (_, shift, open) => {
+    expect(staysOpen(false, shift, width)).toBe(open);
+  });
+
+  it.each<[string, number, boolean]>([
+    ['let go short of half its actions back', -width / 2 - 1, true],
+    ['let go at half', -width / 2, false],
+    ['let go open', -width, true],
+  ])('an open row %s', (_, shift, open) => {
+    expect(staysOpen(true, shift, width)).toBe(open);
+  });
+
+  // However many actions it has, a row opens and shuts as far along as one with two does.
+  const three = 3 * ACTION_PX;
+  it.each<[string, number, boolean, number, boolean]>([
+    ['one action, opened past half of it', ACTION_PX, false, -ACTION_PX / 2 - 1, true],
+    ['three actions, opened past one', three, false, -ACTION_PX - 1, true],
+    ['three actions, opened as far as one', three, false, -ACTION_PX, false],
+    ['three actions, shut short of one', three, true, -three + ACTION_PX - 1, true],
+    ['three actions, shut as far as one', three, true, -three + ACTION_PX, false],
+  ])('a row with %s', (_, wide, was, shift, open) => {
+    expect(staysOpen(was, shift, wide)).toBe(open);
   });
 });

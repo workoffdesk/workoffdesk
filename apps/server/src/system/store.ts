@@ -60,6 +60,8 @@ export type SessionMeta = {
   terminal?: boolean;
   // To be moved to the account in use once its turn is over.
   moving?: boolean;
+  // When it was pinned to the top of the list, in ms.
+  pinned?: number;
   createdAt: number;
 };
 

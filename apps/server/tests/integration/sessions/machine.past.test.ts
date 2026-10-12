@@ -108,6 +108,32 @@ it('renames a past session', async () => {
   expect((await listed(m, s.id))?.title).toBe('Kept name');
 });
 
+it('pins a past session, which keeps its pin once gone on with', async () => {
+  const { m, s } = await withConversation();
+  await m.killSession(s.id);
+  expect(await m.pinSession(s.id, true)).toBe(true);
+  const at = (await listed(m, s.id))?.pinned;
+  expect(at).toEqual(expect.any(Number));
+  const back = await m.continueSession(s.id);
+  expect(back.past).toBeUndefined();
+  expect(back.pinned).toBe(at);
+  expect((await listed(m, s.id))?.pinned).toBe(at);
+});
+
+it('keeps a pin when the session ends', async () => {
+  const { m, s } = await withConversation();
+  await m.pinSession(s.id, true);
+  const at = (await listed(m, s.id))?.pinned;
+  expect(at, 'precondition: pinned while running').toEqual(expect.any(Number));
+  await m.killSession(s.id);
+  expect(await listed(m, s.id)).toMatchObject({ past: true, pinned: at });
+});
+
+it('pins no session that is not there', async () => {
+  const { m } = make();
+  expect(await m.pinSession('nosuch1', true)).toBe(false);
+});
+
 describe('going on with a past session', () => {
   it('brings it back in place: the same session, name and journal, its conversation resumed', async () => {
     const { m, s, store } = await withConversation(['one', 'two']);

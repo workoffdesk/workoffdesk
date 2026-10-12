@@ -388,6 +388,42 @@ describe('/api/m/:machine/sessions', () => {
     });
   });
 
+  describe('pinned', () => {
+    const pin = (sid: string, method: 'PUT' | 'DELETE') => api(`/api/m/local/sessions/${sid}/pin`, { method });
+    const pinnedOf = async (sid: string) => (await (await api('/api/m/local/sessions')).json()).find((s: any) => s.id === sid)?.pinned;
+
+    it('stays so for every device, which the event stream tells at once, until unpinned', async () => {
+      const ev = openWs('/api/events');
+      await ev.opened;
+      const before = Date.now();
+      expect((await pin(id, 'PUT')).status).toBe(204);
+      const at = await pinnedOf(id);
+      expect(at).toBeGreaterThanOrEqual(before);
+      expect(await until(() => ev.control.some((m) => m.type === 'sessions' && m.sessions.some((s: any) => s.id === id && s.pinned === at)))).toBe(true);
+      expect((await pin(id, 'DELETE')).status).toBe(204);
+      expect(await pinnedOf(id)).toBeUndefined();
+      expect(await until(() => ev.control.filter((m) => m.type === 'sessions').at(-1)?.sessions.some((s: any) => s.id === id && s.pinned === undefined))).toBe(true);
+      ev.ws.close();
+    });
+
+    it('keeps when it was pinned when pinned again, so a request sent twice does not move it', async () => {
+      await pin(id, 'PUT');
+      const at = await pinnedOf(id);
+      await new Promise((r) => setTimeout(r, 5));
+      expect((await pin(id, 'PUT')).status).toBe(204);
+      expect(await pinnedOf(id)).toBe(at);
+      expect((await pin(id, 'DELETE')).status).toBe(204);
+      expect((await pin(id, 'DELETE')).status).toBe(204);
+    });
+
+    it('is refused for a session that is not there, or a bad id', async () => {
+      for (const method of ['PUT', 'DELETE'] as const) {
+        expect((await pin('nosuch1', method)).status).toBe(404);
+        expect((await pin('BAD-ID', method)).status).toBe(400);
+      }
+    });
+  });
+
   it('keeps sessions across a server restart', async () => {
     await live.server.close();
     live.server = await start();

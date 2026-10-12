@@ -1,5 +1,6 @@
 import { errorText, type RecentConversation, type TermSession } from '@workoffdesk/client/base/api';
 import { leaveSession } from '@workoffdesk/client/sessions/leave';
+import { pinAction } from '@workoffdesk/client/sessions/pin';
 import { folderBeside, listView, type SessionGroup } from '@workoffdesk/client/sessions/sessionListView';
 import { t } from '@workoffdesk/i18n';
 import { router, Stack } from 'expo-router';
@@ -30,6 +31,10 @@ function useMacSessions(sessions: TermSession[] | null): RecentConversation[] {
 // Ending or deleting a session from its row; what went wrong is said in an alert, as no page is there to say it.
 const leave = (s: TermSession) =>
   void leaveSession(api, sessionList, s).catch((e: unknown) => Alert.alert(errorText(e, s.past ? t.deleteFailed : t.notEnded, s.past ? t.deleteFailed : t.endFailed)));
+const pinRow = (s: TermSession): RowAction => {
+  const pin = pinAction(api, s);
+  return { label: pin.label, run: () => void pin.run().then((why) => why && Alert.alert(why)) };
+};
 const confirmDelete = (s: TermSession) =>
   Alert.alert(t.deleteSessionTitle, t.deleteSessionSub, [
     { text: t.cancel, style: 'cancel' },
@@ -51,6 +56,7 @@ export default function Sessions() {
   const unread = sorted ? seen.unreadOf(sorted) : new Set<string>();
   const sections: Section[] = groups.map((g) => ({ group: g, title: g.title, data: g.sessions }));
   const actions = (s: TermSession): RowAction[] => [
+    pinRow(s),
     { label: t.renameAction, run: () => setRenaming(s) },
     s.past ? { label: t.delete, destructive: true, run: () => confirmDelete(s) } : { label: t.endSession, destructive: true, run: () => leave(s) },
   ];

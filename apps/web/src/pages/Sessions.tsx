@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, errorText, isAgent, MACHINE, type RecentConversation, type TermSession } from '../api';
 import { leaveSession } from '@workoffdesk/client/sessions/leave';
+import { pinAction } from '@workoffdesk/client/sessions/pin';
 import { ActionSheet, type Action } from '../components/ActionSheet';
 import { MacItem } from '../components/MacItem';
 import { followMacRecent, keptMacRecent, macShown } from '@workoffdesk/client/sessions/macRecent';
@@ -64,7 +65,7 @@ function Row({ s, folder, open, current, unread, onOpen, actions }: { s: TermSes
     if (d.swiping) setDx(rowShift(open, width, mx));
   };
   const onPointerUp = () => {
-    if (drag.current?.swiping && dx !== null) onOpen(staysOpen(dx, width));
+    if (drag.current?.swiping && dx !== null) onOpen(staysOpen(open, dx, width));
     setDx(null);
   };
   const onClick = (e: React.MouseEvent) => {
@@ -147,7 +148,15 @@ export function Sessions({ current }: { current?: string } = {}) {
       setOpenId(null);
       run();
     };
+    const pin = pinAction(api, s);
     return [
+      {
+        label: pin.label,
+        run: then(() => {
+          setProblem(null);
+          void pin.run().then(setProblem);
+        }),
+      },
       { label: t.renameAction, run: then(() => setRenaming(s)) },
       s.past ? { label: t.delete, destructive: true, run: then(() => setDeleting(s)) } : { label: t.endSession, destructive: true, run: then(() => leave(s)) },
     ];
@@ -182,7 +191,7 @@ export function Sessions({ current }: { current?: string } = {}) {
         <div className="sess-list">
           {groups.map((g) => [
             g.title && (
-              <h2 key={`g-${g.cwd ?? 'ended'}`} className="sess-group">
+              <h2 key={`g-${g.cwd ?? g.title}`} className="sess-group">
                 {g.title}
                 <small>{g.sessions.length}</small>
               </h2>

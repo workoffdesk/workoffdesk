@@ -14,5 +14,9 @@ export function gestureOf(mx: number, my: number): 'swipe' | 'scroll' | null {
 // Where the row is under the finger, from where it was: never right of shut, nor left of its actions.
 export const rowShift = (open: boolean, width: number, mx: number) => Math.min(0, Math.max(-width, (open ? -width : 0) + mx));
 
-// Whether a row let go there stays open: past half its actions.
-export const staysOpen = (shift: number, width: number) => shift < -width / 2;
+// Whether a row let go there stays open, from open or shut: as it was unless moved past half its actions, or past
+// one when it has more than two.
+export function staysOpen(open: boolean, shift: number, width: number): boolean {
+  const far = Math.min(width / 2, ACTION_PX);
+  return open ? shift - -width < far : shift < -far;
+}

@@ -307,6 +307,7 @@ export class LocalMachine implements Machine {
   cancelTakeOver(claudeSessionId: string): boolean { return this.p.takeOvers.cancel(claudeSessionId); }
   killSession(id: string): Promise<void> { return this.p.lifecycle.killSession(id); }
   renameSession(id: string, title: string): Promise<TermSession | null> { return this.p.lifecycle.renameSession(id, title); }
+  pinSession(id: string, on: boolean): Promise<boolean> { return this.p.lifecycle.pinSession(id, on); }
   claudeName(claudeSessionId: string): string | null { return this.p.lifecycle.claudeName(claudeSessionId); }
 
   choices(id: string): Promise<Choices | null> { return this.p.input.choices(id); }
@@ -393,7 +394,7 @@ export class LocalMachine implements Machine {
       status: meta.kind === 'shell' ? null : (this.s.statuses.get(id) ?? 'idle'),
       usage: this.s.usages.get(id) ?? null,
       claudeAccount: this.p.accounts.accountLabel(meta),
-      ...(project && { project }),
+      ...(project && { project }), ...(meta.pinned && { pinned: meta.pinned }),
     };
   }
 }

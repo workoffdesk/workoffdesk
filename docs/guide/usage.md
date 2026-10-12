@@ -19,6 +19,10 @@ title inside the session; Claude Code's own `/rename` names it too, and the late
 on the Mac, so every device sees it, and the conversation takes it in Claude Code's `/resume` list and in Codex
 too.
 
+Swipe a row left to **Pin** it: pinned sessions stay at the top of the list under **Pinned**, the one pinned
+last first, however the others move as they work. The pin is kept on the Mac, so every device has it, and stays
+when the session ends or is gone on with. **Unpin** is in the same place.
+
 A Claude or Codex session stays in the list after it ends, whether you ended it, its agent quit, or the Mac
 restarted: it moves to the **Ended** group at the end of the list, its picture faded, and it opens to the conversation, kept on the Mac, with **Continue this
 conversation** to go on with it in the same session. It is kept even after Claude Code deletes the conversation's

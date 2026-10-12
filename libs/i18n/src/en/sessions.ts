@@ -81,6 +81,9 @@ export const sessions = {
 
   // Sessions list
   renameAction: 'Rename',
+  pin: 'Pin',
+  unpin: 'Unpin',
+  pinFailed: 'Not pinned or unpinned',
   busy: 'Running',
   needsYou: 'Needs you',
   unread: 'Unread',
@@ -98,6 +101,8 @@ export const sessions = {
   deleteSessionSub: "Its conversation goes from WorkOffDesk. Claude's or Codex's own record on the Mac is left as it is.",
   notFound: (q: string) => `Nothing found for “${q}”`,
   endedSessions: 'Ended',
+  pinnedSessions: 'Pinned',
+  otherSessions: 'Others',
   otherMacSessions: 'Other sessions on the Mac',
 
   // Login

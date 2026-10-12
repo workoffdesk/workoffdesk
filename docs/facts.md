@@ -206,6 +206,11 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   folders in it; only folders inside the Mac user's home are listed, however the path reaches them (`..`, links).
   (`libs/client/src/sessions/projectSearch.ts`, `apps/server/src/system/dirs.ts`, `apps/server/tests/unit/system/dirs.test.ts`)
 - Sessions can be renamed; the name is kept on the Mac. (`apps/server/src/system/store.ts`, e2e `sessions.spec.ts`)
+- Sessions can be pinned from a row: pinned ones are listed first under Pinned, the one pinned last on top. The pin is
+  kept on the Mac and stays through the session ending and being gone on with.
+  (`libs/client/src/sessions/sessionListView.ts`, `libs/client/src/sessions/pin.ts`,
+  `apps/server/tests/integration/http/app.sessions.test.ts`, `apps/server/tests/integration/sessions/machine.past.test.ts`,
+  e2e `sessions.spec.ts`)
 - A name given here shows in the list at once, before the Mac answers, and is taken back if the Mac refuses it;
   giving a session the name its agent already has types nothing to it again.
   (`libs/client/src/sessions/rename.ts`, `libs/client/src/sessions/sessionList.ts` `naming`,

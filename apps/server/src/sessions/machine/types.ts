@@ -47,6 +47,8 @@ export type TermSession = {
   past?: true;
   // The main folder of the git repository it is in, a worktree's too; missing outside git.
   project?: string;
+  // When it was pinned to the top of the list, in ms.
+  pinned?: number;
 };
 
 export interface Machine {
@@ -77,6 +79,8 @@ export interface Machine {
   killSession(id: string): Promise<void>;
   // Gives the session a name of its own; an empty one is the directory's name again. Null when it is gone.
   renameSession(id: string, title: string): Promise<TermSession | null>;
+  // Pins a session, running or past, or unpins it; false when there is no such session.
+  pinSession(id: string, on: boolean): Promise<boolean>;
   // The name a session here was last given while it held this Claude conversation; null when none was.
   claudeName(claudeSessionId: string): string | null;
   // What was typed on the phone, to the program as a keyboard would give it.
