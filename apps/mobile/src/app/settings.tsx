@@ -27,10 +27,18 @@ function Section({ title, children, s }: { title: string; children: ReactNode; s
   );
 }
 
+// Starts the app again, saying how to by hand when it does not; done: once it did not.
+function reopenOrSay(done?: () => void): void {
+  reopenHere((why) => {
+    done?.();
+    Alert.alert(t.reopenStuck, why ? `${t.reopenStuckSub}\n\n${why}` : t.reopenStuckSub);
+  });
+}
+
 // The colours and the app's language, each this device's own and following the phone until chosen: a row
 // that says which, and opens the choices when tapped.
 function Looks({ s, theme }: { s: ReturnType<typeof styles>; theme: Theme }) {
-  const { colours, themes, pickTheme, language, languages, pickLanguage } = useLooks({ themeChoice, setTheme, languageChoice, restart: reopenHere });
+  const { colours, themes, pickTheme, language, languages, pickLanguage } = useLooks({ themeChoice, setTheme, languageChoice, restart: reopenOrSay });
   const { grouping, groupings, pickGrouping } = useGrouping(groupingChoice);
   return (
     <Section title={t.appearance} s={s}>
@@ -165,6 +173,7 @@ export default function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const updateReady = useUpdateReady();
+  const [reopening, setReopening] = useState(false);
 
   const guard = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -219,7 +228,16 @@ export default function Settings() {
               <Text style={s.strong}>{t.updateReady}</Text>
               <Text style={s.sub}>{t.updateReadySub}</Text>
             </View>
-            <Button small kind="primary" label={t.updateNow} onPress={reopenHere} />
+            <Button
+              small
+              kind="primary"
+              label={t.updateNow}
+              busy={reopening}
+              onPress={() => {
+                setReopening(true);
+                reopenOrSay(() => setReopening(false));
+              }}
+            />
           </View>
         </View>
       )}

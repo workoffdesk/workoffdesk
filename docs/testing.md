@@ -260,7 +260,8 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/unit/package/publish.test.ts`
 - The iPhone app's updates: `apps/server/tests/integration/http/routes/appUpdate.test.ts`,
   `apps/server/tests/unit/ios-update/appUpdate.test.ts`, `apps/server/tests/unit/scripts/build-app-update.test.ts`,
-  `apps/server/tests/unit/ios-update/bundlePatch.test.ts`, `apps/mobile/tests/app.config.test.mjs`
+  `apps/server/tests/unit/ios-update/bundlePatch.test.ts`, `apps/mobile/tests/app.config.test.mjs`,
+  `apps/mobile/tests/reloadWatch.test.mjs`
 - Push notifications: `apps/server/tests/unit/notify/apns.test.ts`, `apps/server/tests/unit/notify/push.test.ts`,
   `apps/server/tests/integration/http/app.push.test.ts`, `apps/mobile/tests/openSession.test.mjs`
 - The This Mac page and the menu bar app: `libs/client/tests/mac/macPage.test.ts`,

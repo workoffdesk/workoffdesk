@@ -36,6 +36,8 @@ export const sessions: typeof en = {
   updateReady: '有新版本',
   updateReadySub: '已下载好，下次打开 App 时生效',
   updateNow: '立即更新',
+  reopenStuck: 'App 没能马上重新打开',
+  reopenStuckSub: '从屏幕底部上滑，把 WorkOffDesk 划掉再打开就好。',
   sessionEndedSub: '这个会话在 Mac 上已经退出了',
   startAnother: '重新开一个',
   agentQuit: (who) => `${who} 已退出`,

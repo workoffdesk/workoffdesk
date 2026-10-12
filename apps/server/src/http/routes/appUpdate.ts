@@ -65,7 +65,10 @@ export const register: RouteModule = (app, ctx) => {
 
     // Requests that went well are not logged; this is how one sees whether the phones took an update.
     const checked = (offered: string | null) =>
-      req.log.info({ runtime, platform: header('expo-platform'), running: header('expo-current-update-id'), offered }, 'app update check');
+      req.log.info(
+        { runtime, platform: header('expo-platform'), running: header('expo-current-update-id'), embedded: header('expo-embedded-update-id'), failed, offered },
+        'app update check',
+      );
 
     if (!served || header('expo-platform') !== 'ios' || runtime !== served.build.runtimeVersion) {
       checked(null);

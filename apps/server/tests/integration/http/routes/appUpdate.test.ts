@@ -219,14 +219,16 @@ describe('GET /api/app-update/manifest', () => {
   });
 
   // A request that went well is not logged (app.ts); whether the phones took an update is looked for.
-  it('notes each check: the update the phone runs and the one it was offered', async () => {
+  it('notes each check: the update the phone runs, the one built in, those that failed, and the one offered', async () => {
     const { ask, lines } = await serve(built());
     const checks = () => lines.filter((l) => l.msg === 'app update check');
-    const { id } = manifestOf(await ask({ 'expo-current-update-id': 'embedded-id' }));
+    const { id } = manifestOf(
+      await ask({ 'expo-current-update-id': 'embedded-id', 'expo-embedded-update-id': 'embedded-id', 'expo-recent-failed-update-ids': '"AB12", "cd34"' }),
+    );
     noUpdate(await ask({ 'expo-runtime-version': 'other', 'expo-current-update-id': id }));
     expect(checks()).toEqual([
-      expect.objectContaining({ level: 30, runtime: RUNTIME, platform: 'ios', running: 'embedded-id', offered: id }),
-      expect.objectContaining({ level: 30, runtime: 'other', platform: 'ios', running: id, offered: null }),
+      expect.objectContaining({ level: 30, runtime: RUNTIME, platform: 'ios', running: 'embedded-id', embedded: 'embedded-id', failed: ['ab12', 'cd34'], offered: id }),
+      expect.objectContaining({ level: 30, runtime: 'other', platform: 'ios', running: id, embedded: '', failed: [], offered: null }),
     ]);
   });
 

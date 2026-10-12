@@ -35,6 +35,8 @@ export const sessions = {
   updateReady: 'New version',
   updateReadySub: 'Downloaded. It starts the next time the app opens.',
   updateNow: 'Update now',
+  reopenStuck: 'The app did not start again',
+  reopenStuckSub: 'Swipe up from the bottom of the screen, swipe WorkOffDesk away and open it again.',
   sessionEndedSub: 'This session has exited on the Mac',
   startAnother: 'Start a new one',
   agentQuit: (who: string) => `${who} has quit`,

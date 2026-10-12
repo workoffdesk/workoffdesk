@@ -3,6 +3,7 @@ import * as Updates from 'expo-updates';
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { auth, release, storage, type Login } from './client';
+import { watchReload } from './reloadWatch';
 
 // The app runs the JS of the server it is signed in to (for its native runtime): it asks that server for
 // an update on starting, every so often, and as soon as an answer names a newer release of the server, and
@@ -17,6 +18,8 @@ const RELOAD_AFTER_AWAY_MS = 60_000;
 // The app reopening itself comes back to the page it was on; a start later than this is not that reopening.
 const PLACE_KEY = 'updatePlace';
 const PLACE_FRESH_MS = 30_000;
+// How long starting again may take before the page says it did not, and how to start it by hand.
+const REOPEN_WAIT_MS = 6000;
 
 // Only where the transport keeps others from swapping the JS: https, or this phone's own loopback.
 const SAFE_SERVER = /^(?:https:\/\/|http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/|$))/i;
@@ -31,12 +34,16 @@ export const onPage = (path: string) => {
 };
 
 // Starts the JS again on the page on screen: a downloaded update, or the words of a newly chosen language.
-export function reopenHere(): void {
+// onStuck: it did not start again, refused (why) or not within a few seconds.
+export function reopenHere(onStuck?: (why: string | null) => void): void {
   if (here) storage.setItem(PLACE_KEY, JSON.stringify({ path: here, at: Date.now() }));
   // A development build has no update to reload with, and its Updates.reloadAsync does nothing: it reloads
   // from its bundler instead.
-  if (__DEV__) void reloadAppAsync();
-  else Updates.reloadAsync().catch(() => storage.removeItem(PLACE_KEY));
+  const reload = __DEV__ ? reloadAppAsync : () => Updates.reloadAsync();
+  watchReload(reload, REOPEN_WAIT_MS, (why) => {
+    storage.removeItem(PLACE_KEY);
+    onStuck?.(why);
+  });
 }
 
 // The page the app was on when it reopened itself; once.
