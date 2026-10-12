@@ -88,11 +88,12 @@ describe('limitStopped', () => {
 // A Mac with two accounts whose sessions run on the default; what each call to it was. refuse: what the Mac
 // says when the session s1 is asked to move; failOthers: the move of the other sessions fails.
 type Mac = { refuse?: string; failOthers?: boolean };
+// What was asked of the Mac, with what it was sent.
 const mac = (o: Mac = {}) => {
   const calls: [string, unknown][] = [];
   const api = vi.fn(async (path: string, init?: { method?: string; json?: unknown }) => {
     calls.push([`${init?.method ?? 'GET'} ${path}`, init?.json]);
-    if (path === '/api/m/local/sessions/s1/move' && o.refuse) throw new ApiError(409, o.refuse, undefined, 'open-on-mac-busy');
+    if (path === '/api/m/local/sessions/s1/move' && o.refuse && !init?.json) throw new ApiError(409, 'said by the Mac', undefined, o.refuse);
     if (path === '/api/claude/account/move' && o.failOthers) throw new Error('down');
     return view([OWN, WORK]);
   }) as unknown as Api;
@@ -131,13 +132,56 @@ describe('createAccountMove', () => {
   });
 
   it('shows why, says nothing, keeps the offer open and moves no other session when this one is not moved', async () => {
-    const { m, calls, sent } = await loaded({ refuse: 'said by the Mac' });
+    const { m, calls, sent } = await loaded({ refuse: 'open-on-mac-busy' });
     m.offer('继续', false);
     await m.move(WORK.id);
     expect(m.getSnapshot()).toMatchObject({ asking: { text: '继续', typed: false }, moving: null, waiting: null, error: t.serverErrors['open-on-mac-busy'] });
     expect(calls.map(([c]) => c)).not.toContain('POST /api/claude/account/move');
     m.seen('work@example.com');
     expect(sent).toEqual([]);
+  });
+
+  it.each(['session-busy', 'open-on-mac-busy'])('offers to move now or once free when refused for something at work (%s)', async (code) => {
+    const { m } = await loaded({ refuse: code });
+    m.offer('继续', false);
+    await m.move(WORK.id);
+    expect(m.getSnapshot()).toMatchObject({ blocked: WORK.id, error: t.serverErrors[code] });
+  });
+
+  it.each(['cannot-move', 'move-failed'])('offers nothing more when refused for anything else (%s)', async (code) => {
+    const { m } = await loaded({ refuse: code });
+    m.offer('继续', false);
+    await m.move(WORK.id);
+    expect(m.getSnapshot().blocked).toBeNull();
+  });
+
+  it.each(['now', 'free'] as const)('asks the Mac to move it %s when told to, and goes on as moved', async (when) => {
+    const { m, calls, sent } = await loaded({ refuse: 'session-busy' });
+    m.offer('继续', false);
+    await m.move(WORK.id);
+    await m.move(WORK.id, when);
+    expect(calls.filter(([c]) => c === 'POST /api/m/local/sessions/s1/move').map(([, json]) => json)).toEqual([undefined, { when }]);
+    expect(m.getSnapshot()).toMatchObject({ asking: null, blocked: null, error: null, waiting: { email: 'work@example.com', text: '继续' } });
+    m.seen('work@example.com');
+    expect(sent).toEqual(['继续']);
+  });
+
+  it('says nothing once moved when asked from the menu, with nothing to say', async () => {
+    const { m, calls, sent } = await loaded();
+    m.offer(null);
+    await m.move(WORK.id);
+    expect(calls.map(([c]) => c)).toContain('POST /api/m/local/sessions/s1/move');
+    m.seen('work@example.com');
+    expect(sent).toEqual([]);
+    expect(m.getSnapshot().waiting).toBeNull();
+  });
+
+  it('forgets a refusal once closed', async () => {
+    const { m } = await loaded({ refuse: 'session-busy' });
+    m.offer('继续', false);
+    await m.move(WORK.id);
+    m.dismiss();
+    expect(m.getSnapshot()).toMatchObject({ blocked: null, error: null });
   });
 
   it('goes on as moved when only the move of the other sessions fails', async () => {

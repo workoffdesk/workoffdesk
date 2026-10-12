@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme, type Theme } from '../theme';
 import { Popup } from './Popup';
+import { Button } from './ui';
 
 type Props = { move: AccountMove; state: AccountMoveSnapshot };
 
@@ -28,12 +29,13 @@ export function LimitActions({ move, state }: Props) {
   );
 }
 
-// The accounts to go on on, asked from the limit's note or by a message typed while stopped on it, which goes
-// once moved. onGiveBack: the typed message, when not moved.
+// The accounts to go on on, asked from the limit's note, the session's menu, or by a message typed while stopped on
+// it, which goes once moved. Refused for something at work, it offers to move now or once that stops. onGiveBack: the
+// typed message, when not moved.
 export function MoveAccountSheet({ move, state, onGiveBack }: Props & { onGiveBack: (text: string) => void }) {
   const theme = useTheme();
   const s = useMemo(() => styles(theme), [theme]);
-  const { asking, accounts, moving, error } = state;
+  const { asking, accounts, moving, blocked, error } = state;
   if (!asking || !accounts) return null;
   const close = () => {
     const typed = move.dismiss();
@@ -41,11 +43,17 @@ export function MoveAccountSheet({ move, state, onGiveBack }: Props & { onGiveBa
   };
   return (
     <Popup busy={moving !== null} onClose={close}>
-      <Text style={s.title}>{t.moveAccountTitle}</Text>
+      <Text style={s.title}>{asking.text === null ? t.switchAccount : t.moveAccountTitle}</Text>
       {!!error && (
         <Text style={s.error} accessibilityRole="alert">
           {error}
         </Text>
+      )}
+      {blocked !== null && (
+        <View style={s.when}>
+          <Button kind="primary" label={t.moveWhenFree} onPress={() => void move.move(blocked, 'free')} />
+          <Button label={t.moveNow} onPress={() => void move.move(blocked, 'now')} />
+        </View>
       )}
       {asking.typed && <Text style={s.lead}>{t.moveAccountThen(asking.text)}</Text>}
       <ScrollView style={s.menu} contentContainerStyle={s.items} bounces={false}>
@@ -84,6 +92,7 @@ const styles = ({ c, fs }: Theme) =>
     title: { paddingHorizontal: 8, paddingTop: 6, paddingBottom: 12, textAlign: 'center', fontSize: fs(17), fontWeight: '600', color: c.text },
     lead: { paddingHorizontal: 8, paddingBottom: 12, fontSize: fs(15), color: c.text, textAlign: 'center' },
     error: { paddingHorizontal: 8, paddingBottom: 8, fontSize: fs(14), color: c.danger },
+    when: { gap: 8, paddingBottom: 12 },
     menu: { flexShrink: 1 },
     items: { gap: 8 },
     item: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 50, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 25, backgroundColor: c.surface2 },

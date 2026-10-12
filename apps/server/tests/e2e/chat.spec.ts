@@ -585,6 +585,39 @@ test.describe('the chat', () => {
       expect(await runsOn(page, id)).toBe('work@example.com');
     });
 
+    test("switches account from the session's menu, saying nothing once moved", async ({ page }) => {
+      await login(page);
+      await clearSessions(page);
+      await page.reload();
+      const { id } = await newClaude(page);
+      await page.getByRole('button', { name: '会话操作' }).click();
+      await page.getByRole('button', { name: '换 Claude 账号' }).click();
+      const sheet = page.getByRole('dialog');
+      await expect(sheet).toContainText('换 Claude 账号');
+      await shot(page, '60-chat-switch-account');
+      await sheet.getByRole('button', { name: /work@example\.com/ }).click();
+      await expect(sheet).toBeHidden();
+      await expect.poll(() => runsOn(page, id), { timeout: 20_000 }).toBe('work@example.com');
+      await expect(page.getByTestId('chat').getByText('继续', { exact: true })).toHaveCount(0);
+    });
+
+    test('offers, while Claude is at work, to switch now or once its reply is done', async ({ page }) => {
+      const id = await stopped(page);
+      await hook(id, 'UserPromptSubmit');
+      await page.getByRole('button', { name: '会话操作' }).click();
+      await page.getByRole('button', { name: '换 Claude 账号' }).click();
+      const sheet = page.getByRole('dialog');
+      await sheet.getByRole('button', { name: /work@example\.com/ }).click();
+      await expect(sheet).toContainText('Claude 这轮还没回复完。');
+      await expect(sheet.getByRole('button', { name: '现在就换（会打断它）' })).toBeVisible();
+      await shot(page, '61-chat-switch-when');
+      await sheet.getByRole('button', { name: '等它停下再换' }).click();
+      await expect(sheet).toBeHidden();
+      expect(await runsOn(page, id)).toBe('own@example.com');
+      await hook(id, 'Stop');
+      await expect.poll(() => runsOn(page, id), { timeout: 20_000 }).toBe('work@example.com');
+    });
+
     test('says how to add an account when the Mac has no other', async ({ page }) => {
       // The other account is not through Claude Code's first run, so nothing can go on on it.
       const file = join(E2E_HOME, 'accounts', '.claude-work', '.claude.json');

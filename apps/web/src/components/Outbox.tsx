@@ -1,6 +1,10 @@
 import type { Message } from '@workoffdesk/client/journal/journalRows';
 import { SentBubble } from './turn/bubbles';
 import { t } from '@workoffdesk/i18n';
+import { quitOnMac } from '@workoffdesk/client/sessions/quitOnMac';
+import { useState } from 'react';
+import { api } from '../api';
+import { ActionSheet } from './ActionSheet';
 
 // Above the composer while Claude compacts its conversation, from the moment it starts.
 export function CompactingBar({ count }: { count: number }) {
@@ -14,14 +18,40 @@ export function CompactingBar({ count }: { count: number }) {
   );
 }
 
-// Above the composer while the conversation is open in a terminal on the Mac too, in a Claude of its own.
-export function OnMacBar({ terminals, sessionId }: { terminals: number; sessionId: string }) {
+// Above the composer while the conversation is open in a terminal on the Mac too, in a Claude of its own, which it
+// quits; one there at work only once told to. The bar goes once the Mac no longer has it open.
+export function OnMacBar({ terminals, sessionId, onError }: { terminals: number; sessionId: string; onError: (text: string) => void }) {
+  const [quitting, setQuitting] = useState(false);
+  const [asking, setAsking] = useState<((yes: boolean) => void) | null>(null);
+  const answer = (yes: boolean) => {
+    asking?.(yes);
+    setAsking(null);
+  };
+  const quit = () => {
+    setQuitting(true);
+    void quitOnMac(api, sessionId, () => new Promise<boolean>((done) => setAsking(() => done))).then((why) => {
+      setQuitting(false);
+      if (why) onError(why);
+    });
+  };
   return (
     <div className="send-held" role="status" aria-label={t.alsoOnMac(terminals)}>
       <span>
         <b>{t.alsoOnMac(terminals)}</b>
         <small>{t.alsoOnMacSub(sessionId)}</small>
       </span>
+      <button className="btn small" disabled={quitting} aria-busy={quitting} onClick={quit}>
+        {t.quitOnMac}
+      </button>
+      {asking && (
+        <ActionSheet
+          title={t.alsoOnMac(terminals)}
+          message={t.quitOnMacBusy}
+          side
+          actions={[{ label: t.quitAnyway, run: () => answer(true), destructive: true }]}
+          onClose={() => answer(false)}
+        />
+      )}
     </div>
   );
 }

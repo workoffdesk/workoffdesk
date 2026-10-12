@@ -259,6 +259,7 @@ input, textarea { font: inherit; color: inherit; }
 .sheet.bar .search { background: var(--surface); }
 .sheet.bar .note { background: none; padding: 12px 0; text-align: center; }
 .sheet-side { display: flex; }
+.move-when { display: flex; flex-direction: column; gap: 8px; }
 .sheet-lead { margin: 0; font-size: calc(15px * var(--text-scale)); overflow-wrap: anywhere; }
 .sheet-note { margin: 0; font-size: calc(13px * var(--text-scale)); color: var(--muted); }
 /* The phone's choices as iOS 26 draws them (components/ActionSheet.tsx), measured off its screen. */

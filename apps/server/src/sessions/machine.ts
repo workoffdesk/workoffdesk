@@ -23,7 +23,7 @@ import { Input } from './machine/input.js';
 import { Lifecycle } from './machine/lifecycle.js';
 import { CHAT_SIZE, ID, MachineState, UUID, codexOf, conversationOf, type MachineDeps, type Parts } from './machine/state.js';
 import { Status } from './machine/status.js';
-import type { ConversationResume, CreateSpec, Machine, OnScreen, StatusNotifier, TermSession } from './machine/types.js';
+import type { ConversationResume, CreateSpec, Machine, MoveWhen, OnScreen, StatusNotifier, TermSession } from './machine/types.js';
 import { Outbox, migrateQueueFile, type Queued } from './outbox.js';
 import { idOfTmuxName, tmuxName } from './sessionName.js';
 
@@ -296,13 +296,12 @@ export class LocalMachine implements Machine {
     return this.d.outbox.sendNow(id, queuedId);
   }
 
-  moveQueued(id: string, queuedId: string, by: -1 | 1): boolean {
-    return this.d.outbox.move(id, queuedId, by);
-  }
+  moveQueued(id: string, queuedId: string, by: -1 | 1): boolean { return this.d.outbox.move(id, queuedId, by); }
 
   createSession(spec: CreateSpec): Promise<TermSession> { return this.p.lifecycle.createSession(spec); }
   continueSession(id: string): Promise<TermSession> { return this.p.lifecycle.continueSession(id); }
   openOnMac(recentMs?: number): Promise<Map<string, MacOpen>> { return this.p.lifecycle.openOnMac(recentMs); }
+  quitOnMac(id: string, force?: boolean): Promise<void> { return this.p.lifecycle.quitOthersOnMac(id, force); }
   takeOverWhenIdle(spec: ConversationResume): Promise<TermSession | null> { return this.p.takeOvers.whenIdle(spec); }
   takingOver(claudeSessionId: string): boolean { return this.p.lifecycle.takingOver(claudeSessionId); }
   cancelTakeOver(claudeSessionId: string): boolean { return this.p.takeOvers.cancel(claudeSessionId); }
@@ -333,7 +332,7 @@ export class LocalMachine implements Machine {
 
   claudeAccountsView(): Promise<AccountsView> { return this.p.accounts.claudeAccountsView(); }
   pickClaudeAccount(id: string): Promise<AccountsView> { return this.p.accounts.pickClaudeAccount(id); }
-  moveThis(id: string): Promise<TermSession> { return this.p.moves.moveThis(id); }
+  moveThis(id: string, when?: MoveWhen): Promise<TermSession> { return this.p.moves.moveThis(id, when); }
   async moveToAccountInUse(): Promise<AccountsView> {
     await this.p.moves.moveAll();
     return this.p.accounts.claudeAccountsView();

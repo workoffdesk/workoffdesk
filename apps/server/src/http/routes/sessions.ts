@@ -49,10 +49,20 @@ export const register: RouteModule = (app, ctx) => {
     return m.continueSession(req.params.id);
   });
 
-  // Moves the session to the Claude account in use, answering once it runs there.
-  app.post<{ Params: { machine: string; id: string } }>('/api/m/:machine/sessions/:id/move', async (req, reply) => {
+  // Moves the session to the Claude account in use, answering once it runs there; once it is free, at once.
+  app.post<{ Params: { machine: string; id: string }; Body: { when?: unknown } | undefined }>('/api/m/:machine/sessions/:id/move', async (req, reply) => {
+    const when = req.body?.when;
+    if (when !== undefined && when !== 'now' && when !== 'free') return reply.code(400).send({ error: 'when must be now or free' });
     const m = machineOr404(req, reply);
-    return m ? m.moveThis(req.params.id) : reply;
+    return m ? m.moveThis(req.params.id, when) : reply;
+  });
+
+  // Quits the Claudes in terminals on the Mac that hold the session's conversation too, leaving it to the session.
+  app.post<{ Params: { machine: string; id: string }; Body: { force?: unknown } | undefined }>('/api/m/:machine/sessions/:id/quit-on-mac', async (req, reply) => {
+    const m = machineOr404(req, reply);
+    if (!m) return reply;
+    await m.quitOnMac(req.params.id, req.body?.force === true);
+    return reply.code(204).send();
   });
 
   app.get<{ Params: { machine: string } }>('/api/m/:machine/agents', async (req, reply) => {

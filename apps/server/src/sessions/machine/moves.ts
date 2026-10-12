@@ -4,13 +4,17 @@ import { Conflict, NotFound } from '../../system/errors.js';
 import { m } from '../../system/messages.js';
 import type { SessionMeta } from '../../system/store.js';
 import type { MachineDeps, MachineState, Parts } from './state.js';
-import type { TermSession } from './types.js';
+import type { MoveWhen, TermSession } from './types.js';
 
 // A message Claude may not have taken in yet: waiting to go, being pasted, or held in Claude's own queue.
 const NOT_TAKEN_IN: ReadonlySet<MessageState> = new Set(['queued', 'delivering', 'enqueued']);
+// How often a session to move is looked at again while a Claude on the Mac holding its conversation is at work.
+const MAC_LOOK_MS = 3000;
 
 // Open Claude sessions moved to the account in use, each between its turns.
 export class Moves {
+  private readonly lookingAgain = new Set<string>();
+
   constructor(
     private readonly s: MachineState,
     private readonly d: MachineDeps,
@@ -55,38 +59,55 @@ export class Moves {
     for (const id of ids) void this.turnOver(id);
   }
 
-  // Told a session is at its prompt: one to move moves now, unless what was sent to it may not be taken in yet, and
-  // stays marked until it has moved or failed to. One no longer on another account (its account picked again, or
-  // gone on with after its Claude quit) is not moved.
+  // Told a session is at its prompt: one to move moves now, unless what was sent to it may not be taken in yet or a
+  // Claude on the Mac holding its conversation is at work, and stays marked until it has moved or failed to. The
+  // idle Claudes there are quit first. One no longer on another account (its account picked again, or gone on with
+  // after its Claude quit) is not moved.
   async turnOver(id: string): Promise<void> {
     if (!this.d.store.get().sessions[id]?.moving) return;
     const inUse = await this.p.accounts.accountInUse();
     const meta = this.d.store.get().sessions[id];
     if (!meta?.moving) return;
-    if (inUse === undefined || !this.onAnother(id, meta, inUse)) return this.unmark(id);
+    if (inUse === undefined || !this.movable(id, meta) || meta.claudeDir === inUse) return this.unmark(id);
     if (!this.betweenTurns(id)) return;
-    await this.p.lifecycle
-      .moveClaude(id)
-      .catch((e: unknown) =>
-        console.error(`workoffdesk: session ${id} could not be moved to the Claude account in use: ${e instanceof Error ? e.message : String(e)}`),
-      )
-      .finally(() => this.unmark(id));
+    try {
+      await this.p.lifecycle.moveClaude(id);
+    } catch (e) {
+      if (e instanceof Conflict && e.code === 'open-on-mac-busy') return this.lookAgain(id);
+      console.error(`workoffdesk: session ${id} could not be moved to the Claude account in use: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    this.unmark(id);
   }
 
-  // The one session asked for, moved now, one started from a terminal too, any Claude in a terminal on the Mac holding
-  // its conversation quit first: answered once it runs on the account in use, or refused saying why.
-  async moveThis(id: string): Promise<TermSession> {
+  // The one session asked for, one started from a terminal too, any Claude in a terminal on the Mac holding its
+  // conversation quit first. With no when, moved now if nothing is at work, else refused saying why; now, moved whatever
+  // is at work; free, marked to move once it is free (turnOver). Answered once it runs on the account in use, or marked.
+  async moveThis(id: string, when?: MoveWhen): Promise<TermSession> {
     const inUse = await this.p.accounts.accountInUse();
     if (inUse === undefined) throw new Conflict('no Claude account was picked yet', 'account-none-picked');
     const meta = this.d.store.get().sessions[id];
     if (!meta) throw new NotFound('no such session');
     if (!this.movable(id, meta)) throw new Conflict(m.moveThis.cannot, 'cannot-move');
     if (meta.claudeDir === inUse) return this.p.sessions.toSession(id, meta, Date.now());
-    if (!this.betweenTurns(id)) throw new Conflict(m.moveThis.busy, 'session-busy');
-    await this.p.lifecycle.quitOnMac(meta.claudeSessionId!, id);
-    return this.p.lifecycle.moveClaude(id).catch((e: unknown) => {
-      throw new Conflict(m.moveThis.failed(e instanceof Error ? e.message : String(e)), 'move-failed');
+    if (when === 'free') {
+      this.d.store.update((st) => void (st.sessions[id] && (st.sessions[id].moving = true)));
+      this.s.emit();
+      void this.turnOver(id);
+      return this.p.sessions.toSession(id, this.d.store.get().sessions[id] ?? meta, Date.now());
+    }
+    if (when !== 'now' && !this.betweenTurns(id)) throw new Conflict(m.moveThis.busy, 'session-busy');
+    return this.p.lifecycle.moveClaude(id, when === 'now').catch((e: unknown) => {
+      throw e instanceof Conflict ? e : new Conflict(m.moveThis.failed(e instanceof Error ? e.message : String(e)), 'move-failed');
     });
+  }
+
+  private lookAgain(id: string): void {
+    if (this.lookingAgain.has(id)) return;
+    this.lookingAgain.add(id);
+    setTimeout(() => {
+      this.lookingAgain.delete(id);
+      void this.turnOver(id);
+    }, MAC_LOOK_MS).unref();
   }
 
   private unmark(id: string): void {

@@ -24,6 +24,9 @@ export type CreateSpec =
   | { kind: 'codex'; cwd: string; resumeId?: string; title?: string; takeOver?: boolean };
 
 // A conversation of Claude's or a thread of Codex's, gone on with here.
+// When a session moves to another account: now, interrupting what is at work; or once it is free.
+export type MoveWhen = 'now' | 'free';
+
 export type ConversationResume = { kind: 'claude' | 'codex'; cwd: string; resumeId: string; title?: string };
 
 export type TermSession = {
@@ -52,6 +55,9 @@ export interface Machine {
   createSession(spec: CreateSpec): Promise<TermSession>;
   // The Claude conversations open in a terminal on this Mac outside every WorkOffDesk on it, by conversation id.
   openOnMac(recentMs?: number): Promise<Map<string, MacOpen>>;
+  // Quits each Claude in a terminal on the Mac that holds the session's conversation too; unless force, none while
+  // one there is at work or asking.
+  quitOnMac(id: string, force?: boolean): Promise<void>;
   // The Codex conversations people had on this Mac, and where each is open now; none without Codex.
   codexOnMac(): Promise<CodexOnMac[]>;
   // A Codex thread's conversation so far, read without opening it.
@@ -65,8 +71,9 @@ export interface Machine {
   // Goes on with the conversation of a Claude session whose Claude quit, in that session; one whose Claude runs is
   // answered as it is.
   continueSession(id: string): Promise<TermSession>;
-  // The session moved to the Claude account in use now, or refused saying why.
-  moveThis(id: string): Promise<TermSession>;
+  // The session moved to the Claude account in use, or refused saying why: when it is free now (none given), now
+  // whatever is at work, or once it is free (answered at once, marked moving).
+  moveThis(id: string, when?: MoveWhen): Promise<TermSession>;
   killSession(id: string): Promise<void>;
   // Gives the session a name of its own; an empty one is the directory's name again. Null when it is gone.
   renameSession(id: string, title: string): Promise<TermSession | null>;

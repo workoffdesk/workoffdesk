@@ -104,32 +104,42 @@ export class Lifecycle {
   }
 
   // A session's Claude quit and started again in its pane on the account in use, going on with its conversation, as
-  // one resume of it, so nothing takes the moment between the two for Claude having quit. One whose Claude does not
+  // one resume of it, so nothing takes the moment between the two for Claude having quit. The Claudes in terminals on
+  // the Mac holding the conversation are quit first (quitOnMac, its refusals as they are). One whose Claude does not
   // quit, or could not start again for its folder being gone, is left as it was.
-  moveClaude(id: string): Promise<TermSession> {
+  moveClaude(id: string, forceMac = false): Promise<TermSession> {
     const meta = this.d.store.get().sessions[id];
     const sid = meta?.claudeSessionId;
     if (!sid) return Promise.reject(new NotFound('no such session'));
     if (!isDir(meta.cwd)) return Promise.reject(folderGone(meta.cwd));
     return this.resumeOnce(sid, async () => {
       this.p.status.setStatus(id, 'starting');
-      const pane = await this.d.tmux.panePid(tmuxName(id)).catch(() => undefined);
-      if (!pane || !(await quitAgent(pane, MOVE_QUIT_MS))) {
+      const stay = (e: Error) => {
         this.s.statuses.delete(id);
         void this.p.status.fillStatus(id);
-        throw new Error(`its Claude did not quit within ${MOVE_QUIT_MS / 1000} seconds, and it stays on its account`);
-      }
+        throw e;
+      };
+      await this.quitOnMac(sid, id, forceMac).catch(stay);
+      const pane = await this.d.tmux.panePid(tmuxName(id)).catch(() => undefined);
+      if (!pane || !(await quitAgent(pane, MOVE_QUIT_MS))) stay(new Error(`its Claude did not quit within ${MOVE_QUIT_MS / 1000} seconds, and it stays on its account`));
       return this.restartClaude(id, { resumeId: sid });
     });
   }
 
-  // Each Claude in a terminal on the Mac holding a conversation quit, and told the session it went on in; none quit
-  // while one there is at work or asking.
-  async quitOnMac(sid: string, goneTo: string): Promise<void> {
+  async quitOthersOnMac(id: string, force = false): Promise<void> {
+    const meta = this.d.store.get().sessions[id];
+    if (!meta) throw new NotFound('no such session');
+    if (meta.claudeSessionId) await this.quitOnMac(meta.claudeSessionId, id, force);
+  }
+
+  // Each Claude in a terminal on the Mac holding a conversation quit, and told the session it went on in; unless
+  // force, none quit while one there is at work or asking. The sessions here then learn it is open there no longer.
+  async quitOnMac(sid: string, goneTo: string, force = false): Promise<void> {
     const there = (await this.openOnMac()).get(sid);
     if (!there) return;
-    if (there.status !== 'idle') throw new Conflict(m.moveThis.macBusy, 'open-on-mac-busy');
+    if (!force && there.status !== 'idle') throw new Conflict(m.moveThis.macBusy, 'open-on-mac-busy');
     const stopped = await Promise.all(there.claudes.map((c) => stopMacProcess(c, m.takeOver.goneToPhone(goneTo))));
+    await this.openOnMac();
     if (stopped.includes(false)) throw new Conflict(m.takeOver.wouldNotQuit('Claude'), 'mac-would-not-quit');
   }
 

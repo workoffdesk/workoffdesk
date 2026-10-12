@@ -61,10 +61,10 @@ export const common = {
     'account-unusable': 'That account cannot be used now.',
     'account-none-picked': 'Pick an account first.',
     'folder-gone': 'Its folder is not on the Mac any more.',
-    'session-busy': "It moves once Claude's reply is done; try again then.",
+    'session-busy': 'Claude is still on its reply.',
     'cannot-move': 'Only a session whose Claude runs, in a folder still on the Mac, can move to another account.',
     'move-failed': 'Its Claude did not quit in time, so it stays on its account; try again.',
-    'open-on-mac-busy': 'This conversation is also open in a terminal on the Mac, where Claude is at work or asking something; let it finish there first.',
+    'open-on-mac-busy': 'This conversation is also open in a terminal on the Mac, where Claude is at work or asking something.',
     'terminal-busy': 'Something is running in this session’s terminal on the Mac. Quit it there first, or start another conversation.',
   } as Record<string, string>,
 

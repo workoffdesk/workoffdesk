@@ -239,6 +239,16 @@ describe('the Claude accounts', () => {
     }
   });
 
+  it("quits the Claudes on the Mac holding a session's conversation, and is done at once when none does", async () => {
+    const s = await (await api('/api/m/local/sessions', { method: 'POST', body: JSON.stringify({ kind: 'claude', cwd: dir }) })).json();
+    try {
+      expect((await api(`/api/m/local/sessions/${s.id}/quit-on-mac`, { method: 'POST' })).status).toBe(204);
+    } finally {
+      await api(`/api/m/local/sessions/${s.id}`, { method: 'DELETE' });
+    }
+    expect((await api('/api/m/local/sessions/nope/quit-on-mac', { method: 'POST' })).status).toBe(404);
+  });
+
   it('refuses to move the open sessions before an account is picked', async () => {
     const r = await api('/api/claude/account/move', { method: 'POST' });
     expect(r.status).toBe(409);

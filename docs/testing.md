@@ -241,7 +241,8 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/unit/sessions/panes.test.ts`, `apps/server/tests/unit/system/store.test.ts`,
   `apps/server/tests/unit/ops/awake.test.ts`, `apps/server/tests/unit/ops/shutdown.test.ts`,
   `apps/server/tests/integration/sessions/machine.test.ts`, `apps/server/tests/integration/sessions/machine.quit.test.ts`
-- Client: `libs/client/tests/sessions/newSession.test.ts`, `libs/client/tests/sessions/moveAccount.test.ts`
+- Client: `libs/client/tests/sessions/newSession.test.ts`, `libs/client/tests/sessions/moveAccount.test.ts`,
+  `libs/client/tests/sessions/quitOnMac.test.ts`
 
 ### Installed, run, updated, rolled back
 

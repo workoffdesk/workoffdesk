@@ -56,5 +56,8 @@ export const screen = {
   moveAccountHow: 'Another Claude account would go on from here. In a terminal on the Mac, run CLAUDE_CONFIG_DIR=~/.claude-<name> claude and sign in with /login; it then shows here.',
   moveAccountThen: (text: string) => `“${text}” waits, and goes once on the other account.`,
   movingAccount: (email: string) => `Moving to ${email}; it goes on once there…`,
+  moveNow: 'Switch now, interrupting it',
+  moveWhenFree: 'Switch once it stops',
+  switchAccount: 'Switch Claude account',
 
 };

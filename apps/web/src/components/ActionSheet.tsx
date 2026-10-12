@@ -5,8 +5,9 @@ import { createPortal } from 'react-dom';
 export type Action = { label: string; run: () => void; destructive?: boolean };
 
 // The phone's choices as iOS draws them: one card in the middle of the dimmed page, each choice a pill and
-// Cancel the last. A destructive choice is red, and picking it is its confirmation. `side`: one choice beside
-// Cancel, as an alert asks to be sure, its words at the start of the card. `cancel`: what Cancel says.
+// Cancel the last. A destructive choice is red, and picking it is its confirmation. A choice runs before the card
+// closes. `side`: one choice beside Cancel, as an alert asks to be sure, its words at the start of the card.
+// `cancel`: what Cancel says.
 export function ActionSheet(props: { title?: string; message?: string; actions: Action[]; side?: boolean; cancel?: string; onClose: () => void }) {
   const { onClose } = props;
   useEffect(() => {
@@ -24,8 +25,8 @@ export function ActionSheet(props: { title?: string; message?: string; actions: 
       key={a.label}
       className={a.destructive ? 'action danger' : 'action'}
       onClick={() => {
-        onClose();
         a.run();
+        onClose();
       }}
     >
       {a.label}

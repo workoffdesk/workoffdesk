@@ -1,7 +1,9 @@
 import { panelName, type Panel } from '@workoffdesk/client/model/chat';
+import { quitOnMac } from '@workoffdesk/client/sessions/quitOnMac';
 import { t } from '@workoffdesk/i18n';
 import { useEffect, useState } from 'react';
-import { Animated, Text, View } from 'react-native';
+import { Alert, Animated, Text, View } from 'react-native';
+import { api } from '../../client';
 import { Button } from '../ui';
 import { useAgentName } from '@workoffdesk/react/agentName';
 import { useStyles } from './styles';
@@ -54,15 +56,37 @@ export function CompactingBar({ count }: { count: number }) {
   );
 }
 
-// Above the composer while the conversation is open in a terminal on the Mac too, in a Claude of its own.
+// Above the composer while the conversation is open in a terminal on the Mac too, in a Claude of its own, which it
+// quits; one there at work only once told to. The bar goes once the Mac no longer has it open.
 export function OnMacBar({ terminals, sessionId }: { terminals: number; sessionId: string }) {
   const s = useStyles();
+  const [quitting, setQuitting] = useState(false);
+  const confirm = () =>
+    new Promise<boolean>((done) =>
+      Alert.alert(
+        t.alsoOnMac(terminals),
+        t.quitOnMacBusy,
+        [
+          { text: t.cancel, style: 'cancel', onPress: () => done(false) },
+          { text: t.quitAnyway, style: 'destructive', onPress: () => done(true) },
+        ],
+        { cancelable: true, onDismiss: () => done(false) },
+      ),
+    );
+  const quit = () => {
+    setQuitting(true);
+    void quitOnMac(api, sessionId, confirm).then((why) => {
+      setQuitting(false);
+      if (why) Alert.alert(t.failed, why);
+    });
+  };
   return (
     <View style={s.held} accessibilityLabel={t.alsoOnMac(terminals)}>
       <View style={s.heldText}>
         <Text style={s.heldTitle}>{t.alsoOnMac(terminals)}</Text>
         <Text style={s.heldSub}>{t.alsoOnMacSub(sessionId)}</Text>
       </View>
+      <Button small label={t.quitOnMac} busy={quitting} onPress={quit} />
     </View>
   );
 }

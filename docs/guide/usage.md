@@ -84,9 +84,13 @@ up. The phone keeps a copy of what it has read, so reopening a session is instan
   them; picking one picks it on the Mac and moves this session to it, one taken over from a terminal too, then
   the other open sessions, as This Mac does; once this one runs there it is told "continue". A Claude in a
   terminal on the Mac holding the same conversation is quit first, unless it is at work there; when this session
-  cannot move, the list says why. A message typed while stopped asks the same first, and goes once moved;
+  cannot move, the list says why, and when that is something at work, here or there, it offers **Switch now,
+  interrupting it** or **Switch once it stops**. The session's menu has the same list as **Switch Claude
+  account**, at any time. A message typed while stopped asks the same first, and goes once moved;
   closing the list puts it back in the box. With no other account,
   the note says how to sign in to one.
+- When the conversation is also open in a Claude in a terminal on the Mac, a bar above the box says so; **Quit it on
+  the Mac** quits that Claude, asking first when it is at work.
 
 ## Answering Claude
 

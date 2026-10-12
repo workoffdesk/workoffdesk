@@ -1,7 +1,7 @@
 import { agentName, isAgent } from '@workoffdesk/client/base/api';
 import { chatEntries } from '@workoffdesk/client/chat/chatEntries';
 import { shortPath } from '@workoffdesk/client/model/format';
-import { limitStopped } from '@workoffdesk/client/sessions/moveAccount';
+import { canMoveAccount, limitStopped } from '@workoffdesk/client/sessions/moveAccount';
 import { canGoOn } from '@workoffdesk/client/sessions/newSession';
 import { t } from '@workoffdesk/i18n';
 import { useKeyboardScrollToEnd } from '@legendapp/list/keyboard';
@@ -58,7 +58,9 @@ function SessionScreen({ id }: { id: string }) {
     keyBar.show(!keysShown);
     setKeysShown(!keysShown);
   };
-  const { screenShown, setScreenShown, renaming, setRenaming, goingOn, actions, startAnother, goOn, onScreen } = useSessionMenu(id, session, ss);
+  const { move, ...moveState } = useAccountMove(api, id, known?.claudeAccount, (text) => void session.sendMessage(text));
+  const switchAccount = canMoveAccount(kind, moveState) ? () => move.offer(null) : undefined;
+  const { screenShown, setScreenShown, renaming, setRenaming, goingOn, actions, startAnother, goOn, onScreen } = useSessionMenu(id, session, ss, switchAccount);
   // Scrolled up from the end: what comes in then is added below without moving what is being read.
   const [away, setAway] = useState(false);
   const list = useRef<LegendListRef>(null);
@@ -94,11 +96,10 @@ function SessionScreen({ id }: { id: string }) {
     [kind, view, status, id, queued.length, dialogUp],
   );
   const now = useNow(status === 'working');
-  const { move, ...moveState } = useAccountMove(api, id, known?.claudeAccount, (text) => void session.sendMessage(text));
   const limitActions = <LimitActions move={move} state={moveState} />;
   // A message typed while the chat is stopped on its account's limit asks first whether to go on on another.
   const sendMessage = (text: string) => {
-    const offer = kind === 'claude' && !!moveState.accounts?.length && !moveState.waiting && !text.startsWith('/');
+    const offer = canMoveAccount(kind, moveState) && !text.startsWith('/');
     if (offer && limitStopped({ view, status, queued: queued.length })) {
       move.offer(text, true);
       return true;

@@ -53,5 +53,8 @@ export const screen: typeof en = {
   moveAccountHow: '换一个 Claude 账号就能接着用：在 Mac 的终端里运行 CLAUDE_CONFIG_DIR=~/.claude-<名字> claude，用 /login 登录另一个账号，它就会出现在这里。',
   moveAccountThen: (text: string) => `「${text}」先留着，换好账号就发出去。`,
   movingAccount: (email: string) => `正在换到 ${email}，换好就接着跑…`,
+  moveNow: '现在就换（会打断它）',
+  moveWhenFree: '等它停下再换',
+  switchAccount: '换 Claude 账号',
 
 };

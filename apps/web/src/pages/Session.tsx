@@ -21,7 +21,7 @@ import { TaskBar } from '../components/TaskBar';
 import { useSession } from '../store';
 import { t } from '@workoffdesk/i18n';
 import { attachCommand, canGoOn, goOnWith } from '@workoffdesk/client/sessions/newSession';
-import { limitStopped } from '@workoffdesk/client/sessions/moveAccount';
+import { canMoveAccount, limitStopped } from '@workoffdesk/client/sessions/moveAccount';
 import { useAccountMove } from '@workoffdesk/react/moveAccount';
 import { LimitActions, MoveAccountSheet } from '../components/MoveAccount';
 
@@ -125,7 +125,7 @@ export function SessionPage({ id }: { id: string }) {
   const { move, ...moveState } = useAccountMove(api, id, known?.claudeAccount, (text) => void session.sendMessage(text));
   // A message typed while the chat is stopped on its account's limit asks first whether to go on on another.
   const send = (text: string) => {
-    const offer = kind === 'claude' && !!moveState.accounts?.length && !moveState.waiting && !text.startsWith('/');
+    const offer = canMoveAccount(kind, moveState) && !text.startsWith('/');
     if (offer && limitStopped({ view, status, queued: s.queued.length })) {
       move.offer(text, true);
       return true;
@@ -164,6 +164,7 @@ export function SessionPage({ id }: { id: string }) {
   const actions = [
     { label: t.showScreen, run: () => setScreenShown(true) },
     { label: t.continueOnMac, run: () => setMacShown(true) },
+    ...(canMoveAccount(kind, moveState) ? [{ label: t.switchAccount, run: () => move.offer(null) }] : []),
     ...(known ? [{ label: t.rename, run: () => setRenaming(true) }] : []),
     ...(!s.ending ? [{ label: t.endSession, run: () => void kill(), destructive: true }] : []),
   ];
@@ -285,7 +286,7 @@ export function SessionPage({ id }: { id: string }) {
                 onDone={session.reread}
               />
             )}
-            {view.onMac > 0 && <OnMacBar terminals={view.onMac} sessionId={id} />}
+            {view.onMac > 0 && <OnMacBar terminals={view.onMac} sessionId={id} onError={session.sayToast} />}
             {status === 'compacting' && (
               <CompactingBar count={s.queued.length} />
             )}

@@ -22,20 +22,31 @@ export function LimitActions({ move, state }: Props) {
   );
 }
 
-// The accounts to go on on, asked from the limit's note or by a message typed while stopped on it, which goes
-// once moved. onGiveBack: the typed message, when not moved.
+// The accounts to go on on, asked from the limit's note, the session's menu, or by a message typed while stopped on
+// it, which goes once moved. Refused for something at work, it offers to move now or once that stops. onGiveBack: the
+// typed message, when not moved.
 export function MoveAccountSheet({ move, state, onGiveBack }: Props & { onGiveBack: (text: string) => void }) {
-  const { asking, accounts, moving, error } = state;
+  const { asking, accounts, moving, blocked, error } = state;
   if (!asking || !accounts) return null;
   const close = () => {
     const typed = move.dismiss();
     if (typed) onGiveBack(typed);
   };
   return (
-    <Sheet title={t.moveAccountTitle} onClose={close}>
+    <Sheet title={asking.text === null ? t.switchAccount : t.moveAccountTitle} onClose={close}>
       {error && (
         <div className="alert" role="alert">
           {error}
+        </div>
+      )}
+      {blocked !== null && (
+        <div className="move-when">
+          <button className="btn primary block" onClick={() => void move.move(blocked, 'free')}>
+            {t.moveWhenFree}
+          </button>
+          <button className="btn block" onClick={() => void move.move(blocked, 'now')}>
+            {t.moveNow}
+          </button>
         </div>
       )}
       {asking.typed && <p className="sheet-lead">{t.moveAccountThen(asking.text)}</p>}

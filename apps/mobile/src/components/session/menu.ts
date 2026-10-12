@@ -8,9 +8,9 @@ import { ActionSheetIOS, Alert, Keyboard } from 'react-native';
 import { api } from '../../client';
 import type { Session, SessionSnapshot } from '@workoffdesk/client/sessions/session';
 
-// The session's own sheets and menu: its screen, renaming it, and going on with its conversation once its
-// agent quit or it ended.
-export function useSessionMenu(id: string, session: Session, ss: SessionSnapshot) {
+// The session's own sheets and menu: its screen, renaming it, another Claude account when there is one to switch to,
+// and going on with its conversation once its agent quit or it ended.
+export function useSessionMenu(id: string, session: Session, ss: SessionSnapshot, switchAccount?: () => void) {
   const { known } = ss;
   const [screenShown, setScreenShown] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -32,6 +32,7 @@ export function useSessionMenu(id: string, session: Session, ss: SessionSnapshot
     const items = [
       { label: t.showScreen, run: () => setScreenShown(true), destructive: false },
       { label: t.continueOnMac, run: continueOnMac, destructive: false },
+      ...(switchAccount ? [{ label: t.switchAccount, run: switchAccount, destructive: false }] : []),
       ...(known ? [{ label: t.rename, run: () => setRenaming(true), destructive: false }] : []),
       ...(!ss.ending ? [{ label: t.endSession, run: () => void kill(), destructive: true }] : []),
     ];

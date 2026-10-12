@@ -105,13 +105,21 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   message is sent only once the session runs on that account. A Claude in a terminal on the Mac holding the same
   conversation is quit first; while one there is at work or asking, or when this session cannot move (its Claude
   not running, its folder gone, not at its prompt, its Claude not quitting), the move is refused and the list says
-  why. With no other account the note says how to sign in to one.
+  why. When it was refused for something at work, the list offers to switch now, interrupting it (`when: "now"`),
+  or once it stops (`when: "free"`: marked `moving`, moved once its turn is over and no Claude on the Mac holding
+  the conversation is at work). The same list opens from the session's menu as **Switch Claude account**, and then
+  nothing is sent once moved. With no other account the note says how to sign in to one.
   (`apps/server/src/agents/claude/transcript/chat.ts`, `libs/client/src/sessions/moveAccount.ts`,
   `apps/server/src/sessions/machine/moves.ts` `moveThis`, `apps/server/src/sessions/machine/lifecycle.ts` `quitOnMac`,
   `apps/server/src/sessions/machine/lifecycle.ts` `moveClaude`, `docs/design/2026-10-09-limit-folder-loading-commands.md`,
-  `docs/design/2026-10-12-move-this-session.md`,
+  `docs/design/2026-10-12-move-this-session.md`, `docs/design/2026-10-12-move-now-or-when-free.md`,
   `libs/client/tests/sessions/moveAccount.test.ts`, `apps/server/tests/integration/sessions/machine.moves.test.ts`,
   `apps/server/tests/e2e/chat.spec.ts`)
+- The bar that says a conversation is also open in a terminal on the Mac has **Quit it on the Mac**
+  (`POST /api/m/local/sessions/:id/quit-on-mac`): each Claude there holding it is quit and that terminal told where
+  the conversation went. One at work or asking is quit only once confirmed (`force`), and the bar goes once none is
+  left. (`apps/server/src/sessions/machine/lifecycle.ts` `quitOthersOnMac`, `libs/client/src/sessions/quitOnMac.ts`,
+  `libs/client/tests/sessions/quitOnMac.test.ts`, `docs/design/2026-10-12-move-now-or-when-free.md`)
 - A conversation whose folder is no longer a directory is marked `folderGone` in the recent lists; the phone and
   the web say so and offer no way to go on with it, and a request that comes anyway is refused with `folder-gone`.
   (`apps/server/src/http/routes/claude.ts`, `libs/client/src/sessions/newSession.ts` `pickUpOf`,
