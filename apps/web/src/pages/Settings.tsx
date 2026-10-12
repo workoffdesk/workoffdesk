@@ -59,8 +59,8 @@ function Looks() {
       <h2>{t.appearance}</h2>
       <div className="group">
         <ChoiceRow label={t.theme} names={themes} value={colours} onPick={pickTheme} />
-        <ChoiceRow label={t.listGrouping} names={groupings} value={grouping} onPick={pickGrouping} />
         <ChoiceRow label={t.language} note={t.languageRestarts} names={languages} value={language} onPick={pickLanguage} />
+        <ChoiceRow label={t.listGrouping} names={groupings} value={grouping} onPick={pickGrouping} />
       </div>
     </section>
   );

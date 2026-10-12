@@ -720,6 +720,8 @@ input, textarea { font: inherit; color: inherit; }
 .send-held span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .send-held small { font-size: calc(13px * var(--text-scale)); font-weight: 400; color: var(--muted); }
 .send-held .btn { flex: none; }
+.send-held.stacked { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; }
+.send-held.stacked .btn { align-self: flex-end; }
 .send-held.nudged { animation: send-held-nudge 0.4s; }
 @keyframes send-held-nudge { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 .panel-title { font-size: calc(14px * var(--text-scale)); font-weight: 600; padding: 0 2px; }

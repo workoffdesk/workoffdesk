@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -671,6 +672,38 @@ test.describe('the chat', () => {
       await expect(after.locator('.pill-skeleton')).toHaveCount(0);
       expect((await after.locator('.composer-foot').boundingBox())?.height).toBe(height);
     } finally {
+      rmSync(stays, { force: true });
+    }
+  });
+
+  test('quits, from the bar that says so, the Claude in a terminal on the Mac that has the conversation open too', async ({ page }) => {
+    // Claude stays at its prompt.
+    const stays = join(E2E_HOME, 'claude-stays');
+    writeFileSync(stays, '');
+    await login(page);
+    await clearSessions(page);
+    await page.reload();
+    const { id } = await newClaude(page);
+    const list: { id: string; claudeSessionId: string }[] = await (await api(page, 'GET', '/api/m/local/sessions')).json();
+    const sid = list.find((x) => x.id === id)!.claudeSessionId;
+    // Not in a WorkOffDesk session, as a terminal's Claude is not.
+    const there = spawn('sleep', ['600'], { stdio: 'ignore', env: { PATH: '/bin:/usr/bin' } });
+    const agents = join(E2E_HOME, 'mac-agents.json');
+    writeFileSync(agents, JSON.stringify([{ pid: there.pid, sessionId: sid, cwd: E2E_HOME, kind: 'interactive', status: 'idle' }]));
+    try {
+      // The Mac is looked at as a message goes in.
+      const composer = page.getByLabel('输入');
+      await composer.fill('看看');
+      await composer.press('Enter');
+      const bar = page.getByRole('status', { name: '这个对话在 Mac 的终端里也开着' });
+      await expect(bar).toContainText('两个 Claude 在同时写它', { timeout: 20_000 });
+      await shot(page, '62-chat-also-on-mac');
+      await bar.getByRole('button', { name: '退出那边的 Claude' }).click();
+      await expect(bar).toBeHidden({ timeout: 20_000 });
+      expect(there.exitCode !== null || there.signalCode !== null).toBe(true);
+    } finally {
+      rmSync(agents, { force: true });
+      there.kill('SIGKILL');
       rmSync(stays, { force: true });
     }
   });

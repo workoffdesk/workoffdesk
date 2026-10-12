@@ -44,9 +44,9 @@ function Looks({ s, theme }: { s: ReturnType<typeof styles>; theme: Theme }) {
     <Section title={t.appearance} s={s}>
       <ChoiceRow label={t.theme} names={themes} value={colours} onPick={pickTheme} s={s} theme={theme} />
       <View style={s.rule} />
-      <ChoiceRow label={t.listGrouping} names={groupings} value={grouping} onPick={pickGrouping} s={s} theme={theme} />
-      <View style={s.rule} />
       <ChoiceRow label={t.language} note={t.languageRestarts} names={languages} value={language} onPick={pickLanguage} s={s} theme={theme} />
+      <View style={s.rule} />
+      <ChoiceRow label={t.listGrouping} names={groupings} value={grouping} onPick={pickGrouping} s={s} theme={theme} />
     </Section>
   );
 }

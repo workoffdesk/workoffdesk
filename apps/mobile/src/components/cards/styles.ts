@@ -101,6 +101,10 @@ const styles = ({ c, fs }: Theme) =>
       borderColor: c.waiting,
     },
     heldText: { flex: 1, gap: 2 },
+    // The words above, the action under them at the end, each with the width to itself.
+    heldStacked: { flexDirection: 'column', alignItems: 'stretch', gap: 8, paddingVertical: 10, paddingRight: 12 },
+    heldAction: { alignSelf: 'flex-end' },
+    heldTextStacked: { flex: 0 },
     heldTitle: { fontSize: fs(14), fontWeight: '600', color: c.text },
     heldSub: { fontSize: fs(13), color: c.muted },
   });
