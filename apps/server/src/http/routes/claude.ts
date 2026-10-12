@@ -35,7 +35,8 @@ async function claudeRows(deps: AppDeps, list: (root: string) => Promise<RecentC
     deps.claudeJobsRoot ? heldInBackground(deps.claudeJobsRoot) : () => false,
     machine.openOnMac(MAC_SEEN_MS),
   ]);
-  const open = new Map(sessions.filter((s) => s.claudeSessionId).map((s) => [s.claudeSessionId!, s.id]));
+  // An ended session is gone on with by Continue, which, with the conversation open on the Mac, leads to taking it over.
+  const open = new Map(sessions.filter((s) => s.claudeSessionId && s.status !== 'ended').map((s) => [s.claudeSessionId!, s.id]));
   return recent.map((r) => {
     const there = onMac.get(r.sessionId);
     return {

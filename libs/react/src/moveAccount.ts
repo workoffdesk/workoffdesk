@@ -5,12 +5,12 @@ import { useStore } from './store';
 
 // A session page's way on once its account hit a limit (sessions/moveAccount.ts). runsOn: the account the session
 // runs on, by its email, as last heard; send: says a message to the session.
-export function useAccountMove(api: Api, runsOn: string | undefined, send: (text: string) => void) {
+export function useAccountMove(api: Api, sessionId: string, runsOn: string | undefined, send: (text: string) => void) {
   const latest = useRef(send);
   useLayoutEffect(() => {
     latest.current = send;
   });
-  const move = useMemo(() => createAccountMove(api, (text) => latest.current(text)), [api]);
+  const move = useMemo(() => createAccountMove(api, sessionId, (text) => latest.current(text)), [api, sessionId]);
   useEffect(() => {
     void move.load(runsOn);
     move.seen(runsOn);

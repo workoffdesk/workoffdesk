@@ -49,6 +49,12 @@ export const register: RouteModule = (app, ctx) => {
     return m.continueSession(req.params.id);
   });
 
+  // Moves the session to the Claude account in use, answering once it runs there.
+  app.post<{ Params: { machine: string; id: string } }>('/api/m/:machine/sessions/:id/move', async (req, reply) => {
+    const m = machineOr404(req, reply);
+    return m ? m.moveThis(req.params.id) : reply;
+  });
+
   app.get<{ Params: { machine: string } }>('/api/m/:machine/agents', async (req, reply) => {
     const m = machineOr404(req, reply);
     return m ? m.agents : reply;

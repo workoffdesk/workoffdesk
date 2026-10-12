@@ -1,5 +1,5 @@
 import { t } from '@workoffdesk/i18n';
-import { errorText, type Api } from '../base/api';
+import { errorText, MACHINE, type Api, type TermSession } from '../base/api';
 import { chatEntries } from '../chat/chatEntries';
 import { accountBar, accountLine } from '../mac/usage';
 import type { ClaudeAccount, ClaudeAccounts } from '../mac/macPage';
@@ -32,10 +32,10 @@ export type AccountMoveSnapshot = {
   error: string | null;
 };
 
-// A session stopped on a limit going on on another account: the account is picked for the Mac, the open
-// sessions move to it (routes/claude.ts), and what was asked for is said only once this session runs there,
-// so it never reaches the Claude still on the old account.
-export function createAccountMove(api: Api, send: (text: string) => void) {
+// A session stopped on a limit going on on another account: the account is picked for the Mac, this session moves
+// to it, the Mac saying why when it does not, then the other open sessions (routes/claude.ts). What was asked for
+// is said only once this session runs there, so it never reaches the Claude still on the old account.
+export function createAccountMove(api: Api, sessionId: string, send: (text: string) => void) {
   const listeners = new Set<() => void>();
   let snapshot: AccountMoveSnapshot = { accounts: null, asking: null, moving: null, waiting: null, error: null };
   const set = (patch: Partial<AccountMoveSnapshot>) => {
@@ -67,8 +67,9 @@ export function createAccountMove(api: Api, send: (text: string) => void) {
       set({ moving: id, error: null });
       try {
         await api<ClaudeAccounts>('/api/claude/account', { method: 'PUT', json: { id }, idempotent: true });
-        await api<ClaudeAccounts>('/api/claude/account/move', { method: 'POST', idempotent: true });
+        await api<TermSession>(`/api/m/${MACHINE}/sessions/${sessionId}/move`, { method: 'POST', idempotent: true });
         set({ asking: null, moving: null, waiting: { email: to.email, text: asking.text } });
+        await api<ClaudeAccounts>('/api/claude/account/move', { method: 'POST', idempotent: true }).catch(() => {});
       } catch (e) {
         set({ moving: null, error: errorText(e, t.failed) });
       }

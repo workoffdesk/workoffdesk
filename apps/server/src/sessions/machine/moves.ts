@@ -1,8 +1,10 @@
 import type { MessageState } from '../../journal/index.js';
 import { isDir } from '../../system/dirs.js';
-import { Conflict } from '../../system/errors.js';
+import { Conflict, NotFound } from '../../system/errors.js';
+import { m } from '../../system/messages.js';
 import type { SessionMeta } from '../../system/store.js';
 import type { MachineDeps, MachineState, Parts } from './state.js';
+import type { TermSession } from './types.js';
 
 // A message Claude may not have taken in yet: waiting to go, being pasted, or held in Claude's own queue.
 const NOT_TAKEN_IN: ReadonlySet<MessageState> = new Set(['queued', 'delivering', 'enqueued']);
@@ -15,12 +17,19 @@ export class Moves {
     private readonly p: Parts,
   ) {}
 
-  // A Claude session here whose Claude runs, started here rather than from a terminal, on another account than inUse,
-  // in a folder still there to start it again in.
+  // Its Claude idle, and all it was sent taken in.
+  private betweenTurns(id: string): boolean {
+    return this.s.statuses.get(id) === 'idle' && !this.d.journal.messages(id).some((q) => NOT_TAKEN_IN.has(q.state));
+  }
+
+  // A Claude session here whose Claude runs, in a folder still there to start it again in.
+  private movable(id: string, meta: SessionMeta): boolean {
+    return meta.kind === 'claude' && !!meta.claudeSessionId && this.s.statuses.get(id) !== 'ended' && isDir(meta.cwd);
+  }
+
+  // One movable, started here rather than from a terminal, on another account than inUse.
   private onAnother(id: string, meta: SessionMeta, inUse: string): boolean {
-    return (
-      meta.kind === 'claude' && !!meta.claudeSessionId && !meta.terminal && this.s.statuses.get(id) !== 'ended' && meta.claudeDir !== inUse && isDir(meta.cwd)
-    );
+    return this.movable(id, meta) && !meta.terminal && meta.claudeDir !== inUse;
   }
 
   // Those on another account, and of them those to move once their turn is over; none before an account is picked.
@@ -55,13 +64,29 @@ export class Moves {
     const meta = this.d.store.get().sessions[id];
     if (!meta?.moving) return;
     if (inUse === undefined || !this.onAnother(id, meta, inUse)) return this.unmark(id);
-    if (this.s.statuses.get(id) !== 'idle' || this.d.journal.messages(id).some((q) => NOT_TAKEN_IN.has(q.state))) return;
+    if (!this.betweenTurns(id)) return;
     await this.p.lifecycle
       .moveClaude(id)
       .catch((e: unknown) =>
         console.error(`workoffdesk: session ${id} could not be moved to the Claude account in use: ${e instanceof Error ? e.message : String(e)}`),
       )
       .finally(() => this.unmark(id));
+  }
+
+  // The one session asked for, moved now, one started from a terminal too, any Claude in a terminal on the Mac holding
+  // its conversation quit first: answered once it runs on the account in use, or refused saying why.
+  async moveThis(id: string): Promise<TermSession> {
+    const inUse = await this.p.accounts.accountInUse();
+    if (inUse === undefined) throw new Conflict('no Claude account was picked yet', 'account-none-picked');
+    const meta = this.d.store.get().sessions[id];
+    if (!meta) throw new NotFound('no such session');
+    if (!this.movable(id, meta)) throw new Conflict(m.moveThis.cannot, 'cannot-move');
+    if (meta.claudeDir === inUse) return this.p.sessions.toSession(id, meta, Date.now());
+    if (!this.betweenTurns(id)) throw new Conflict(m.moveThis.busy, 'session-busy');
+    await this.p.lifecycle.quitOnMac(meta.claudeSessionId!, id);
+    return this.p.lifecycle.moveClaude(id).catch((e: unknown) => {
+      throw new Conflict(m.moveThis.failed(e instanceof Error ? e.message : String(e)), 'move-failed');
+    });
   }
 
   private unmark(id: string): void {

@@ -1,7 +1,7 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { ClaudeAccounts } from '../../../src/agents/claude/accounts.js';
 import type { ClaudeStatus } from '../../../src/agents/types.js';
 import type { LocalMachine } from '../../../src/sessions/machine.js';
@@ -305,5 +305,117 @@ describe('LocalMachine, moving open sessions to the account in use', () => {
     again.setStatus(id, 'idle');
     expect(await moved(id)).toBe(true);
     expect(startsOn(id)[1]).toBe(B);
+  });
+});
+
+// A claude that lists, as open in a terminal on the Mac, what LIST says, and otherwise is the fake claude.
+const LIST = join(dir, 'mac-agents.json');
+const listing = join(dir, 'claude-listing');
+writeFileSync(listing, `#!/bin/sh\nif [ "$1" = agents ]; then cat ${JSON.stringify(LIST)} 2>/dev/null || echo '[]'; exit 0; fi\nexec ${JSON.stringify(fakeClaude)} "$@"\n`);
+chmodSync(listing, 0o755);
+const macClaudes: ChildProcess[] = [];
+afterEach(() => {
+  rmSync(LIST, { force: true });
+  for (const p of macClaudes.splice(0)) p.kill('SIGKILL');
+});
+// A Claude in a terminal on the Mac, holding the conversation sid, at status.
+const openOnMac = async (sid: string, status: string) => {
+  const p = spawn(process.execPath, ['-e', "console.log('ready'); setInterval(() => {}, 1000)"], { stdio: ['ignore', 'pipe', 'ignore'], env: { PATH: '/bin:/usr/bin' } });
+  macClaudes.push(p);
+  await new Promise((r) => p.stdout!.once('data', r));
+  writeFileSync(LIST, JSON.stringify([{ pid: p.pid, sessionId: sid, cwd: dir, kind: 'interactive', status }]));
+  return p;
+};
+const alive = (p: ChildProcess) => p.exitCode === null && p.signalCode === null;
+
+describe('LocalMachine, moving the one session asked for to the account in use', () => {
+  const listingMachine = (claudeArgs = RUNS) => make({ claudeArgs, claudeAccounts: accounts(), claudeBin: listing });
+
+  it('moves one started from a terminal, keeping what its terminal set but its account', async () => {
+    const { m, store } = machine(AS_SHELL);
+    const { id, sid } = await onDefault(m, { env: { TERM_PROGRAM: 'Apple_Terminal', FROM_TERMINAL: 'kept', CLAUDE_CONFIG_DIR: join(home, '.claude') } });
+    await m.pickClaudeAccount(B);
+    const s = await m.moveThis(id);
+    expect(s.id).toBe(id);
+    await started(id, 2);
+    expect(startsOn(id)).toEqual([join(home, '.claude'), B]);
+    expect(readFileSync(argsFile, 'utf8').split('\n').slice(0, 2)).toEqual(['--resume', sid]);
+    expect(store.get().sessions[id]).toMatchObject({ claudeDir: B });
+    expect(store.get().sessions[id].terminal).toBeUndefined();
+    m.setStatus(id, 'idle');
+    await m.sendMessage(id, 'echo GOT-$FROM_TERMINAL');
+    m.setStatus(id, 'idle');
+    expect(await until(async () => (await m.screenText(id)).includes('GOT-kept'))).toBe(true);
+  });
+
+  it('moves one started here at once, and answers once it runs on the account', async () => {
+    const { m, store } = machine();
+    const { id } = await onDefault(m);
+    await m.pickClaudeAccount(B);
+    await m.moveThis(id);
+    await started(id, 2);
+    expect(startsOn(id)).toEqual(['-unset-', B]);
+    expect(store.get().sessions[id].claudeDir).toBe(B);
+  });
+
+  it('does nothing for one already on the account in use', async () => {
+    const { m } = machine();
+    const { id } = await onDefault(m);
+    expect((await m.moveThis(id)).id).toBe(id);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(startsOn(id)).toHaveLength(1);
+  });
+
+  it.each<[string, string, (m: LocalMachine, id: string) => Promise<void> | void]>([
+    ['while it works', 'session-busy', (m, id) => m.setStatus(id, 'working')],
+    ['while it asks something', 'session-busy', (m, id) => m.setStatus(id, 'waiting')],
+    ['once its Claude quit', 'cannot-move', async (m, id) => {
+      process.kill(childrenOf(await panePid(id))[0], 'SIGKILL');
+      expect(await until(async () => (await m.listSessions()).find((s) => s.id === id)?.status === 'ended')).toBe(true);
+    }],
+  ])('refuses %s, and leaves it as it was', async (_name, code, make) => {
+    const { m } = machine();
+    const { id } = await onDefault(m);
+    await m.pickClaudeAccount(B);
+    await make(m, id);
+    await expect(m.moveThis(id)).rejects.toMatchObject({ status: 409, code });
+    expect(startsOn(id)).toHaveLength(1);
+  });
+
+  it('refuses before any account was picked', async () => {
+    const { m } = machine();
+    const s = await m.createSession({ kind: 'claude', cwd: dir });
+    await started(s.id);
+    m.setStatus(s.id, 'idle');
+    await expect(m.moveThis(s.id)).rejects.toMatchObject({ status: 409, code: 'account-none-picked' });
+  });
+
+  it('refuses, saying why, when its Claude will not quit', async () => {
+    const { m } = machine(STUBBORN);
+    const { id } = await onDefault(m);
+    await m.pickClaudeAccount(B);
+    await expect(m.moveThis(id)).rejects.toMatchObject({ status: 409, code: 'move-failed' });
+    expect(startsOn(id)).toHaveLength(1);
+  }, 15_000);
+
+  it('quits a Claude at its prompt in a terminal on the Mac that holds the conversation too, before moving', async () => {
+    const { m } = listingMachine();
+    const { id, sid } = await onDefault(m);
+    const there = await openOnMac(sid, 'idle');
+    await m.pickClaudeAccount(B);
+    await m.moveThis(id);
+    expect(await until(() => !alive(there))).toBe(true);
+    await started(id, 2);
+    expect(startsOn(id)).toEqual(['-unset-', B]);
+  });
+
+  it.each(['busy', 'waiting'])('refuses while a Claude on the Mac holding the conversation is %s, quitting nothing', async (status) => {
+    const { m } = listingMachine();
+    const { id, sid } = await onDefault(m);
+    const there = await openOnMac(sid, status);
+    await m.pickClaudeAccount(B);
+    await expect(m.moveThis(id)).rejects.toMatchObject({ status: 409, code: 'open-on-mac-busy' });
+    expect(alive(there)).toBe(true);
+    expect(startsOn(id)).toHaveLength(1);
   });
 });

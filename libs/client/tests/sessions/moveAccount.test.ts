@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Api, ClaudeStatus } from '../../src/base/api';
+import { ApiError, type Api, type ClaudeStatus } from '../../src/base/api';
 import { emptyView, type JournalItem, type SessionView } from '../../src/journal/journalRows';
 import type { ClaudeAccount, ClaudeAccounts } from '../../src/mac/macPage';
 import type { ChatItem, OnScreen } from '../../src/model/chat';
@@ -84,19 +84,22 @@ describe('limitStopped', () => {
   });
 });
 
-// A Mac with two accounts whose sessions run on the default; what each call to it was.
-const mac = (o: { failMove?: boolean } = {}) => {
+// A Mac with two accounts whose sessions run on the default; what each call to it was. refuse: what the Mac
+// says when the session s1 is asked to move; failOthers: the move of the other sessions fails.
+type Mac = { refuse?: string; failOthers?: boolean };
+const mac = (o: Mac = {}) => {
   const calls: [string, unknown][] = [];
   const api = vi.fn(async (path: string, init?: { method?: string; json?: unknown }) => {
     calls.push([`${init?.method ?? 'GET'} ${path}`, init?.json]);
-    if (path === '/api/claude/account/move' && o.failMove) throw new Error('down');
+    if (path === '/api/m/local/sessions/s1/move' && o.refuse) throw new ApiError(409, o.refuse, undefined, 'open-on-mac-busy');
+    if (path === '/api/claude/account/move' && o.failOthers) throw new Error('down');
     return view([OWN, WORK]);
   }) as unknown as Api;
   const sent: string[] = [];
-  const m = createAccountMove(api, (text) => void sent.push(text));
+  const m = createAccountMove(api, 's1', (text) => void sent.push(text));
   return { m, calls, sent };
 };
-const loaded = async (o: { failMove?: boolean } = {}) => {
+const loaded = async (o: Mac = {}) => {
   const r = mac(o);
   await r.m.load('own@example.com');
   return r;
@@ -108,12 +111,13 @@ describe('createAccountMove', () => {
     expect(ids(m.getSnapshot().accounts!)).toEqual([WORK.id]);
   });
 
-  it('picks the account, moves the sessions to it, and says what was asked for once this one runs there', async () => {
+  it('picks the account, moves this session to it and then the rest, and says what was asked for once this one runs there', async () => {
     const { m, calls, sent } = await loaded();
     m.offer('谢谢', true);
     await m.move(WORK.id);
     expect(calls.slice(1)).toEqual([
       ['PUT /api/claude/account', { id: WORK.id }],
+      ['POST /api/m/local/sessions/s1/move', undefined],
       ['POST /api/claude/account/move', undefined],
     ]);
     expect(m.getSnapshot()).toMatchObject({ asking: null, moving: null, waiting: { email: 'work@example.com', text: '谢谢' } });
@@ -125,14 +129,23 @@ describe('createAccountMove', () => {
     expect(m.getSnapshot().waiting).toBeNull();
   });
 
-  it('says nothing and keeps the offer open when the move fails', async () => {
-    const { m, sent } = await loaded({ failMove: true });
+  it('shows why, says nothing, keeps the offer open and moves no other session when this one is not moved', async () => {
+    const { m, calls, sent } = await loaded({ refuse: 'Claude is at work in a terminal on the Mac' });
     m.offer('继续', false);
     await m.move(WORK.id);
-    expect(m.getSnapshot()).toMatchObject({ asking: { text: '继续', typed: false }, moving: null, waiting: null });
-    expect(m.getSnapshot().error).toBeTruthy();
+    expect(m.getSnapshot()).toMatchObject({ asking: { text: '继续', typed: false }, moving: null, waiting: null, error: 'Claude is at work in a terminal on the Mac' });
+    expect(calls.map(([c]) => c)).not.toContain('POST /api/claude/account/move');
     m.seen('work@example.com');
     expect(sent).toEqual([]);
+  });
+
+  it('goes on as moved when only the move of the other sessions fails', async () => {
+    const { m, sent } = await loaded({ failOthers: true });
+    m.offer('继续', false);
+    await m.move(WORK.id);
+    expect(m.getSnapshot()).toMatchObject({ asking: null, error: null, waiting: { email: 'work@example.com', text: '继续' } });
+    m.seen('work@example.com');
+    expect(sent).toEqual(['继续']);
   });
 
   it.each([

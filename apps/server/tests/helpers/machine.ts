@@ -45,13 +45,13 @@ export function machineSetup(name: string) {
 
   // The journal beside the store, so a machine made again on the same store finds what was there.
   const journalOf = (store: Store) => ({ file: join(dirname(store.file), 'journal.db'), log: () => {} });
-  const make = (o: { claudeArgs?: string[]; claudeProjectsRoot?: string; claudeAccounts?: ClaudeAccounts } = {}) => {
+  const make = (o: { claudeArgs?: string[]; claudeProjectsRoot?: string; claudeAccounts?: ClaudeAccounts; claudeBin?: string } = {}) => {
     const store = new Store(join(mkdtempSync(join(dir, 's-')), 'state.json'));
     const m = new LocalMachine({
       tmux,
       store,
       claudeSettingsPath: '/tmp/term site/claude settings.json',
-      claudeBin: fakeClaude,
+      claudeBin: o.claudeBin ?? fakeClaude,
       shell: '/bin/sh',
       claudeArgs: o.claudeArgs,
       claudeProjectsRoot: o.claudeProjectsRoot,

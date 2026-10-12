@@ -122,7 +122,7 @@ export function SessionPage({ id }: { id: string }) {
   const [screenShown, setScreenShown] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [goingOn, setGoingOn] = useState(false);
-  const { move, ...moveState } = useAccountMove(api, known?.claudeAccount, (text) => void session.sendMessage(text));
+  const { move, ...moveState } = useAccountMove(api, id, known?.claudeAccount, (text) => void session.sendMessage(text));
   // A message typed while the chat is stopped on its account's limit asks first whether to go on on another.
   const send = (text: string) => {
     const offer = kind === 'claude' && !!moveState.accounts?.length && !moveState.waiting && !text.startsWith('/');

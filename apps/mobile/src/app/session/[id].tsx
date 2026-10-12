@@ -94,7 +94,7 @@ function SessionScreen({ id }: { id: string }) {
     [kind, view, status, id, queued.length, dialogUp],
   );
   const now = useNow(status === 'working');
-  const { move, ...moveState } = useAccountMove(api, known?.claudeAccount, (text) => void session.sendMessage(text));
+  const { move, ...moveState } = useAccountMove(api, id, known?.claudeAccount, (text) => void session.sendMessage(text));
   const limitActions = <LimitActions move={move} state={moveState} />;
   // A message typed while the chat is stopped on its account's limit asks first whether to go on on another.
   const sendMessage = (text: string) => {

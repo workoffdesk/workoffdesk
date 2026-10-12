@@ -15,7 +15,8 @@ type Running = { base: string; wsBase: string; close: () => Promise<void> };
 // The whole server on a port of its own and a tmux server of its own, as a phone reaches it: over HTTP and
 // WebSockets, signed in as alice once `cookie` is set. It starts before the file's tests and stops after them;
 // `start` runs another server on the same store and tmux, as a restart does.
-export function liveServer(name: string, o: { signedIn?: boolean } = {}) {
+// claudeBin: what runs as Claude; unset, the claude on the PATH, which a test does not have, so a Claude session ends.
+export function liveServer(name: string, o: { signedIn?: boolean; claudeBin?: string } = {}) {
   const dir = mkdtempSync(join(tmpdir(), `ts-${name}-`));
   const { tmux, socket, conf } = testTmux(dir, name);
   const store = new Store(join(dir, 'state.json'));
@@ -27,7 +28,7 @@ export function liveServer(name: string, o: { signedIn?: boolean } = {}) {
   for (const d of [claudeRoot, claudeJobsRoot, claudeDir]) mkdirSync(d, { recursive: true });
 
   async function start(): Promise<Running> {
-    const machine = new LocalMachine({ tmux, store, claudeSettingsPath: '/dev/null', shell: '/bin/sh' });
+    const machine = new LocalMachine({ tmux, store, claudeSettingsPath: '/dev/null', shell: '/bin/sh', claudeBin: o.claudeBin });
     const pusher = new Pusher(store, { subject: 'mailto:t@example.test', send: async () => {} });
     const { app } = await buildApp({
       store,

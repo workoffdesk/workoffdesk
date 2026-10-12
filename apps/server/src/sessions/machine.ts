@@ -333,6 +333,7 @@ export class LocalMachine implements Machine {
 
   claudeAccountsView(): Promise<AccountsView> { return this.p.accounts.claudeAccountsView(); }
   pickClaudeAccount(id: string): Promise<AccountsView> { return this.p.accounts.pickClaudeAccount(id); }
+  moveThis(id: string): Promise<TermSession> { return this.p.moves.moveThis(id); }
   async moveToAccountInUse(): Promise<AccountsView> {
     await this.p.moves.moveAll();
     return this.p.accounts.claudeAccountsView();

@@ -222,7 +222,7 @@ Every test file is listed under the risks it guards; one that guards several is 
 - Server: `apps/server/tests/unit/http/sessionSocket.test.ts`, `apps/server/tests/unit/journal/index.test.ts`,
   `apps/server/tests/unit/journal/db.test.ts`, `apps/server/tests/unit/journal/derive.test.ts`,
   `apps/server/tests/integration/http/app.test.ts`, `apps/server/tests/integration/http/app.claude.test.ts`,
-  `apps/server/tests/integration/http/routes/journal.test.ts`
+  `apps/server/tests/integration/http/routes/journal.test.ts`, `apps/server/tests/unit/http/routes/claude.test.ts`
 - Client: `libs/client/tests/journal/journal.test.ts`, `libs/client/tests/sessions/sessionList.test.ts`,
   `libs/client/tests/journal/pushes.test.ts`, `libs/client/tests/sessions/sessionLink.test.ts`,
   `libs/client/tests/chat/chatFeed.test.ts`, `libs/client/tests/model/chat.test.ts`,

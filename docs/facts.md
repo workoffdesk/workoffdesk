@@ -91,7 +91,7 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   when it is idle with nothing it was sent still waiting, being pasted or queued in Claude; one working moves
   once it is idle. Moving quits its Claude (SIGTERM, waiting up to 5 s) and starts it again in the same pane
   resuming the same conversation on the account in use; a message sent meanwhile waits for it. A session
-  started from a terminal is not moved, and a move is refused before any account is picked. The mark to move
+  started from a terminal is not moved by this (only by its own limit note, below), and a move is refused before any account is picked. The mark to move
   is kept in the store across restarts. (`apps/server/src/sessions/machine/moves.ts`,
   `apps/server/src/sessions/machine/lifecycle.ts` `moveClaude`, `apps/server/src/sessions/control.ts`,
   `apps/server/src/commands/account.ts`, `apps/server/src/http/routes/claude.ts`, `libs/client/src/mac/macPage.ts`,
@@ -99,12 +99,17 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   `apps/server/tests/integration/sessions/machine.moves.test.ts`)
 - A reply a usage limit stopped is read from Claude Code's transcript (`isApiErrorMessage` with
   `error: "rate_limit"`) as a limit, and says so. With another account that can be picked, the phone and the web
-  offer to go on on it, from the note or when a message is typed while stopped: the account is picked and the open
-  sessions move to it (`PUT /api/claude/account`, `POST /api/claude/account/move`), and "continue" or the typed
-  message is sent only once the session runs on that account. A session whose folder is gone is not moved. With no
-  other account the note says how to sign in to one.
+  offer to go on on it, from the note or when a message is typed while stopped: the account is picked, this
+  session moves to it at once (`POST /api/m/local/sessions/:id/move`), one started from a terminal too, then the
+  other open sessions (`PUT /api/claude/account`, `POST /api/claude/account/move`), and "continue" or the typed
+  message is sent only once the session runs on that account. A Claude in a terminal on the Mac holding the same
+  conversation is quit first; while one there is at work or asking, or when this session cannot move (its Claude
+  not running, its folder gone, not at its prompt, its Claude not quitting), the move is refused and the list says
+  why. With no other account the note says how to sign in to one.
   (`apps/server/src/agents/claude/transcript/chat.ts`, `libs/client/src/sessions/moveAccount.ts`,
+  `apps/server/src/sessions/machine/moves.ts` `moveThis`, `apps/server/src/sessions/machine/lifecycle.ts` `quitOnMac`,
   `apps/server/src/sessions/machine/lifecycle.ts` `moveClaude`, `docs/design/2026-10-09-limit-folder-loading-commands.md`,
+  `docs/design/2026-10-12-move-this-session.md`,
   `libs/client/tests/sessions/moveAccount.test.ts`, `apps/server/tests/integration/sessions/machine.moves.test.ts`,
   `apps/server/tests/e2e/chat.spec.ts`)
 - A conversation whose folder is no longer a directory is marked `folderGone` in the recent lists; the phone and
@@ -216,7 +221,10 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   transcript says the turn is over, though Claude Code still calls it busy for commands it left running. A
   take-over waited on is kept in `state.json`, and a server started again goes on waiting, up to 12 hours from
   when it was asked for.
-  Taken over, it keeps the terminal's environment. (`apps/server/src/sessions/machine/lifecycle.ts` `openOnMac`, `createSession` `takeOver`,
+  Taken over, it keeps the terminal's environment. A session here whose Claude ended is not the one its
+  conversation is open in, so Continue on it, with the conversation open in a terminal, leads to taking it over.
+  (`apps/server/src/http/routes/claude.ts` `recentClaude`, `apps/server/tests/unit/http/routes/claude.test.ts`,
+  `apps/server/src/sessions/machine/lifecycle.ts` `openOnMac`, `createSession` `takeOver`,
   `apps/server/src/agents/claude/terminals.ts` `openStatus`, `apps/server/src/sessions/machine/takeOvers.ts`, `apps/server/src/sessions/terminalEnv.ts`, `docs/design/2026-10-07-take-over-mac-sessions.md`)
 - A Codex thread is open where its lock in `~/.codex/thread-writer-locks` is held: a Codex in a terminal on the
   Mac is taken over the same way, without its environment; one held by an editor or the Codex app cannot be.

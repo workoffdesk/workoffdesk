@@ -1,10 +1,15 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { liveServer } from '../../helpers/server.js';
 import { until } from '../../helpers/until.js';
 
-const live = liveServer('cl', { signedIn: true });
+// A Claude that runs until its session is ended, and says no Claude is open in a terminal.
+const runs = join(mkdtempSync(join(tmpdir(), 'ts-cl-bin-')), 'claude');
+writeFileSync(runs, `#!/bin/sh\nif [ "$1" = agents ]; then echo '[]'; exit 0; fi\nexec sleep 600\n`);
+chmodSync(runs, 0o755);
+const live = liveServer('cl', { signedIn: true, claudeBin: runs });
 const { dir, store, claudeRoot, claudeJobsRoot, claudeDir, api, openWs } = live;
 
 mkdirSync(join(claudeRoot, '-proj'), { recursive: true });
@@ -221,6 +226,17 @@ describe('GET /api/m/:machine/sessions/:id/image', () => {
 describe('the Claude accounts', () => {
   it('says how many open sessions are on another account and will move, none before one is picked', async () => {
     expect(await (await api('/api/claude/accounts')).json()).toEqual({ accounts: [], inUse: '', picked: false, elsewhere: 0, moving: 0 });
+  });
+
+  it('refuses to move one session before an account is picked', async () => {
+    const s = await (await api('/api/m/local/sessions', { method: 'POST', body: JSON.stringify({ kind: 'claude', cwd: dir }) })).json();
+    try {
+      const r = await api(`/api/m/local/sessions/${s.id}/move`, { method: 'POST' });
+      expect(r.status).toBe(409);
+      expect(await r.json()).toMatchObject({ code: 'account-none-picked' });
+    } finally {
+      await api(`/api/m/local/sessions/${s.id}`, { method: 'DELETE' });
+    }
   });
 
   it('refuses to move the open sessions before an account is picked', async () => {

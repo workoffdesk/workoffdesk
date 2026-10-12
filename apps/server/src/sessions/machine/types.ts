@@ -65,6 +65,8 @@ export interface Machine {
   // Goes on with the conversation of a Claude session whose Claude quit, in that session; one whose Claude runs is
   // answered as it is.
   continueSession(id: string): Promise<TermSession>;
+  // The session moved to the Claude account in use now, or refused saying why.
+  moveThis(id: string): Promise<TermSession>;
   killSession(id: string): Promise<void>;
   // Gives the session a name of its own; an empty one is the directory's name again. Null when it is gone.
   renameSession(id: string, title: string): Promise<TermSession | null>;

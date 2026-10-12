@@ -81,8 +81,10 @@ up. The phone keeps a copy of what it has read, so reopening a session is instan
 - When the chat cannot show what Claude is waiting on, **Screen** shows the Mac's screen as text.
 - When Claude stops because its account hit a usage limit, the note says **Usage limit reached**. With another
   Claude account on the Mac that can be picked (see [This Mac](#this-mac)), **Go on with another account** lists
-  them; picking one picks it on the Mac and moves the open sessions to it, as This Mac does, and once this one
-  runs there it is told "continue". A message typed while stopped asks the same first, and goes once moved;
+  them; picking one picks it on the Mac and moves this session to it, one taken over from a terminal too, then
+  the other open sessions, as This Mac does; once this one runs there it is told "continue". A Claude in a
+  terminal on the Mac holding the same conversation is quit first, unless it is at work there; when this session
+  cannot move, the list says why. A message typed while stopped asks the same first, and goes once moved;
   closing the list puts it back in the box. With no other account,
   the note says how to sign in to one.
 

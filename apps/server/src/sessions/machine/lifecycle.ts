@@ -123,6 +123,16 @@ export class Lifecycle {
     });
   }
 
+  // Each Claude in a terminal on the Mac holding a conversation quit, and told the session it went on in; none quit
+  // while one there is at work or asking.
+  async quitOnMac(sid: string, goneTo: string): Promise<void> {
+    const there = (await this.openOnMac()).get(sid);
+    if (!there) return;
+    if (there.status !== 'idle') throw new Conflict(m.moveThis.macBusy, 'open-on-mac-busy');
+    const stopped = await Promise.all(there.claudes.map((c) => stopMacProcess(c, m.takeOver.goneToPhone(goneTo))));
+    if (stopped.includes(false)) throw new Conflict(m.takeOver.wouldNotQuit('Claude'), 'mac-would-not-quit');
+  }
+
   // As for Claude, by the thread's writer lock: whoever holds it writes the thread, and Codex lets no one else.
   // A Codex in a terminal is quit there first; another app's is left alone, and the thread is not resumed.
   // The taken-over Codex's environment stays behind: its commands run in this server's app server.
