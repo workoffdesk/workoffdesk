@@ -31,7 +31,9 @@ export type ClaudeAccount = {
 };
 // elsewhere: the open sessions on another account; moving: those of them to move once their turn is over.
 export type ClaudeAccounts = { accounts: ClaudeAccount[]; inUse: string; picked: boolean; elsewhere: number; moving: number };
-export type MacProblem = { at: string; level: 'warn' | 'error' | 'fatal'; msg: string; detail: string };
+// count: how many times it came lately (routes/mac.ts); at and detail are the last time's. A server before counting
+// sends none.
+export type MacProblem = { at: string; level: 'warn' | 'error' | 'fatal'; msg: string; detail: string; count?: number };
 
 // asking: the request is on its way; waiting: the Mac took it and the page waits for its outcome.
 export type MacOp = { kind: 'restart' | 'rollback'; phase: 'asking' | 'waiting' | 'done' | 'failed'; message: string | null };
@@ -71,18 +73,20 @@ export function createMacPage(api: Api, lang: Lang) {
   };
   const getReport = () => api<MacReport>(`/api/mac?lang=${lang}`);
 
-  const loadProblems = () =>
+  const getProblems = () =>
     api<MacProblem[]>('/api/mac/problems').then(
-      (problems) => set({ problems }),
-      () => set({ problems: snapshot.problems ?? [] }),
+      (problems) => problems,
+      () => snapshot.problems ?? [],
     );
+  const loadProblems = () => getProblems().then((problems) => set({ problems }));
 
+  // The report and what went wrong come in together: the second, alone under the spinner, reads as the page.
   const load = () => {
+    const problems = getProblems();
     getReport().then(
-      (report) => set({ report, error: null }),
-      (e) => set({ error: errorText(e, t.loadFailed) }),
+      (report) => problems.then((p) => set({ report, problems: p, error: null })),
+      (e) => problems.then((p) => set({ problems: p, error: errorText(e, t.loadFailed) })),
     );
-    void loadProblems();
     loadAccounts();
   };
 

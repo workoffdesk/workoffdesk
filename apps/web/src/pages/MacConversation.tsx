@@ -1,22 +1,29 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { agentName, api, MACHINE, type Agent } from '../api';
 import { rows, turns } from '@workoffdesk/client/model/chat';
 import { useChat } from '../components/ChatView';
 import { TurnView } from '../components/TurnView';
 import { ToolsRow } from '../components/turn/ToolsRow';
 import { shortPath, timeAgo } from '@workoffdesk/client/model/format';
+import { keptConversation } from '@workoffdesk/client/sessions/macRecent';
 import { onMacSays, previewChatUrl } from '@workoffdesk/client/sessions/newSession';
 import { useMacConversation } from '@workoffdesk/react/macConversation';
 import { PageHeader } from '../components/PageHeader';
 import { navigate } from '../router';
+import { storage } from '../platform';
 import { t } from '@workoffdesk/i18n';
 
 // A Claude or Codex conversation from this Mac, read before picking it up here; nothing on it is sent to the
 // agent.
 export function MacConversation({ agent, sid }: { agent: Agent; sid: string }) {
   const { chat, failed } = useChat(`${agent}:${sid}`, previewChatUrl(agent, sid));
-  const { info, busy, error, unreachable, pick, waiting, missed, resume, takeOverNow, takeOverWhenDone, cancel } = useMacConversation(api, agent, sid, (id) =>
-    navigate(`/m/${MACHINE}/s/${id}`),
+  const [kept] = useState(() => keptConversation(storage, sid));
+  const { info, busy, error, unreachable, pick, waiting, missed, resume, takeOverNow, takeOverWhenDone, cancel } = useMacConversation(
+    api,
+    agent,
+    sid,
+    (id) => navigate(`/m/${MACHINE}/s/${id}`),
+    kept,
   );
   const scroller = useRef<HTMLDivElement>(null);
   const shown = chat ? turns(chat.items, chat.base) : [];

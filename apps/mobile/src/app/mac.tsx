@@ -255,6 +255,7 @@ function Problem({ p, s, theme }: { p: MacProblem; s: S; theme: Theme }) {
         <Text style={[s.rowMain, s.strong]} numberOfLines={open ? undefined : 1}>
           {p.msg || '—'}
         </Text>
+        {(p.count ?? 1) > 1 && <Text style={s.count}>×{p.count}</Text>}
         <Text style={s.hint}>{timeAgo(Date.parse(p.at))}</Text>
       </View>
       {open && (
@@ -326,6 +327,7 @@ const styles = ({ c, fs }: Theme) =>
     headerTitle: { fontSize: fs(17), fontWeight: '600', color: c.text },
     content: { padding: 16, paddingBottom: 40, gap: 22 },
     loading: { marginTop: 48 },
+    count: { fontSize: fs(12), fontWeight: '600', color: c.muted, fontVariant: ['tabular-nums'] },
     alertBox: { gap: 10, padding: 12, borderRadius: 10, backgroundColor: tint(c.danger, 12), alignItems: 'flex-start' },
     alert: { color: c.danger, fontSize: fs(15) },
     summary: { fontSize: fs(17), fontWeight: '600', padding: 14, borderRadius: 12, overflow: 'hidden' },

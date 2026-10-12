@@ -9,9 +9,12 @@ const MAC_LOOK_MS = 3_000;
 
 // A Claude or Codex conversation from this Mac, read before picking it up here: what the Mac says of it, and
 // picking it up, after which the page goes to the session it became (`go`). info is undefined until the Mac
-// answers, null when it has no such conversation.
-export function useMacConversation(api: Api, agent: Agent, sid: string, go: (id: string) => void) {
-  const [info, setInfo] = useState<RecentConversation | null | undefined>(undefined);
+// answers, null when it has no such conversation. Until then it is what the list had (`kept`), if anything, so the
+// page is drawn whole at once; `fresh` says the Mac has answered, which what is done on it waits for.
+export function useMacConversation(api: Api, agent: Agent, sid: string, go: (id: string) => void, kept?: RecentConversation) {
+  const [answered, setInfo] = useState<RecentConversation | null | undefined>(undefined);
+  const fresh = answered !== undefined;
+  const info = fresh ? answered : kept;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The last time the Mac was asked, it could not be reached; it is asked again until it answers.
@@ -55,7 +58,7 @@ export function useMacConversation(api: Api, agent: Agent, sid: string, go: (id:
   });
   const missed = following && !waiting && pick?.do !== 'open';
   const run = async (work: (cwd: string) => Promise<{ id: string } | null>) => {
-    if (!info?.cwd) return;
+    if (!fresh || !info?.cwd) return;
     setBusy(true);
     setError(null);
     setFollowing(false);
@@ -70,6 +73,7 @@ export function useMacConversation(api: Api, agent: Agent, sid: string, go: (id:
   };
   return {
     info,
+    fresh,
     busy,
     error,
     unreachable,

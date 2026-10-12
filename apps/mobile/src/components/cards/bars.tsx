@@ -7,6 +7,8 @@ import { api } from '../../client';
 import { Button } from '../ui';
 import { useAgentName } from '@workoffdesk/react/agentName';
 import { useStyles } from './styles';
+import { useTheme } from '../../theme';
+import { SymbolView } from 'expo-symbols';
 
 export function WaitingBar({ onScreen }: { onScreen: () => void }) {
   const s = useStyles();
@@ -60,6 +62,7 @@ export function CompactingBar({ count }: { count: number }) {
 // quits; one there at work only once told to. The bar goes once the Mac no longer has it open.
 export function OnMacBar({ terminals, sessionId }: { terminals: number; sessionId: string }) {
   const s = useStyles();
+  const { c } = useTheme();
   const [quitting, setQuitting] = useState(false);
   const confirm = () =>
     new Promise<boolean>((done) =>
@@ -82,7 +85,10 @@ export function OnMacBar({ terminals, sessionId }: { terminals: number; sessionI
   };
   return (
     <View style={s.onMac} accessibilityLabel={t.alsoOnMac(terminals)}>
-      <Text style={s.heldTitle}>{t.alsoOnMac(terminals)}</Text>
+      <View style={s.onMacTitle}>
+        <SymbolView name="desktopcomputer" tintColor={c.waiting} size={16} />
+        <Text style={s.heldTitle}>{t.alsoOnMac(terminals)}</Text>
+      </View>
       <View style={s.onMacRow}>
         <Text style={s.onMacSub}>{t.alsoOnMacSub}</Text>
         <Button small label={t.quitOnMac} busy={quitting} onPress={quit} />

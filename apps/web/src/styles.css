@@ -726,8 +726,10 @@ input, textarea { font: inherit; color: inherit; }
 .send-held .btn { flex: none; }
 .on-mac-note {
   display: flex; flex-direction: column; gap: 4px; padding: 10px 10px 10px 12px; border-radius: 10px; font-size: calc(14px * var(--text-scale));
-  color: var(--text); background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--waiting);
+  color: var(--text); background: var(--surface); border: 1px solid var(--border);
 }
+.on-mac-note b { display: flex; align-items: center; gap: 6px; }
+.on-mac-note b svg { flex: none; width: 18px; height: 18px; color: var(--waiting); }
 .on-mac-note > span { display: flex; align-items: center; gap: 10px; }
 .on-mac-note small { flex: 1; min-width: 0; font-size: calc(13px * var(--text-scale)); color: var(--muted); }
 .send-held.nudged { animation: send-held-nudge 0.4s; }
@@ -952,6 +954,7 @@ span.pill-part { display: inline-flex; align-items: center; }
 .mac-problem summary { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; list-style: none; }
 .mac-problem summary::-webkit-details-marker { display: none; }
 .mac-problem-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mac-problem-count { flex: none; font-size: calc(12px * var(--text-scale)); font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
 .mac-problem time { flex: none; font-size: calc(12px * var(--text-scale)); color: var(--muted); }
 .mac-level { flex: none; font-size: calc(11px * var(--text-scale)); font-weight: 700; text-transform: uppercase; padding: 1px 6px; border-radius: 6px; }
 .mac-level.warn { color: var(--waiting); background: color-mix(in srgb, var(--waiting) 16%, transparent); }

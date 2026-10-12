@@ -142,7 +142,7 @@ signs every device out.
 
 Settings → **This Mac** shows what `doctor` checks on the Mac, each failure with the command that fixes it
 (a tap copies it), the version and the releases kept, and the newest warnings and errors in the service's
-log, each opening to its detail. **Restart** restarts the service without ending sessions; **Roll back**
+log, one that came again said once with how many times, each opening to its detail. **Restart** restarts the service without ending sessions; **Roll back**
 goes back to the release before, after a second tap that names it. The page waits for the service to come
 back and says how it went. Both need the service to run as installed, not as `workoffdesk serve`.
 

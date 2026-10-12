@@ -1,14 +1,15 @@
 import { agentName, type Agent } from '@workoffdesk/client/base/api';
 import { rows, turns } from '@workoffdesk/client/model/chat';
 import { shortPath, timeAgo } from '@workoffdesk/client/model/format';
+import { keptConversation } from '@workoffdesk/client/sessions/macRecent';
 import { onMacSays, previewChatUrl } from '@workoffdesk/client/sessions/newSession';
 import { useMacConversation } from '@workoffdesk/react/macConversation';
 import { t } from '@workoffdesk/i18n';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { api } from '../client';
+import { api, storage } from '../client';
 import { useChat } from '../hooks';
 import { MONO, useTheme, type Theme } from '../theme';
 import { PageHeader } from './header';
@@ -26,8 +27,9 @@ export function MacConversation({ agent }: { agent: Agent }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { chat, failed, loadingOlder, loadOlder } = useChat(`${agent}:${sid}`, previewChatUrl(agent, sid));
+  const [kept] = useState(() => keptConversation(storage, sid));
   const go = (id: string) => navigation.isFocused() && router.replace({ pathname: '/session/[id]', params: { id } });
-  const { info, busy, error, unreachable, pick, waiting, missed, resume, takeOverNow, takeOverWhenDone, cancel } = useMacConversation(api, agent, sid, go);
+  const { info, busy, error, unreachable, pick, waiting, missed, resume, takeOverNow, takeOverWhenDone, cancel } = useMacConversation(api, agent, sid, go, kept);
 
   const shown = useMemo(() => (chat ? turns(chat.items, chat.base) : []), [chat]);
   const drawn = rows(shown);

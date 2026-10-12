@@ -5,6 +5,7 @@ import { quitOnMac } from '@workoffdesk/client/sessions/quitOnMac';
 import { useState } from 'react';
 import { api } from '../api';
 import { ActionSheet } from './ActionSheet';
+import { IconDesktop } from '../icons';
 
 // Above the composer while Claude compacts its conversation, from the moment it starts.
 export function CompactingBar({ count }: { count: number }) {
@@ -36,7 +37,10 @@ export function OnMacBar({ terminals, sessionId, onError }: { terminals: number;
   };
   return (
     <div className="on-mac-note" role="status" aria-label={t.alsoOnMac(terminals)}>
-      <b>{t.alsoOnMac(terminals)}</b>
+      <b>
+        <IconDesktop />
+        {t.alsoOnMac(terminals)}
+      </b>
       <span>
         <small>{t.alsoOnMacSub}</small>
         <button className="btn small" disabled={quitting} aria-busy={quitting} onClick={quit}>

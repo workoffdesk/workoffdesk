@@ -101,7 +101,7 @@ const styles = ({ c, fs }: Theme) =>
       borderColor: c.waiting,
     },
     heldText: { flex: 1, gap: 2 },
-    // A note rather than a hold: the page's own surface, marked at its edge.
+    // A note rather than a hold: on the page's own surface.
     onMac: {
       gap: 4,
       paddingVertical: 10,
@@ -111,9 +111,8 @@ const styles = ({ c, fs }: Theme) =>
       backgroundColor: c.surface,
       borderWidth: 1,
       borderColor: c.border,
-      borderLeftWidth: 3,
-      borderLeftColor: c.waiting,
     },
+    onMacTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     onMacRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     onMacSub: { flex: 1, fontSize: fs(13), color: c.muted },
     heldTitle: { fontSize: fs(14), fontWeight: '600', color: c.text },

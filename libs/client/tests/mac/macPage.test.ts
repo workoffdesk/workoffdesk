@@ -50,6 +50,27 @@ describe('createMacPage', () => {
     expect(snap()).toMatchObject({ report: report(), problems: [], error: null, op: null, accounts: accounts(), picking: null });
   });
 
+  it('shows what went wrong lately only with the report, so nothing comes in under the spinner', async () => {
+    const api = fakeApi();
+    const page = createMacPage(api.api, 'en');
+    page.hold();
+    const problem = { at: '2026-10-12T00:00:00.000Z', level: 'error' as const, msg: 'boom', detail: '{}', count: 1 };
+    await api.answer(PROBLEMS, [problem]);
+    expect(page.getSnapshot()).toMatchObject({ report: null, problems: null });
+    await api.answer(GET, report());
+    expect(page.getSnapshot()).toMatchObject({ report: report(), problems: [problem] });
+  });
+
+  it('shows what went wrong lately beside why the report could not be loaded', async () => {
+    const api = fakeApi();
+    const page = createMacPage(api.api, 'en');
+    page.hold();
+    await api.fail(GET, new NetworkError());
+    expect(page.getSnapshot()).toMatchObject({ error: null, problems: null });
+    await api.fail(PROBLEMS, new NetworkError());
+    expect(page.getSnapshot()).toMatchObject({ error: t.noServer, problems: [] });
+  });
+
   it('shows no accounts and no error from a server without a list of them', async () => {
     const api = fakeApi();
     const page = createMacPage(api.api, 'en');

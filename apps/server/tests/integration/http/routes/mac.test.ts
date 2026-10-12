@@ -83,7 +83,7 @@ describe('GET /api/mac and /api/mac/problems', () => {
     const home = homeWithReleases([]);
     writeFileSync(join(home, 'logs/workoffdesk.log'), `${JSON.stringify({ level: 50, time: 0, msg: 'boom' })}\n`);
     const { call } = await start({ home });
-    expect((await call('GET', '/api/mac/problems')).json()).toEqual([{ at: '1970-01-01T00:00:00.000Z', level: 'error', msg: 'boom', detail: '{}' }]);
+    expect((await call('GET', '/api/mac/problems')).json()).toEqual([{ at: '1970-01-01T00:00:00.000Z', level: 'error', msg: 'boom', detail: '{}', count: 1 }]);
   });
 });
 

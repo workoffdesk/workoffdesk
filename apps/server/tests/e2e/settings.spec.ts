@@ -1,4 +1,6 @@
-import { writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { E2E_HOME } from '../../playwright.config';
 import { expect, test, type Locator } from '@playwright/test';
 import { shot, login, api, clearSessions, rec, jsonl, newClaude } from '../helpers/e2e';
 
@@ -101,6 +103,26 @@ test.describe('settings', () => {
         await expect(page.getByRole('status', { name: '文字大小' })).toHaveText('100%');
         expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--text-scale').trim())).toBe('1');
       });
+    }
+  });
+
+  test('says on the This Mac page each recent problem once, with how many times it came', async ({ page }) => {
+    const log = join(E2E_HOME, 'logs', 'workoffdesk.log');
+    mkdirSync(join(E2E_HOME, 'logs'), { recursive: true });
+    const before = existsSync(log) ? readFileSync(log, 'utf8') : '';
+    const line = (level: number, msg: string, n: number) => JSON.stringify({ level, time: Date.now() - 60_000 + n, pid: 1, hostname: 'mac', msg, url: `/api/x${n}` });
+    writeFileSync(log, before + [line(50, 'request failed', 1), line(40, 'slow tmux', 2), line(50, 'request failed', 3), line(50, 'request failed', 4)].join('\n') + '\n');
+    try {
+      await login(page);
+      await page.goto('/mac');
+      const rows = page.locator('.mac-problem summary');
+      await expect(rows.filter({ hasText: 'request failed' })).toHaveCount(1);
+      await expect(rows.filter({ hasText: 'request failed' })).toContainText('×3');
+      await expect(rows.filter({ hasText: 'slow tmux' })).not.toContainText('×');
+      await rows.first().scrollIntoViewIfNeeded();
+      await shot(page, '75-mac-problems-counted');
+    } finally {
+      writeFileSync(log, before);
     }
   });
 });

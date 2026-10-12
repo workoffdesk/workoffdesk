@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RecentConversation } from '../../src/base/api';
-import { followMacRecent, keptMacRecent, MAC_KEY, MAC_RECENT_MS, MAC_SHOWN, macShown, notGoneOnHere } from '../../src/sessions/macRecent';
+import { followMacRecent, keptConversation, keptMacRecent, MAC_KEY, MAC_RECENT_MS, MAC_SHOWN, macShown, notGoneOnHere } from '../../src/sessions/macRecent';
 import { aSession, brokenStorage, fakeVisibility, memoryStorage } from '../helpers/fakes';
 
 const NOW = Date.UTC(2026, 9, 5, 12);
@@ -123,5 +123,17 @@ describe('keptMacRecent', () => {
     expect(keptMacRecent(memoryStorage({ [MAC_KEY]: JSON.stringify([r()]) }))).toEqual([r()]);
     expect(keptMacRecent(memoryStorage({ [MAC_KEY]: '{"not":"a list"}' }))).toEqual([]);
     expect(keptMacRecent(brokenStorage)).toEqual([]);
+  });
+});
+
+describe('keptConversation', () => {
+  it('is the row the list last had for the conversation, to draw its page before the Mac answers', () => {
+    const kept = memoryStorage({ [MAC_KEY]: JSON.stringify([r({ sessionId: 'a', title: 'A' }), r({ sessionId: 'b', title: 'B' })]) });
+    expect(keptConversation(kept, 'b')).toEqual(r({ sessionId: 'b', title: 'B' }));
+  });
+
+  it('is none for one the list did not have, or from a broken store', () => {
+    expect(keptConversation(memoryStorage({ [MAC_KEY]: JSON.stringify([r({ sessionId: 'a' })]) }), 'b')).toBeUndefined();
+    expect(keptConversation(brokenStorage, 'a')).toBeUndefined();
   });
 });

@@ -69,7 +69,8 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
 
 - Settings → This Mac, in the web app and the iPhone app, shows the checks `doctor` runs (in the phone's
   language), the version, the build's commit, when the release began serving, the releases kept, and the
-  newest 50 warnings and errors in `logs/workoffdesk.log` and `.1`, each opening to its detail.
+  newest 50 different warnings and errors in `logs/workoffdesk.log` and `.1`, one that came again said once with
+  how many times, each opening to its latest detail.
   (`apps/server/src/http/routes/mac.ts`, `ops/report.ts`, `ops/problems.ts`, `apps/web/src/pages/Mac.tsx`,
   `apps/mobile/src/app/mac.tsx`)
 - Restart and Roll back on that page are done by the `workoffdesk` command the service runs, started apart from

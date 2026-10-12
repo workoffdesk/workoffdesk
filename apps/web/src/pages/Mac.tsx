@@ -243,6 +243,7 @@ export function Mac() {
                   <summary>
                     <span className={`mac-level ${p.level}`}>{p.level}</span>
                     <span className="mac-problem-msg">{p.msg || '—'}</span>
+                    {(p.count ?? 1) > 1 && <span className="mac-problem-count">×{p.count}</span>}
                     <time>{timeAgo(Date.parse(p.at))}</time>
                   </summary>
                   <pre>{p.detail}</pre>

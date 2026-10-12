@@ -33,6 +33,10 @@ export function keptMacRecent(storage: KeyValue): RecentConversation[] {
   }
 }
 
+// What the list last had of one conversation, for its page to be drawn whole before the Mac answers.
+export const keptConversation = (storage: KeyValue, sid: string): RecentConversation | undefined =>
+  keptMacRecent(storage).find((r) => r.sessionId === sid);
+
 // The rows of `now` in the order `before` had them, those new since first: a row does not move under a finger.
 export const inOrderOf = (before: RecentConversation[], now: RecentConversation[]): RecentConversation[] => {
   const at = new Map(before.map((r, n) => [r.sessionId, n]));

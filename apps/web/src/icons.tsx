@@ -21,6 +21,10 @@ export const IconCode = () => (
 export const IconChat = () => (
   <svg viewBox="0 0 24 24" {...base} aria-hidden><path d="M4 5h16v11H9l-5 4z" /></svg>
 );
+// SF Symbols desktopcomputer, as the phone has it.
+export const IconDesktop = () => (
+  <svg viewBox="0 0 24 24" {...base} aria-hidden><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M12 16v4M8 20h8" /></svg>
+);
 export const IconFolder = () => (
   <svg viewBox="0 0 24 24" {...base} aria-hidden><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
 );
