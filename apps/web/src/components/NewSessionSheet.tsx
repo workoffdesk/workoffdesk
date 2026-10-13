@@ -17,8 +17,12 @@ export async function createSession(spec: NewAgent) {
   openSession(await create(api, spec));
 }
 
+// It closes as it opens a session: on a wide screen the list it was opened from stays, beside that session.
 export function NewSessionSheet({ onClose }: { onClose: () => void }) {
-  const { step, setStep, busy, error, agent, codex, pick, run, title } = useNewSession(api, openSession);
+  const { step, setStep, busy, error, agent, codex, pick, run, title } = useNewSession(api, (s) => {
+    onClose();
+    openSession(s);
+  });
   return (
     <Sheet bar title={title} onClose={onClose} onBack={step === 'menu' ? undefined : () => setStep('menu')}>
       {error && (
@@ -60,9 +64,10 @@ export function NewSessionSheet({ onClose }: { onClose: () => void }) {
       {step === 'recent' && (
         <RecentPicker
           busy={busy}
-          onPick={(r) =>
-            navigate(r.openIn ? `/m/${MACHINE}/s/${r.openIn}` : `/${agentOf(r)}/${r.sessionId}`)
-          }
+          onPick={(r) => {
+            onClose();
+            navigate(r.openIn ? `/m/${MACHINE}/s/${r.openIn}` : `/${agentOf(r)}/${r.sessionId}`);
+          }}
         />
       )}
     </Sheet>
