@@ -112,8 +112,8 @@ up. The phone keeps a copy of what it has read, so reopening a session is instan
 - Type in the composer. The key bar above it has Esc, Tab, a sticky Ctrl, the arrows, ^C, Paste and Enter.
 - **Hold to talk**: the words show as you speak; let go to send, slide up to ✕ to cancel, or to **To text** to
   edit them first. It uses the browser's own speech recognition; no audio goes to the Mac.
-- **Pictures, videos and files**: add them with the button beside the composer, up to 4 GB each. They are
-  saved on the Mac and their paths go to Claude with your message. Uploads are deleted after 30 days.
+- **Pictures, videos and files**: add them with the button beside the composer, up to 4 GB each; in a browser,
+  paste a screenshot into the composer too. They are saved on the Mac and their paths go to Claude with your message. Uploads are deleted after 30 days.
 - Typing `/` lists the slash commands Claude has in this session; `@` lists the files of its folder.
 - The pill under the composer shows the context used, and switches the model, the permission mode and the
   effort.

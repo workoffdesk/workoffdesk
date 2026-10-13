@@ -287,6 +287,9 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   compacts or has ended, they wait on the Mac, in order. (`apps/server/src/sessions/outbox.ts`)
 - Pictures, videos and other files can be sent from the phone, up to 4 GB each, in 8 MB parts.
   (`apps/server/src/uploads/fileUpload.ts`)
+- In the browser, a picture or a file pasted into the composer with nothing to type is added as one, as a
+  screenshot copied on the Mac is; a paste that brings text goes in as text. (`libs/client/src/composer/pasted.ts`,
+  `apps/web/src/components/Composer.tsx`)
 - Uploaded files are deleted after 30 days. (`apps/server/src/uploads/media.ts`)
 - Hold to talk uses the browser's own speech recognition; what it hears goes into the message box, and no
   audio is sent to the Mac. (`apps/web/src/voice.ts`, `libs/client/src/composer/talk.ts`)

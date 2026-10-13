@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createComposer } from '@workoffdesk/client/composer/composer';
 import { newUploadId, sendFile } from '@workoffdesk/client/chat/fileUpload';
 import { coverUrl, filePiece, uploadUrl } from '@workoffdesk/client/chat/images';
+import { pastedFiles } from '@workoffdesk/client/composer/pasted';
 import { describe, type SlashCommand } from '@workoffdesk/client/composer/slash';
 import { speechErrorText, type Zone } from '@workoffdesk/client/composer/talk';
 import { t } from '@workoffdesk/i18n';
@@ -109,15 +110,24 @@ export function Composer(props: Props) {
     send();
   };
 
-  // Pictures, videos and files, from the menu over the plus as the phone has it.
+  // Pictures, videos and files, from the menu over the plus as the phone has it, or pasted.
   const sentOf = (key: string) => (share: number) => composer.progress(key, share);
-  const add = (input: HTMLInputElement) => {
-    const picked = [...(input.files ?? [])];
-    input.value = '';
+  const attach = (picked: File[]) => {
     for (const f of picked) {
       if (f.type.startsWith('image/')) composer.attach('picture', f.name, async () => `"${await latest.current.onUpload(f)}"`);
       else composer.attach(f.type.startsWith('video/') ? 'video' : 'file', f.name, (key) => uploadFile(f, sentOf(key)));
     }
+  };
+  const add = (input: HTMLInputElement) => {
+    const picked = [...(input.files ?? [])];
+    input.value = '';
+    attach(picked);
+  };
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = pastedFiles(e.clipboardData);
+    if (!pasted.length) return;
+    e.preventDefault();
+    attach(pasted);
   };
   const [menuShown, setMenuShown] = useState(false);
   const pickFrom = (input: HTMLInputElement | null) => {
@@ -265,6 +275,7 @@ export function Composer(props: Props) {
             onCompositionStart={() => (composing.current = true)}
             onCompositionEnd={() => (composing.current = false)}
             onKeyDown={onKeyDown}
+            onPaste={onPaste}
           />
           {showBar && (
             <button
