@@ -642,7 +642,7 @@ input, textarea { font: inherit; color: inherit; }
 .chat-live { white-space: pre-wrap; color: var(--muted); }
 .chat-live-head { margin-bottom: 6px; font-size: calc(13px * var(--text-scale)); font-weight: 600; }
 .chat-working { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: calc(13px * var(--text-scale)); }
-.chat-working-now { display: inline-flex; align-items: center; gap: 8px; }
+.chat-working-now { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
 .chat-working-now .spinner { width: 13px; height: 13px; border-width: 2px; }
 .term-bottom > .chat-tasks { padding: 6px 10px; }
 .chat-tasks[open] ul { max-height: 40vh; overflow-y: auto; }

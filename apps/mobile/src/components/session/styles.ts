@@ -30,7 +30,7 @@ export const styles = ({ c, fs }: Theme) =>
     live: { gap: 4, opacity: 0.8 },
     liveText: { fontSize: fs(16), lineHeight: fs(16) * 1.55, color: c.text },
     workingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    working: { fontSize: fs(13), color: c.muted },
+    working: { fontSize: fs(13), color: c.muted, fontVariant: ['tabular-nums'] },
     bg: { gap: 6, padding: 10, borderRadius: 12, backgroundColor: c.surface2 },
     bgHead: { fontSize: fs(13), color: c.muted },
     bgItem: { fontSize: fs(13), color: c.text },
