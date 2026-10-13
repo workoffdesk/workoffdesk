@@ -75,24 +75,30 @@ describe('a pinned row', () => {
   });
 });
 
-// A flex item's grow, shrink and basis, from the one rule of that selector.
-const flexOf = (selector: string) => {
-  const bodies = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter((m) => m[1].trim() === selector).map((m) => m[2]);
+// The one rule of a selector, as its declarations.
+const ruleOf = (selector: string) => {
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const bodies = [...bare.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter((m) => m[1].trim() === selector).map((m) => m[2]);
   expect(bodies, `precondition: ${selector} has one rule`).toHaveLength(1);
-  const flex = bodies[0].match(/(?:^|;)\s*flex\s*:\s*([^;]+)/)?.[1].trim() ?? '0 1 auto';
-  const [grow, shrink, basis] = flex === 'none' ? ['0', '0', 'auto'] : /^\d+$/.test(flex) ? [flex, '1', '0%'] : flex.split(/\s+/);
-  return { grow: Number(grow), shrink: Number(shrink ?? 1), basis: basis ?? '0%', minWidth: bodies[0].match(/min-width\s*:\s*([^;]+)/)?.[1].trim() };
+  return Object.fromEntries([...bodies[0].matchAll(/([\w-]+)\s*:\s*([^;]+)/g)].map((m) => [m[1], m[2].trim()]));
 };
 
-describe("a session row's top line", () => {
-  // In a narrow column, beside a badge and the time, the folder gives way before the session's name does.
-  it('makes room for the name out of the folder first', () => {
-    const name = flexOf('.sess-name');
-    const folder = flexOf('.sess-dir');
-    expect(name.basis, 'the name asks for its own width').toBe('auto');
-    expect(name.minWidth).toBe('0');
-    expect(folder.minWidth).toBe('0');
-    expect(folder.shrink).toBeGreaterThan(name.shrink);
-    expect(name.shrink, 'the name gives way too once the folder is gone').toBeGreaterThan(0);
+describe("a session row's name and folder", () => {
+  // A folder cut to a few letters names nothing and takes the name's room: where the two do not fit whole on
+  // one line, the folder goes to a second line, which is not shown.
+  it('shows the folder whole beside the name, or not at all', () => {
+    const both = ruleOf('.sess-names');
+    expect(both['flex-wrap']).toBe('wrap');
+    expect(both.overflow).toBe('hidden');
+    expect(both.height).toBe('1lh');
+    const folder = ruleOf('.sess-dir');
+    expect(folder.flex, 'the folder is never squeezed').toBe('none');
+    expect(folder['max-width'], 'nor cut short').toBeUndefined();
+  });
+
+  it('gives the name the line once the folder is off it', () => {
+    const name = ruleOf('.sess-name');
+    expect(name.flex).toBe('1 1 auto');
+    expect(name['min-width']).toBe('0');
   });
 });

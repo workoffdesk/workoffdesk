@@ -116,8 +116,10 @@ function Row({ s, folder, open, current, unread, onOpen, actions }: { s: TermSes
             {status === 'working' && <span className="sess-badge working">{t.busy}</span>}
             {status === 'waiting' && <span className="sess-badge waiting">{t.needsYou}</span>}
             {unread && status !== 'working' && status !== 'waiting' && <span className="sess-badge unread">{t.unread}</span>}
-            <span className="sess-name">{s.title}</span>
-            {folder && <span className="sess-dir">{folder}</span>}
+            <span className="sess-names">
+              <span className="sess-name">{s.title}</span>
+              {folder && <span className="sess-dir">{folder}</span>}
+            </span>
             <span className="sess-time">{listTime(s.lastActivity)}</span>
           </span>
           <span className="sess-preview">{s.past ? s.lastReply || shortPath(s.cwd) : sessionPreview(s)}</span>
