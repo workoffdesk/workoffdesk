@@ -74,3 +74,25 @@ describe('a pinned row', () => {
     expect(css, 'precondition: a row is drawn in its own colour').toMatch(/\.sess-row > \.sess-item\s*\{[^}]*background:\s*var\(--row\)/);
   });
 });
+
+// A flex item's grow, shrink and basis, from the one rule of that selector.
+const flexOf = (selector: string) => {
+  const bodies = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter((m) => m[1].trim() === selector).map((m) => m[2]);
+  expect(bodies, `precondition: ${selector} has one rule`).toHaveLength(1);
+  const flex = bodies[0].match(/(?:^|;)\s*flex\s*:\s*([^;]+)/)?.[1].trim() ?? '0 1 auto';
+  const [grow, shrink, basis] = flex === 'none' ? ['0', '0', 'auto'] : /^\d+$/.test(flex) ? [flex, '1', '0%'] : flex.split(/\s+/);
+  return { grow: Number(grow), shrink: Number(shrink ?? 1), basis: basis ?? '0%', minWidth: bodies[0].match(/min-width\s*:\s*([^;]+)/)?.[1].trim() };
+};
+
+describe("a session row's top line", () => {
+  // In a narrow column, beside a badge and the time, the folder gives way before the session's name does.
+  it('makes room for the name out of the folder first', () => {
+    const name = flexOf('.sess-name');
+    const folder = flexOf('.sess-dir');
+    expect(name.basis, 'the name asks for its own width').toBe('auto');
+    expect(name.minWidth).toBe('0');
+    expect(folder.minWidth).toBe('0');
+    expect(folder.shrink).toBeGreaterThan(name.shrink);
+    expect(name.shrink, 'the name gives way too once the folder is gone').toBeGreaterThan(0);
+  });
+});
