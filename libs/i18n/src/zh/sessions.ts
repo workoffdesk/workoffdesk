@@ -99,8 +99,6 @@ export const sessions: typeof en = {
   deleteSessionSub: '它的对话会从 WorkOffDesk 里删掉，Mac 上 Claude 或 Codex 自己的记录不受影响。',
   notFound: (q) => `没有找到「${q}」`,
   endedSessions: '已结束',
-  pinnedSessions: '置顶',
-  otherSessions: '其他',
   otherMacSessions: 'Mac 上的其他会话',
 
   wrongPassword: '用户名或密码不对',

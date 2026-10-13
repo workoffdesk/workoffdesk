@@ -21,19 +21,19 @@ const ended = (s: TermSession) => s.status === 'ended';
 const projectOf = (s: TermSession) => s.project ?? s.cwd;
 
 // The session list as both apps show it: the newest first, those that fit the search; the pinned ones first, the
-// one pinned last on top; those running by project, the one worked in last first, or as one when not grouped;
-// then those that have ended in one group of their own. Only a group at the top goes without a heading: one
-// project, or all of them when not grouped. sorted is null while the list is loading.
+// one pinned last on top, with no heading (their rows have a colour of their own); those running by project, the
+// one worked in last first, or as one when not grouped; then those that have ended in one group of their own. The
+// running go without a heading when they are one project, or all of them when not grouped. sorted is null while
+// the list is loading.
 export function listView(sessions: TermSession[] | null, query: string, grouping: GroupingChoice): ListView {
   const sorted = sessions && [...sessions].sort((a, b) => b.lastActivity - a.lastActivity);
   const shown = sorted?.filter((s) => matches(s, query)) ?? [];
   const pinned = shown.filter((s) => s.pinned).sort((a, b) => b.pinned! - a.pinned!);
   const rest = shown.filter((s) => !s.pinned);
   const running = rest.filter((s) => !ended(s));
-  const groups: SessionGroup[] = pinned.length ? [{ cwd: null, title: t.pinnedSessions, sessions: pinned }] : [];
-  const atTop = !pinned.length;
+  const groups: SessionGroup[] = pinned.length ? [{ cwd: null, title: null, sessions: pinned }] : [];
   if (grouping === 'none') {
-    if (running.length) groups.push({ cwd: null, title: atTop ? null : t.otherSessions, sessions: running });
+    if (running.length) groups.push({ cwd: null, title: null, sessions: running });
   } else {
     const projects: SessionGroup[] = [];
     for (const s of running) {
@@ -42,7 +42,7 @@ export function listView(sessions: TermSession[] | null, query: string, grouping
       if (g) g.sessions.push(s);
       else projects.push({ cwd: key, title: dirName(key), sessions: [s] });
     }
-    if (projects.length === 1 && atTop) projects[0].title = null;
+    if (projects.length === 1) projects[0].title = null;
     groups.push(...projects);
   }
   const over = rest.filter(ended);

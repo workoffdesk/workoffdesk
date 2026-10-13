@@ -19,6 +19,7 @@ type OpenRow = { open: boolean; setOpen: Dispatch<SetStateAction<string | null>>
 export function Row({ s, folder, unread, theme, actions, open, setOpen, holdScroll }: { s: TermSession; folder: string | null; unread: boolean; theme: Theme; actions: RowAction[] } & OpenRow) {
   const st = useMemo(() => rowStyles(theme), [theme]);
   const { c } = theme;
+  const row = s.pinned ? c.rowPinned : c.row;
   const status = isAgent(s.kind) && !s.past ? s.status : null;
   const hold = () => {
     const destructive = actions.findIndex((a) => a.destructive);
@@ -36,7 +37,7 @@ export function Row({ s, folder, unread, theme, actions, open, setOpen, holdScro
         onLongPress={hold}
         accessibilityActions={actions.map((a, i) => ({ name: String(i), label: a.label }))}
         onAccessibilityAction={(e) => actions[Number(e.nativeEvent.actionName)]?.run()}
-        style={({ pressed }) => [st.item, pressed && { backgroundColor: c.rowHeld }]}
+        style={({ pressed }) => [st.item, { backgroundColor: pressed ? c.rowHeld : row }]}
       >
         <View style={[st.avatar, s.past && st.macAvatar, { backgroundColor: s.kind === 'codex' ? c.codex : isAgent(s.kind) ? c.claude : c.shell }]}>
           <SymbolView
@@ -44,8 +45,8 @@ export function Row({ s, folder, unread, theme, actions, open, setOpen, holdScro
             tintColor="#fff"
             size={s.kind === 'codex' ? 22 : 26}
           />
-          {status === 'waiting' && <View style={[st.needsYou, { borderColor: c.row }]} />}
-          {status === 'working' && <View style={[st.busy, { borderColor: c.row, backgroundColor: c.accent }]} />}
+          {status === 'waiting' && <View style={[st.needsYou, { borderColor: row }]} />}
+          {status === 'working' && <View style={[st.busy, { borderColor: row, backgroundColor: c.accent }]} />}
         </View>
         <View style={st.main}>
           <View style={st.top}>

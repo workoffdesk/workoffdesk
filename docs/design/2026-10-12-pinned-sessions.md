@@ -25,10 +25,10 @@ does something, so it is never where it was a moment ago.
 
 `listView` (the list both apps show):
 
-- Pinned sessions come first, in a group headed **Pinned**, the one pinned last on top. They are left out of
-  every other group, the ended one too: a pinned session that ended stays pinned, shown as ended.
-- The rest are grouped as before. Under a Pinned group nothing goes unheaded, or it would read as pinned: with one
-  project, it keeps the project's heading; not grouped, its group is headed **Others**.
+- Pinned sessions come first, with no heading, the one pinned last on top; their rows are drawn in a colour of
+  their own, as a chat app marks its pinned chats, so a heading takes no room. They are left out of every other
+  group, the ended one too: a pinned session that ended stays pinned, shown as ended.
+- The rest are grouped and headed as they would be with none pinned: the colour, not a heading, tells the two apart.
 - Search narrows the pinned ones as it does the rest.
 - A pinned row says where it is as a row with no project heading does: its project's name beside the title.
 

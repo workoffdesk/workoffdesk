@@ -20,9 +20,10 @@
   --added-bg: rgba(63, 185, 80, 0.16);
   --removed-bg: rgba(248, 81, 73, 0.16);
   --term-bg: #0d1117;
-  /* A row of the session list, and one held down or open. */
+  /* A row of the session list, one held down or open, and one pinned. */
   --row: var(--surface);
   --row-held: var(--surface-2);
+  --row-pinned: #1a2028;
   /* The logo's blue, in the light theme too. */
   --claude: #2f81f7;
   /* The bubble of what you sent. */
@@ -65,6 +66,7 @@
   --added-bg: rgba(26, 127, 55, 0.12);
   --removed-bg: rgba(207, 34, 46, 0.1);
   --term-bg: #ffffff;
+  --row-pinned: #f3f5f8;
 }
 
 /* Eye care: black on a soft green with a terracotta accent; Claude's replies on Superset's terminal green, what
@@ -77,6 +79,7 @@
   /* The list's rows about the green of Claude's replies, so they stand off the page. */
   --row: #b5e0bc;
   --row-held: #a3d3ab;
+  --row-pinned: #acdab4;
   --text: #000000;
   --muted: #505f50;
   --accent: #ad644e;
@@ -213,6 +216,7 @@ input, textarea { font: inherit; color: inherit; }
 .sess-action.neutral { background: var(--neutral); color: #fff; }
 .sess-row > .sess-item { background: var(--row); touch-action: pan-y; transition: transform 0.2s; }
 .sess-row.dragging > .sess-item { transition: none; }
+.sess-row.pinned { --row: var(--row-pinned); }
 .sess-row + .sess-row > .sess-item::before,
 .sess-item.mac + .sess-item.mac::before { content: ''; position: absolute; top: 0; left: 76px; right: 0; border-top: 0.5px solid var(--border); }
 .sess-dir { flex: none; max-width: 40%; font-size: calc(13px * var(--text-scale)); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

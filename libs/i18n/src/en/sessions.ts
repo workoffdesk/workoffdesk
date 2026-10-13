@@ -101,8 +101,6 @@ export const sessions = {
   deleteSessionSub: "Its conversation goes from WorkOffDesk. Claude's or Codex's own record on the Mac is left as it is.",
   notFound: (q: string) => `Nothing found for “${q}”`,
   endedSessions: 'Ended',
-  pinnedSessions: 'Pinned',
-  otherSessions: 'Others',
   otherMacSessions: 'Other sessions on the Mac',
 
   // Login

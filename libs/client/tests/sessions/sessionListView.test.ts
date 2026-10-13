@@ -146,14 +146,17 @@ describe('listView, with pinned sessions', () => {
 
   it.each(['project', 'none'] as const)('puts them first, the one pinned last on top, whenever each was worked in, and nowhere else (%s)', (grouping) => {
     const { groups } = listView([main, cart, notes, first, second, old], '', grouping);
-    expect(groups[0]).toEqual({ cwd: null, title: 'Pinned', sessions: [second, first] });
+    expect(groups[0]).toEqual({ cwd: null, title: null, sessions: [second, first] });
     expect(groups.slice(1).flatMap((g) => g.sessions)).toEqual(grouping === 'project' ? [cart, main, notes, old] : [cart, notes, main, old]);
     expect(groups.at(-1)).toEqual({ cwd: null, title: 'Ended', sessions: [old] });
   });
 
-  it('leaves no group unheaded under them: a single project keeps its heading, the ungrouped are Others', () => {
-    expect(listView([main, cart, first], '', 'project').groups.map((g) => g.title)).toEqual(['Pinned', 'shop']);
-    expect(listView([main, cart, first], '', 'none').groups.map((g) => g.title)).toEqual(['Pinned', 'Others']);
+  // Their rows are told apart by their colour, as a chat app's are, so what follows is headed as with none pinned.
+  it.each(['project', 'none'] as const)('heads them and what follows as it would be headed with none pinned (%s)', (grouping) => {
+    for (const list of [[main, cart], [main, cart, notes], [main, old]]) {
+      const titles = (sessions: typeof list) => listView(sessions, '', grouping).groups.map((g) => g.title);
+      expect(titles([...list, first]), `with ${list.map((s) => s.title).join(', ')}`).toEqual([null, ...titles(list)]);
+    }
   });
 
   it('groups as before when none is pinned, or none that fits the search', () => {
@@ -162,7 +165,7 @@ describe('listView, with pinned sessions', () => {
   });
 
   it('narrows them by the search as the rest', () => {
-    expect(listView([main, first, second], 'second', 'project').groups).toEqual([{ cwd: null, title: 'Pinned', sessions: [second] }]);
+    expect(listView([main, first, second], 'second', 'project').groups).toEqual([{ cwd: null, title: null, sessions: [second] }]);
   });
 
   it('says the project beside a pinned row', () => {

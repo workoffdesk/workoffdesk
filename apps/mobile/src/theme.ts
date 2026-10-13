@@ -28,9 +28,10 @@ const dark = {
   codex: '#8957e5',
   shell: '#3d4450',
   needsYou: '#fa5151',
-  // A row of the session list, and one held down.
+  // A row of the session list, one held down, and one pinned.
   row: '#161b22',
   rowHeld: '#1f2630',
+  rowPinned: '#1a2028',
   // The bubble of what you sent.
   mine: '#2f81f7',
   mineText: '#ffffff',
@@ -47,6 +48,7 @@ const light: Colors = {
   surface2: '#eef1f4',
   row: '#ffffff',
   rowHeld: '#eef1f4',
+  rowPinned: '#f3f5f8',
   border: '#d8dee4',
   text: '#1f2328',
   muted: '#636c76',
@@ -78,6 +80,7 @@ const eye: Colors = {
   // The list's rows about the green of Claude's replies, so they stand off the page.
   row: '#b5e0bc',
   rowHeld: '#a3d3ab',
+  rowPinned: '#acdab4',
   border: '#aac7aa',
   text: '#000000',
   muted: '#505f50',

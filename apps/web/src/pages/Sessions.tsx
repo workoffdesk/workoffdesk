@@ -80,7 +80,7 @@ function Row({ s, folder, open, current, unread, onOpen, actions }: { s: TermSes
   };
 
   return (
-    <div className={`sess-row${dx !== null ? ' dragging' : ''}`}>
+    <div className={`sess-row${s.pinned ? ' pinned' : ''}${dx !== null ? ' dragging' : ''}`}>
       {shift < 0 && (
         <span className="sess-actions" style={{ width }}>
           {actions.map((a) => (
