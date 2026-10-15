@@ -32,7 +32,7 @@ describe('chatItems', () => {
     [
       'a shell command, by its description',
       assistant({ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'pnpm test', description: '跑测试' } }),
-      [{ k: 'tool', id: 't1', name: 'Bash', summary: '跑测试', at }],
+      [{ k: 'tool', id: 't1', name: 'Bash', summary: '跑测试', input: 'pnpm test', at }],
     ],
     ['a file edit, by its file', assistant({ type: 'tool_use', id: 't2', name: 'Edit', input: { file_path: '/a/b.ts', old_string: 'x' } }), [{ k: 'tool', id: 't2', name: 'Edit', summary: '/a/b.ts', at }]],
     ['a search, by its pattern', assistant({ type: 'tool_use', id: 't3', name: 'Grep', input: { pattern: 'TODO' } }), [{ k: 'tool', id: 't3', name: 'Grep', summary: 'TODO', at }]],
@@ -333,6 +333,33 @@ describe('chatItems', () => {
 
     it('treats a prompt with no sender recorded, from older Claude Code, as the user', () => {
       expect(chatItems(user('把按钮改成圆角'))).toEqual([{ k: 'user', text: '把按钮改成圆角', at }]);
+    });
+  });
+
+  describe('what a call was asked to do, in full, to be read once it is opened', () => {
+    const call = (name: string, input: object) => chatItems(assistant({ type: 'tool_use', id: 't', name, input }))[0];
+
+    it.each([
+      ['a command of more lines than its first', 'Bash', { command: 'cd a\npnpm test' }, 'cd a', 'cd a\npnpm test'],
+      ['a command longer than its summary', 'Bash', { command: `echo ${'x'.repeat(300)}` }, `echo ${'x'.repeat(195)}…`, `echo ${'x'.repeat(300)}`],
+      ['a sub-agent, by its prompt under its description', 'Agent', { description: '查代码', prompt: '找出谁在读 epoch_utc' }, '查代码', '找出谁在读 epoch_utc'],
+      ['a task, by its prompt under its description', 'Task', { description: '查代码', prompt: '找出谁在读' }, '查代码', '找出谁在读'],
+      ['an unknown tool of a long first input', 'mcp__x__y', { q: '一\n二' }, '一', '一\n二'],
+    ])('carries %s', (_, name, input, summary, full) => {
+      expect(call(name, input)).toMatchObject({ summary, input: full });
+    });
+
+    it.each([
+      ['a command its summary says whole', 'Bash', { command: 'pnpm test' }],
+      ['a file', 'Edit', { file_path: '/a/b.ts', old_string: 'x\ny' }],
+      ['a search', 'Grep', { pattern: 'TODO' }],
+    ])('leaves it out for %s', (_, name, input) => {
+      expect(call(name, input)).not.toHaveProperty('input');
+    });
+
+    it('cuts a very long one short', () => {
+      const item = call('Bash', { command: 'y'.repeat(50_000) });
+      expect(item.k === 'tool' && item.input).toBe(`${'y'.repeat(4000)}…`);
     });
   });
 

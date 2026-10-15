@@ -5,7 +5,7 @@ import { t } from '@workoffdesk/i18n';
 export type ChatItem =
   | { k: 'user'; text: string; at?: string }
   | { k: 'text'; text: string; at?: string }
-  | { k: 'tool'; id: string; name: string; summary: string; at?: string; plan?: string }
+  | { k: 'tool'; id: string; name: string; summary: string; input?: string; at?: string; plan?: string }
   // stopped: the call never ran; Claude Code was stopped (Esc) before it did.
   | { k: 'result'; id: string; text: string; error: boolean; stopped?: true; image?: true; diff?: Diff }
   | { k: 'note'; text: string; detail?: string; retry?: true; command?: true; at?: string }

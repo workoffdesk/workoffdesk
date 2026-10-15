@@ -173,6 +173,27 @@ test.describe('the chat', () => {
     await expect.poll(() => termText(page)).toContain('from-chat-6');
   });
 
+  test('shows what a call was asked to do, whole, once it is opened, while it runs and after', async ({ page }) => {
+    await login(page);
+    const { transcript } = await newClaude(page);
+    const command = `cd ~/Projects/app && grep -rn epoch_utc src \\\n  | grep -v test \\\n  | head -${'9'.repeat(80)}`;
+    writeFileSync(transcript, jsonl(rec.claude({ type: 'tool_use', id: 'toolu_1', name: 'Bash', input: { command, description: '找谁在读 epoch_utc' } })));
+
+    const chat = page.getByTestId('chat');
+    await chat.getByText('找谁在读 epoch_utc').click();
+    const asked = chat.locator('.chat-tool .tool-input');
+    await expect(asked).toHaveText(command);
+    await expect(chat.getByText('还没有结果')).toBeVisible();
+    // A long line wraps rather than run off the side.
+    const box = await asked.boundingBox();
+    expect(box && box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    await shot(page, 'tool-input');
+
+    appendFileSync(transcript, jsonl(rec.user([{ type: 'tool_result', tool_use_id: 'toolu_1', content: 'src/time.ts:3: epoch_utc' }])));
+    await expect(chat.getByText('src/time.ts:3: epoch_utc')).toBeVisible();
+    await expect(asked).toHaveText(command);
+  });
+
   test('follows new replies while at its end, and stays put while reading further up', async ({ page }) => {
     await login(page);
     const { transcript } = await newClaude(page);

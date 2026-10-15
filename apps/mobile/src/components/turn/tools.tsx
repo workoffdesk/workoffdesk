@@ -119,6 +119,7 @@ export function Tool({ sessionId, turn, repeated, s }: { sessionId: string; turn
           {!turn.result && <Text style={s.running}>{t.running}</Text>}
           {turn.result?.stopped && <Text style={s.running}>{t.noteInterrupted}</Text>}
         </Pressable>
+        {open && turn.input && <Output text={turn.input} s={s} />}
         {open &&
           (diff ? (
             <DiffView d={diff} s={s} />

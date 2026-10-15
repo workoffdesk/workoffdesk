@@ -77,6 +77,7 @@ export function TurnView(props: {
             {diff && <DiffCount d={diff} />}
             {!turn.result && <span className="tool-running">{t.running}</span>}
           </summary>
+          {turn.input && <pre className="tool-input">{turn.input}</pre>}
           {diff ? <DiffView d={diff} /> : <pre>{turn.result ? (turn.result.stopped ? t.toolStopped(who) : turn.result.text || t.noOutput) : t.noResultYet}</pre>}
         </details>
       );

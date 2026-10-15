@@ -74,7 +74,7 @@ and Rewind are Claude Code's, and are not offered.
 ## The chat
 
 A Claude session is shown as its conversation, read from Claude Code's transcript: your messages, Claude's
-replies rendered as Markdown, and tool calls folded (tap to see their output). Older turns load as you scroll
+replies rendered as Markdown, and tool calls folded (tap to see the whole command and its output). Older turns load as you scroll
 up. The phone keeps a copy of what it has read, so reopening a session is instant.
 
 - While Claude works through a task list, a bar says how far along it is. **Stop** (in place of the send

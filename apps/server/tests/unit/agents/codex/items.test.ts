@@ -54,6 +54,18 @@ describe('entriesOf', () => {
       expect(ran({ command: `echo ${'x'.repeat(300)}\necho two` })[0]).toMatchObject({ summary: `echo ${'x'.repeat(195)}…` });
     });
 
+    it('carries the whole shell line, to be read once it is opened', () => {
+      expect(ran({ command: `echo ${'x'.repeat(300)}\necho two` })[0]).toMatchObject({ input: `echo ${'x'.repeat(300)}\necho two` });
+    });
+
+    it('cuts a very long shell line short', () => {
+      expect(ran({ command: 'y'.repeat(50_000) })[0]).toMatchObject({ input: `${'y'.repeat(4000)}…` });
+    });
+
+    it('carries no more than its summary says, when that is all', () => {
+      expect(ran({ commandActions: [{ command: 'ls -la' }] })[0]).not.toHaveProperty('input');
+    });
+
     it('cuts what it printed at 2000 characters', () => {
       expect(ran({ aggregatedOutput: 'y'.repeat(2500) })[1]).toMatchObject({ text: `${'y'.repeat(2000)}…` });
     });

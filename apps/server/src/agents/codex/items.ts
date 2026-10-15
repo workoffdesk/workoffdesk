@@ -16,6 +16,7 @@ const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 const SUMMARY_MAX = 200;
 const RESULT_MAX = 2000;
+const INPUT_MAX = 4000;
 const DIFF_LINES_MAX = 300;
 const DIFF_LINE_MAX = 400;
 const DETAIL_MAX = 4000;
@@ -78,9 +79,10 @@ export function entriesOfEvent(e: CodexThreadEvent): Entry[] {
     case 'codex:plan':
       return e.text ? [{ id: e.id, item: { k: 'text', text: e.text, ...stamp } }] : [];
     case 'codex:commandExecution': {
-      const { id } = e;
+      const { id, command } = e;
+      const summary = line1(command);
       return [
-        { id, item: { k: 'tool', id, name: 'Bash', summary: line1(e.command), ...stamp } },
+        { id, item: { k: 'tool', id, name: 'Bash', summary, ...(summary !== command && { input: clip(command, INPUT_MAX) }), ...stamp } },
         { id: `${id}#r`, item: { k: 'result', id, text: clip(e.output, RESULT_MAX), ...failedOrStopped(e.status), ...(e.exitCode !== undefined && e.exitCode !== 0 && { error: true }) } },
       ];
     }

@@ -7,7 +7,8 @@ import { unhandled } from '../../events.js';
 export type ChatItem =
   | { k: 'user'; text: string; at?: string }
   | { k: 'text'; text: string; at?: string }
-  | { k: 'tool'; id: string; name: string; summary: string; at?: string; plan?: string }
+  // input: what it was asked to do, whole, when summary says less.
+  | { k: 'tool'; id: string; name: string; summary: string; input?: string; at?: string; plan?: string }
   // stopped: the call never ran; Claude Code was stopped (Esc) before it did.
   | { k: 'result'; id: string; text: string; error: boolean; stopped?: true; image?: true; diff?: Diff }
   // A line between the turns: text as it is in the transcript, or an event the phone puts in its own words.
@@ -37,13 +38,15 @@ const SUMMARY_MAX = 200;
 const DIFF_LINES_MAX = 300;
 const DIFF_LINE_MAX = 400;
 const RESULT_MAX = 2000;
+const INPUT_MAX = 4000;
 // What Claude Code records as the answer of a call it was stopped before running.
 const STOPPED = /^The user doesn't want to (proceed with this tool use|take this action)/;
 
 const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max)}…` : s);
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
-export function toolSummary(name: string, input: Record<string, unknown>): string {
+// The text a call's summary is of, whole.
+function toolSaid(name: string, input: Record<string, unknown>): string {
   const pick = (...keys: string[]) => keys.map((k) => str(input[k])).find(Boolean);
   const named = {
     Bash: () => pick('description', 'command'),
@@ -58,8 +61,18 @@ export function toolSummary(name: string, input: Record<string, unknown>): strin
     Agent: () => pick('description', 'prompt'),
     Task: () => pick('description', 'prompt'),
   }[name];
-  const s = named?.() ?? Object.values(input).map(str).find(Boolean) ?? '';
-  return clip(s.split('\n')[0], SUMMARY_MAX);
+  return named?.() ?? Object.values(input).map(str).find(Boolean) ?? '';
+}
+
+export const toolSummary = (name: string, input: Record<string, unknown>) => clip(toolSaid(name, input).split('\n')[0], SUMMARY_MAX);
+
+// Where what a call was asked is not the text its summary is of.
+const WHOLE: Record<string, string> = { Bash: 'command', Agent: 'prompt', Task: 'prompt' };
+
+// What a call was asked to do, whole, when its summary says less.
+function toolInput(name: string, input: Record<string, unknown>, summary: string): string | undefined {
+  const whole = str(input[WHOLE[name]]) || toolSaid(name, input);
+  return whole && whole !== summary ? clip(whole, INPUT_MAX) : undefined;
 }
 
 // What Claude Code prints after a command for each hook that ran, when the hook is workoffdesk's own.
@@ -175,7 +188,9 @@ function replyItems(blocks: ReplyBlock[], at: string | undefined): ChatItem[] {
     if (b.type === 'text') return b.text.trim() ? [{ k: 'text', text: b.text.trim(), at }] : [];
     const name = b.name || 'Tool';
     const plan = planOf(name, b.input);
-    return [{ k: 'tool', id: b.id, name, summary: toolSummary(name, b.input), at, ...(plan && { plan }) }, ...taskItems(name, b.input)];
+    const summary = toolSummary(name, b.input);
+    const input = toolInput(name, b.input, summary);
+    return [{ k: 'tool', id: b.id, name, summary, ...(input && { input }), at, ...(plan && { plan }) }, ...taskItems(name, b.input)];
   });
 }
 
