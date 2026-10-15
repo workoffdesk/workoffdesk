@@ -156,6 +156,21 @@ describe('sessionState', () => {
       expect(offer('working', { choices: opened })).toBe(false);
     });
 
+    it('names the call that runs in the foreground, the last not yet answered, while it can be sent to the background', () => {
+      const items: SessionView['items'] = (
+        [
+          { k: 'tool', id: 'a', name: 'Bash', summary: 'find . -size +200M' },
+          { k: 'result', id: 'a', text: 'Command running in background with ID: b1', error: false },
+          { k: 'tool', id: 'b', name: 'Bash', summary: 'for i in 1 2 3; do cat out; done' },
+        ] as const
+      ).map((i, pos) => ({ ...i, itemId: `i${pos}`, pos, conv: 'c' }));
+      const shown = (background: boolean, all = items) =>
+        sessionState(facts({ view: view({ status: 'working', items: all, screen: screen({ background }) }) }), local()).foreground;
+      expect(shown(true)).toBe('for i in 1 2 3; do cat out; done');
+      expect(shown(false)).toBeNull();
+      expect(shown(true, items.slice(0, 2))).toBeNull();
+    });
+
     it('can be sent now only while Claude works and nothing covers the prompt', () => {
       expect(sessionState(facts({ view: view({ status: 'working' }) }), local()).canSendNow).toBe(true);
       expect(sessionState(facts({ view: view({ status: 'idle' }) }), local()).canSendNow).toBe(false);

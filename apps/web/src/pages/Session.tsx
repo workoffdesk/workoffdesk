@@ -291,7 +291,7 @@ export function SessionPage({ id }: { id: string }) {
               <CompactingBar count={s.queued.length} />
             )}
             {chat && <TaskBar tasks={view.tasks} />}
-            {s.canBackground && <ForegroundBar busy={s.backgrounding} onBackground={session.toBackground} />}
+            {s.canBackground && <ForegroundBar call={s.foreground} busy={s.backgrounding} onBackground={session.toBackground} />}
             <QueueTray
               queued={s.queued}
               why={s.queueWhy}

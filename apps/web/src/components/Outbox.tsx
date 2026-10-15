@@ -63,12 +63,13 @@ export function OnMacBar({ terminals, sessionId, onError }: { terminals: number;
 
 // Above the composer while Claude runs a tool in the foreground that Claude Code offers to send to the
 // background: what is sent waits for the tool, unless it goes there.
-export function ForegroundBar({ busy, onBackground }: { busy: boolean; onBackground: () => void }) {
+export function ForegroundBar({ call, busy, onBackground }: { call: string | null; busy: boolean; onBackground: () => void }) {
   const who = useAgentName();
   return (
     <div className="send-held foreground" role="status" aria-label={t.foregroundRuns(who)}>
       <span>
         <b>{t.foregroundRuns(who)}</b>
+        {call && <code>{call}</code>}
         <small>{t.foregroundSub}</small>
       </span>
       <button className="btn small" disabled={busy} aria-busy={busy} onClick={onBackground}>

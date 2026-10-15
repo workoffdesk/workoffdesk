@@ -198,6 +198,17 @@ export function cachedChat(v: unknown): ChatState | null {
 }
 
 type ToolResult = Omit<Extract<ChatItem, { k: 'result' }>, 'k' | 'id'>;
+// The call Claude has made and has no answer to yet, the last one: what it is doing now.
+export function callGoing(items: ChatItem[]): Extract<ChatItem, { k: 'tool' }> | null {
+  const answered = new Set<string>();
+  for (let n = items.length - 1; n >= 0; n--) {
+    const i = items[n];
+    if (i.k === 'result') answered.add(i.id);
+    else if (i.k === 'tool' && !answered.has(i.id)) return i;
+  }
+  return null;
+}
+
 export type ToolTurn = Extract<ChatItem, { k: 'tool' }> & { result?: ToolResult };
 // A file a reply changed, with every change to it counted, and the last call that changed it.
 export type Changed = { file: string; added: number; removed: number; created?: true; tool: string };

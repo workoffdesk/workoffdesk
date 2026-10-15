@@ -59,14 +59,19 @@ export function CompactingBar({ count }: { count: number }) {
 }
 
 // Above the composer while Claude runs a tool in the foreground that Claude Code offers to send to the
-// background: what is sent waits for the tool, unless it goes there.
-export function ForegroundBar({ busy, onBackground }: { busy: boolean; onBackground: () => void }) {
+// background: what is sent waits for the tool, unless it goes there. call: that tool's, when known.
+export function ForegroundBar({ call, busy, onBackground }: { call: string | null; busy: boolean; onBackground: () => void }) {
   const s = useStyles();
   const who = useAgentName();
   return (
     <View style={s.held} accessibilityLabel={t.foregroundRuns(who)}>
       <View style={s.heldText}>
         <Text style={s.heldTitle}>{t.foregroundRuns(who)}</Text>
+        {call && (
+          <Text style={s.heldCode} numberOfLines={1}>
+            {call}
+          </Text>
+        )}
         <Text style={s.heldSub}>{t.foregroundSub}</Text>
       </View>
       <Button small label={t.runInBackground} busy={busy} onPress={onBackground} />

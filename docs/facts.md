@@ -306,11 +306,13 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   to go back to; Screen shows the Mac's screen as text. (`apps/web/src/components/TaskBar.tsx`,
   `BackgroundBar.tsx`, `turn/Reply.tsx`, `turn/bubbles.tsx`, `libs/i18n` `showScreen`)
 - While Claude Code offers to send the tool Claude runs in the foreground to the background (its
-  `(ctrl+b to run in background)` line), a bar above the composer has Run in background, which presses Ctrl+B
+  `(ctrl+b to run in background)` line), a bar above the composer names that tool's call, the last one Claude made that has no answer yet, and has
+  Run in background, which presses Ctrl+B
   once, and nothing when the offer is gone by then; messages waiting in Claude's queue then go in.
   (`apps/server/src/agents/claude/screen/background.ts`, `apps/server/src/sessions/machine/input.ts` `toBackground`,
   `apps/web/src/components/Outbox.tsx` `ForegroundBar`, `apps/mobile/src/components/cards/bars.tsx`,
-  `apps/server/tests/integration/sessions/machine.sending.test.ts`, `docs/design/2026-10-15-run-in-background.md`)
+  `apps/server/tests/integration/sessions/machine.sending.test.ts`, `libs/client/src/model/chat.ts` `callGoing`,
+  `docs/design/2026-10-15-run-in-background.md`)
 - The pill under the composer shows the context used and switches model, permission mode and effort by typing
   the command (`/effort high`). (`apps/web/src/components/KeyMenus.tsx`)
 - `@` lists the files of the session's folder. (`libs/client/src/composer/slash.ts` `mentionAt`, `apps/server/src/http/routes/chat.ts`)

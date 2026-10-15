@@ -1,6 +1,6 @@
 import { t } from '@workoffdesk/i18n';
 import { agentName, isAgent, type ClaudeStatus, type TermSession } from '../base/api';
-import { hasDialog, type ModelChoice, type OnScreen } from '../model/chat';
+import { callGoing, hasDialog, type ModelChoice, type OnScreen } from '../model/chat';
 import { queue, type InQueue, type SessionView } from '../journal/journalRows';
 import { headerStatus, type LinkState } from './sessionLink';
 
@@ -63,6 +63,8 @@ export type SessionShown = {
   queueWhy: string;
   canSendNow: boolean;
   canBackground: boolean;
+  // What runs in the foreground, while it can be sent to the background, when the conversation says.
+  foreground: string | null;
   suggestion: string | null;
   dialog: OnScreen | null;
   dialogBusy: boolean;
@@ -88,6 +90,7 @@ export function sessionState(f: SessionFacts, l: SessionLocal): SessionShown {
   const status = ended ? 'ended' : (view.status ?? known?.status);
   const covered = !!(screen.choices || screen.panel) || status === 'waiting';
   const up = hasDialog(screen);
+  const canBackground = status === 'working' && !covered && !!screen.background;
   return {
     view,
     kind: known?.kind ?? null,
@@ -101,7 +104,8 @@ export function sessionState(f: SessionFacts, l: SessionLocal): SessionShown {
     queued: queue(view, l.taking),
     queueWhy: queueWhy(status, agentName(known?.kind)),
     canSendNow: status === 'working' && !covered,
-    canBackground: status === 'working' && !covered && !!screen.background,
+    canBackground,
+    foreground: canBackground ? (callGoing(view.items)?.summary ?? null) : null,
     suggestion: isAgent(known?.kind) && status === 'idle' && screen.suggestion && screen.suggestion !== l.dismissed ? screen.suggestion : null,
     dialog: up ? screen : l.settling,
     dialogBusy: !up && !!l.settling,

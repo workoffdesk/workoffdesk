@@ -117,4 +117,5 @@ const styles = ({ c, fs }: Theme) =>
     onMacSub: { flex: 1, fontSize: fs(13), color: c.muted },
     heldTitle: { fontSize: fs(14), fontWeight: '600', color: c.text },
     heldSub: { fontSize: fs(13), color: c.muted },
+    heldCode: { fontSize: fs(13), fontFamily: MONO, color: c.text },
   });
