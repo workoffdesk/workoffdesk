@@ -205,6 +205,7 @@ To restart the service only: launchctl kickstart -k gui/$(id -u)/${o.label}`,
   takeOver: {
     openOnMac: (ttys: (string | null)[], agent: string) =>
       `this conversation is open in a terminal on the Mac${ttys.some(Boolean) ? ` (${ttys.filter(Boolean).join(', ')})` : ''}; quit ${agent} there first, or take it over from the phone`,
+    macUnanswered: 'The Mac did not say in time whether this conversation is open in a terminal there; try again in a moment',
     wouldNotQuit: (agent: string) => `${agent} in the terminal on the Mac did not quit within 10 seconds; nothing was resumed`,
     openElsewhere: 'this conversation is open in another Codex app (an editor or the Codex app); close it there first',
     // Said in the terminal it was quit in.

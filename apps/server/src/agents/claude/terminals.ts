@@ -29,34 +29,57 @@ const STOP_LOOK_MS = 100;
 
 const STATUSES = new Set(['idle', 'busy', 'waiting']);
 
+// Claude Code, or ps, did not answer in time: what is open on the Mac cannot be told, which is not that none is.
+export class MacUnanswered extends Error {
+  constructor() {
+    super('the Mac did not say in time which Claude conversations are open in its terminals');
+  }
+}
+
 const run = (bin: string, args: string[], env?: NodeJS.ProcessEnv) =>
   new Promise<string>((resolve, reject) =>
-    execFile(bin, args, { timeout: LIST_MS, maxBuffer: 16 * 1024 * 1024, env }, (err, stdout) => (err ? reject(err) : resolve(String(stdout)))),
+    execFile(bin, args, { timeout: LIST_MS, maxBuffer: 16 * 1024 * 1024, env }, (err, stdout) =>
+      err ? reject(err.killed ? new MacUnanswered() : err) : resolve(String(stdout)),
+    ),
   );
+
+// What a program that answered, but not with a listing, is taken for; one that did not answer stays unanswered.
+const orElse =
+  <T>(value: (e: unknown) => T) =>
+  (e: unknown): T => {
+    if (e instanceof MacUnanswered) throw e;
+    return value(e);
+  };
+const outOf = (e: unknown) => String((e as { stdout?: unknown }).stdout ?? '');
 
 // Asked for again while a listing runs, the one running answers.
 const running = new Map<string, Promise<MacClaude[]>>();
 const made = new Map<string, { at: number; claudes: MacClaude[] }>();
 
 // None when Claude Code cannot say (too old for `agents`, not installed): then nothing is known to be open.
-// recentMs: one made up to that long ago will do, and is answered at once while a new one is made; listing
-// starts Claude Code, which can take seconds.
+// MacUnanswered when it does not answer in time. recentMs: for what is only shown, one made up to that long ago
+// will do, and is answered at once while a new one is made (listing starts Claude Code, which can take seconds);
+// one not answered then is the last that was.
 export function listMacClaudes(claudeBin: string, recentMs = 0): Promise<MacClaude[]> {
   const last = made.get(claudeBin);
   const listing = running.get(claudeBin) ?? listAgain(claudeBin);
-  return last && Date.now() - last.at < recentMs ? Promise.resolve(last.claudes) : listing;
+  if (!recentMs) return listing;
+  if (last && Date.now() - last.at < recentMs) return Promise.resolve(last.claudes);
+  return listing.catch(() => made.get(claudeBin)?.claudes ?? []);
 }
 
 function listAgain(claudeBin: string): Promise<MacClaude[]> {
   const at = Date.now();
   const next = listNow(claudeBin)
-    .catch(() => [])
+    .catch(orElse(() => []))
     .then((claudes) => {
       made.set(claudeBin, { at, claudes });
       return claudes;
     })
     .finally(() => running.delete(claudeBin));
   running.set(claudeBin, next);
+  // Those answered from the last listing do not wait on this one.
+  next.catch(() => {});
   return next;
 }
 
@@ -65,7 +88,7 @@ async function listNow(claudeBin: string): Promise<MacClaude[]> {
     [...(await configDirs())].map((dir) =>
       run(claudeBin, ['agents', '--json'], dir === undefined ? undefined : { ...process.env, CLAUDE_CONFIG_DIR: dir })
         .then((out): unknown => JSON.parse(out))
-        .catch((): unknown => []),
+        .catch(orElse((): unknown => [])),
     ),
   );
   const listed = listings.flatMap((l) => (Array.isArray(l) ? l : []));
@@ -88,7 +111,7 @@ async function listNow(claudeBin: string): Promise<MacClaude[]> {
 // set CLAUDE_CONFIG_DIR while sharing the conversations with the rest. undefined: this server's own.
 async function configDirs(): Promise<Set<string | undefined>> {
   const dirs = new Set<string | undefined>([undefined]);
-  const out = await run('/bin/ps', ['-E', '-ww', '-A', '-o', 'command=']).catch((e) => String(e.stdout ?? ''));
+  const out = await run('/bin/ps', ['-E', '-ww', '-A', '-o', 'command=']).catch(orElse(outOf));
   for (const line of out.split('\n')) {
     // Claude Code's own program, or the one npm installs, which node runs.
     if (!/^(\S*\/)?(node\s+(\S*\/)?)?claude(\s|$)/.test(line)) continue;
@@ -102,7 +125,7 @@ async function configDirs(): Promise<Set<string | undefined>> {
 // with WORKOFFDESK_SESSION, whichever WorkOffDesk on this Mac started it, and what it starts inherits it.
 // One gone since it was listed is left out.
 async function processes(pids: number[]): Promise<Map<number, { tty: string | null; inWorkOffDesk: boolean }>> {
-  const out = await run('/bin/ps', ['-E', '-ww', '-o', 'pid=,tty=,command=', '-p', pids.join(',')]).catch((e) => String(e.stdout ?? ''));
+  const out = await run('/bin/ps', ['-E', '-ww', '-o', 'pid=,tty=,command=', '-p', pids.join(',')]).catch(orElse(outOf));
   const procs = new Map<number, { tty: string | null; inWorkOffDesk: boolean }>();
   for (const line of out.split('\n')) {
     const [, pid, tty, command] = /^\s*(\d+)\s+(\S+)\s(.*)$/.exec(line) ?? [];

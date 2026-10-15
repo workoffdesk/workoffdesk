@@ -98,6 +98,31 @@ describe('a conversation open on the Mac', () => {
   });
 });
 
+// Whether it is open there is asked of Claude Code; when it does not answer, it may be, and is not gone on with here.
+describe('a conversation the Mac does not say is open or not', () => {
+  const hangs = join(dir, 'claude-hangs');
+  writeFileSync(hangs, '#!/bin/sh\nexec sleep 30\n');
+  chmodSync(hangs, 0o755);
+
+  it.each<[string, (m: LocalMachine, spec: { kind: 'claude'; cwd: string; resumeId: string }) => Promise<unknown>]>([
+    ['going on with it', (m, spec) => m.createSession(spec)],
+    ['taking it over now', (m, spec) => m.createSession({ ...spec, takeOver: true })],
+    ['taking it over once its turn is over', (m, spec) => m.takeOverWhenIdle(spec)],
+  ])('is not resumed on %s', async (_, ask) => {
+    const m = new LocalMachine({
+      tmux,
+      store: new Store(join(mkdtempSync(join(dir, 's-')), 'state.json')),
+      claudeSettingsPath: '/dev/null',
+      claudeBin: hangs,
+      shell: '/bin/sh',
+      claudeProjectsRoot: mkdtempSync(join(dir, 'p-')),
+      journal: { file: join(dir, `${randomUUID()}.db`), log: () => {} },
+    });
+    await expect(ask(m, { kind: 'claude', cwd: mkdtempSync(join(dir, 'c-')), resumeId: randomUUID() })).rejects.toMatchObject({ status: 409, code: 'mac-unanswered' });
+    expect(await m.listSessions()).toEqual([]);
+  }, 20_000);
+});
+
 // The server restarts with every update: what it waits for is on disk, not only in memory.
 describe('a take-over waited on', () => {
   const opened = async (m: LocalMachine, sid: string) => (await m.listSessions()).find((x) => x.claudeSessionId === sid);

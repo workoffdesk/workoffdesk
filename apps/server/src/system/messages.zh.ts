@@ -169,6 +169,7 @@ ${o.frontDoor}
   },
   takeOver: {
     openOnMac: (ttys, agent) => `这个对话正开在 Mac 的终端里${ttys.some(Boolean) ? `（${ttys.filter(Boolean).join('、')}）` : ''}；先在那里退出 ${agent}，或者从手机上接管`,
+    macUnanswered: 'Mac 没及时说清这个对话是不是还开在终端里；稍等再试一次',
     wouldNotQuit: (agent) => `Mac 终端里的 ${agent} 10 秒内没有退出；没有续上`,
     openElsewhere: '这个对话开在别的 Codex 应用里（编辑器或 Codex 桌面版）；先在那里关掉',
     goneToPhone: (id) => `workoffdesk：这个对话已转到 workoffdesk 里接着进行。要在这台电脑上接着用：workoffdesk attach ${id}`,

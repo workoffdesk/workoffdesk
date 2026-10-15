@@ -49,6 +49,7 @@ export const common: typeof en = {
     'background-session': '这个对话在 Claude 的后台会话里，不能在这里续',
     'open-on-mac': '这个对话还开在电脑的终端里',
     'mac-would-not-quit': '电脑上那边没有退出，没有续上',
+    'mac-unanswered': '电脑没及时说清这个对话是不是还开着，稍等再试一次',
     'open-elsewhere': '这个对话开在别的 Codex 应用里（编辑器或 Codex App），先在那边关掉',
     'conversation-gone': '这个对话已经不在 Agent 那里了（Claude Code 默认 30 天后删除），这里仍能查看说过的内容',
     'not-an-image': '只能上传图片（PNG、JPEG、GIF、WebP、HEIC）',

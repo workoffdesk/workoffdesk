@@ -1,9 +1,9 @@
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
-import { listMacClaudes, stopMacProcess } from '../../../../src/agents/claude/terminals.js';
+import { listMacClaudes, MacUnanswered, stopMacProcess } from '../../../../src/agents/claude/terminals.js';
 import { alive } from '../../../helpers/processes.js';
 import { testTmux } from '../../../helpers/tmux.js';
 
@@ -11,10 +11,12 @@ import { testTmux } from '../../../helpers/tmux.js';
 // for this server's own Claudes, a config dir's own list when that dir has one.
 const dir = mkdtempSync(join(tmpdir(), 'ts-mac-claudes-'));
 const LIST = 'workoffdesk-test-agents.json';
+// While it is there, Claude Code does not answer.
+const HANGS = join(dir, 'hangs');
 const fakeClaude = join(dir, 'claude');
 writeFileSync(
   fakeClaude,
-  `#!/bin/sh\n[ "$1 $2" = "agents --json" ] || exit 2\nif [ -f "$CLAUDE_CONFIG_DIR/${LIST}" ]; then cat "$CLAUDE_CONFIG_DIR/${LIST}"; else cat ${JSON.stringify(join(dir, LIST))}; fi\n`,
+  `#!/bin/sh\n[ -f ${JSON.stringify(HANGS)} ] && exec sleep 30\n[ "$1 $2" = "agents --json" ] || exit 2\nif [ -f "$CLAUDE_CONFIG_DIR/${LIST}" ]; then cat "$CLAUDE_CONFIG_DIR/${LIST}"; else cat ${JSON.stringify(join(dir, LIST))}; fi\n`,
 );
 chmodSync(fakeClaude, 0o755);
 const lists = (agents: unknown, configDir = dir) => writeFileSync(join(configDir, LIST), JSON.stringify(agents));
@@ -109,6 +111,19 @@ describe('listMacClaudes', () => {
     expect(a).toBe(b);
     await a;
     expect(listMacClaudes(fakeClaude)).not.toBe(a);
+  });
+
+  describe('when Claude Code does not answer in time', () => {
+    afterEach(() => rmSync(HANGS, { force: true }));
+
+    it('cannot tell, rather than that none is open; what is only shown is the last it could tell', async () => {
+      const a = await runs();
+      lists([agent(a)]);
+      expect((await listMacClaudes(fakeClaude)).map((c) => c.pid)).toEqual([a]);
+      writeFileSync(HANGS, '');
+      await expect(listMacClaudes(fakeClaude)).rejects.toBeInstanceOf(MacUnanswered);
+      expect((await listMacClaudes(fakeClaude, 1)).map((c) => c.pid)).toEqual([a]);
+    }, 20_000);
   });
 
   describe('asked for one made lately', () => {

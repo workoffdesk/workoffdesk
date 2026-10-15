@@ -50,6 +50,7 @@ export const common = {
     'background-session': 'This conversation is in a Claude background session and cannot be resumed here.',
     'open-on-mac': 'This conversation is still open in a terminal on the Mac.',
     'mac-would-not-quit': 'It did not quit on the Mac, so nothing was resumed.',
+    'mac-unanswered': 'The Mac did not say in time whether this conversation is still open there. Try again in a moment.',
     'open-elsewhere': 'This conversation is open in another Codex app (an editor or the Codex app). Close it there first.',
     'conversation-gone': 'The agent no longer keeps this conversation (Claude Code deletes them after 30 days unless set to keep them longer). What was said can still be read here.',
     'not-an-image': 'Only images can be uploaded (PNG, JPEG, GIF, WebP, HEIC).',
