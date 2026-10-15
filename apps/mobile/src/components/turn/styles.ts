@@ -70,6 +70,7 @@ const styles = ({ c, fs }: Theme) =>
     },
     stoppedFailed: { borderColor: c.danger, borderWidth: 1, borderRadius: 8, backgroundColor: c.removedBg },
     stoppedText: { fontSize: fs(12), color: c.muted, textAlign: 'center' },
+    toolGo: { alignSelf: 'flex-start', marginVertical: 6 },
     smallBtn: { minHeight: 36, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, justifyContent: 'center' },
     smallBtnText: { fontSize: fs(14), fontWeight: '600', color: c.text },
     changes: { gap: 2, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 12, backgroundColor: c.surface2 },

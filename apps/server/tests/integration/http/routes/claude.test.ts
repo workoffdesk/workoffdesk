@@ -27,6 +27,14 @@ const SIZE = statSync(transcript).size;
 // A conversation outside Claude Code's projects folder is not read.
 writeFileSync(join(dir, `${OTHER}.jsonl`), `${JSON.stringify(turn(0)[0])}\n`);
 
+// A sub-agent the conversation started, by the call that started it.
+const TOOL = 'toolu_01AbCd';
+const subagents = join(projects, '-work-proj', CONV, 'subagents');
+mkdirSync(subagents, { recursive: true });
+writeFileSync(join(subagents, 'agent-a1.meta.json'), JSON.stringify({ agentType: 'general-purpose', description: 'Find the callers', toolUseId: TOOL }));
+const agentTranscript = join(subagents, 'agent-a1.jsonl');
+writeFileSync(agentTranscript, `${turn(0).map((r) => JSON.stringify({ ...r, isSidechain: true })).join('\n')}\n`);
+
 const cancelled: string[] = [];
 const machine = {
   id: 'local',
@@ -89,6 +97,44 @@ describe('GET /api/claude/sessions/:sid/chat', () => {
     expect((await chat(CONV, `?sid=${CONV}&from=${n}`)).json()).toEqual({ error: 'bad from' });
     expect((await chat(CONV, `?sid=${CONV}&before=${n}`)).json()).toEqual({ error: 'bad before' });
     expect((await chat(CONV, `?sid=${CONV}&before=${n}`)).statusCode).toBe(400);
+  });
+});
+
+describe('a sub-agent the conversation started', () => {
+  const agentChat = (sid: string, tool: string, query = '') => get(`/api/claude/sessions/${sid}/agents/${tool}/chat${query}`);
+
+  it('gives its conversation as its own, the same way as the conversation that started it', async () => {
+    const r = await agentChat(CONV, TOOL);
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual(JSON.parse(JSON.stringify({ sid: TOOL, ...(await readChat(agentTranscript, 0, { sidechain: true })) })));
+    expect(r.json().items.map((i: { text: string }) => i.text)).toEqual(['Question 0', 'Answer 0']);
+  });
+
+  it('goes on from where the phone read up to', async () => {
+    const firstLine = Buffer.byteLength(`${JSON.stringify({ ...turn(0)[0], isSidechain: true })}\n`);
+    const r = (await agentChat(CONV, TOOL, `?sid=${TOOL}&from=${firstLine}`)).json();
+    expect(r).toMatchObject({ sid: TOOL, from: firstLine });
+    expect(r.items.map((i: { text: string }) => i.text)).toEqual(['Answer 0']);
+  });
+
+  it('says what it was started to do', async () => {
+    const r = await get(`/api/claude/sessions/${CONV}/agents/${TOOL}`);
+    expect(r.json()).toEqual({ description: 'Find the callers' });
+  });
+
+  it.each([
+    ['a call that started none', CONV, 'toolu_01Other'],
+    ['a conversation that started none', OTHER, TOOL],
+    ['a path for the call', CONV, '..%2Fagent-a1'],
+  ])('finds nothing for %s', async (_, sid, tool) => {
+    for (const r of [await agentChat(sid, tool), await get(`/api/claude/sessions/${sid}/agents/${tool}`)]) {
+      expect(r.statusCode).toBe(404);
+      expect(r.json()).toEqual({ error: 'no such sub-agent' });
+    }
+  });
+
+  it('refuses a place in it that is not one', async () => {
+    expect((await agentChat(CONV, TOOL, `?sid=${TOOL}&from=-1`)).statusCode).toBe(400);
   });
 });
 

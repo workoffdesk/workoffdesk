@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { E2E_HOME } from '../../playwright.config';
@@ -225,6 +225,34 @@ test.describe('the chat', () => {
       rmSync(stays, { force: true });
       there.kill('SIGKILL');
     }
+  });
+
+  test("follows what a sub-agent does from the call that started it, as it goes, and comes back", async ({ page }) => {
+    await login(page);
+    const { id, transcript } = await newClaude(page);
+    const sid = basename(transcript, '.jsonl');
+    const folder = join(dirname(transcript), sid, 'subagents');
+    mkdirSync(folder, { recursive: true });
+    const its = join(folder, 'agent-a1.jsonl');
+    const side = (r: object) => ({ ...r, isSidechain: true });
+    writeFileSync(its, jsonl(side(rec.user('找出登录按钮的样式')), side(rec.claude({ type: 'text', text: '在 styles.css 第 12 行。' }))));
+    writeFileSync(join(folder, 'agent-a1.meta.json'), JSON.stringify({ agentType: 'general-purpose', description: '查登录样式', toolUseId: 'toolu_9' }));
+    writeFileSync(transcript, jsonl(rec.claude({ type: 'tool_use', id: 'toolu_9', name: 'Agent', input: { description: '查登录样式', prompt: '找出登录按钮的样式' } })));
+
+    await page.getByTestId('chat').getByText('查登录样式').click();
+    await shot(page, 'subagent-row');
+    await page.getByTestId('chat').getByRole('button', { name: '看它做了什么' }).click();
+    await expect(page).toHaveURL(new RegExp(`/claude/${sid}/agents/toolu_9$`));
+    const chat = page.getByTestId('chat');
+    await expect(page.locator('.term-title')).toContainText('查登录样式');
+    await expect(chat.getByText('在 styles.css 第 12 行。')).toBeVisible();
+    appendFileSync(its, jsonl(side(rec.claude({ type: 'text', text: '改成 12px 了。' }))));
+    await expect(chat.getByText('改成 12px 了。')).toBeVisible();
+    await expect(page.getByLabel('输入')).toHaveCount(0);
+    await shot(page, 'subagent');
+
+    await page.getByRole('button', { name: '返回' }).click();
+    await expect(page).toHaveURL(new RegExp(`/m/local/s/${id}$`));
   });
 
   test('follows new replies while at its end, and stays put while reading further up', async ({ page }) => {

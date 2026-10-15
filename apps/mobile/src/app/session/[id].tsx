@@ -13,6 +13,7 @@ import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AgentName } from '@workoffdesk/react/agentName';
+import { ClaudeConversation } from '@workoffdesk/react/claudeConversation';
 import { useAccountMove } from '@workoffdesk/react/moveAccount';
 import { answers, api, journals, keyBar } from '../../client';
 import { ChatList, type Entry } from '../../components/ChatList';
@@ -151,21 +152,23 @@ function SessionScreen({ id }: { id: string }) {
             {chatShown && (!syncing || kept) && (
               // A chat kept from before shows while it is brought up to date, so the list is at its end before
               // what came since goes in.
-              <JumpContext value={jump}>
-                <ChatList
-                  listRef={list}
-                  entries={entries}
-                  sentId={newest}
-                  onOlder={() => void journals.older(id)}
-                  loadingOlder={view.loadingOlder}
-                  room={docked}
-                  dock={dock}
-                  freeze={freeze}
-                  keyboardOffset={keyboardOffset}
-                  empty={!view.synced && !view.failed && ended ? <Text style={[s.muted, s.center, s.reading]}>{t.endedNoChat}</Text> : null}
-                  onAway={setAway}
-                />
-              </JumpContext>
+              <ClaudeConversation value={kind === 'claude' ? (known?.claudeSessionId ?? null) : null}>
+                <JumpContext value={jump}>
+                  <ChatList
+                    listRef={list}
+                    entries={entries}
+                    sentId={newest}
+                    onOlder={() => void journals.older(id)}
+                    loadingOlder={view.loadingOlder}
+                    room={docked}
+                    dock={dock}
+                    freeze={freeze}
+                    keyboardOffset={keyboardOffset}
+                    empty={!view.synced && !view.failed && ended ? <Text style={[s.muted, s.center, s.reading]}>{t.endedNoChat}</Text> : null}
+                    onAway={setAway}
+                  />
+                </JumpContext>
+              </ClaudeConversation>
             )}
             {(chatShown || kind === null) && syncing && !kept && <ChatSkeleton />}
             {kind === 'shell' && !ended && (

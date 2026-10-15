@@ -229,7 +229,8 @@ Every test file is listed under the risks it guards; one that guards several is 
   `libs/client/tests/chat/chatFeed.test.ts`, `libs/client/tests/model/chat.test.ts`,
   `libs/client/tests/sessions/macRecent.test.ts`, `libs/client/tests/base/release.test.ts`,
   `libs/client/tests/base/platform.test.ts`, `libs/client/tests/base/retry.test.ts`,
-  `libs/client/tests/base/api.test.ts`, `libs/client/tests/sessions/peer.test.ts`
+  `libs/client/tests/base/api.test.ts`, `libs/client/tests/sessions/peer.test.ts`,
+  `libs/client/tests/sessions/subagent.test.ts`
 - End to end: `apps/server/tests/e2e/connection.spec.ts`, `apps/server/tests/e2e/chat.spec.ts`
 
 ### The Mac and its user's things are left alone

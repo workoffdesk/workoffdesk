@@ -1,5 +1,5 @@
-import { readdir, open, stat, type FileHandle } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readdir, readFile, open, stat, type FileHandle } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { chatItems, type ChatItem } from './chat.js';
 
 // A session's transcript file read for the chat: from where the phone's copy ends, back from where it
@@ -11,9 +11,11 @@ const MAX_READ = 4 * 1024 * 1024;
 const PAGE_TURNS = 100;
 const CHUNK = 256 * 1024;
 
-function lineItems(l: string): ChatItem[] {
+// sidechain: the file is a sub-agent's, whose records are all marked as not its parent's, and are its own here.
+function lineItems(l: string, sidechain = false): ChatItem[] {
   try {
-    return chatItems(JSON.parse(l));
+    const r: unknown = JSON.parse(l);
+    return chatItems(sidechain && r && typeof r === 'object' ? { ...r, isSidechain: false } : r);
   } catch {
     return [];
   }
@@ -68,16 +70,20 @@ export async function linesFrom(path: string, from: number, maxRead = MAX_READ):
 export async function readChat(
   path: string,
   from: number,
-  o: { maxRead?: number; turns?: number } = {},
+  o: { maxRead?: number; turns?: number; sidechain?: boolean } = {},
 ): Promise<{ items: ChatItem[]; from: number; next: number; skipped: boolean }> {
   const size = (await stat(path)).size;
-  if (from === 0 || from > size) return readChatBefore(path, size, { turns: o.turns });
+  if (from === 0 || from > size) return readChatBefore(path, size, { turns: o.turns, sidechain: o.sidechain });
   const fh = await open(path, 'r');
   try {
     const buf = Buffer.alloc(Math.min(size - from, o.maxRead ?? MAX_READ));
     await fh.read(buf, 0, buf.length, from);
     const end = buf.lastIndexOf(0x0a) + 1;
-    const items = buf.subarray(0, end).toString('utf8').split('\n').flatMap(lineItems);
+    const items = buf
+      .subarray(0, end)
+      .toString('utf8')
+      .split('\n')
+      .flatMap((l) => lineItems(l, o.sidechain));
     return { items, from, next: from + end, skipped: false };
   } finally {
     await fh.close();
@@ -126,7 +132,7 @@ async function* linesBefore(fh: FileHandle, end: number, chunk: number) {
 export async function readChatBefore(
   path: string,
   before: number,
-  o: { turns?: number; maxRead?: number; chunk?: number } = {},
+  o: { turns?: number; maxRead?: number; chunk?: number; sidechain?: boolean } = {},
 ): Promise<{ items: ChatItem[]; from: number; next: number; skipped: boolean }> {
   const turns = o.turns ?? PAGE_TURNS;
   const maxRead = o.maxRead ?? MAX_READ;
@@ -140,7 +146,7 @@ export async function readChatBefore(
     for await (const { start, line } of linesBefore(fh, end, o.chunk ?? CHUNK)) {
       next ??= start + line.length + 1;
       if (count >= turns || (from !== undefined && next - start > maxRead)) break;
-      const items = lineItems(line.toString('utf8'));
+      const items = lineItems(line.toString('utf8'), o.sidechain);
       taken.push(items);
       count += items.filter((i) => i.k !== 'result').length;
       from = start;
@@ -197,6 +203,31 @@ export async function findTranscript(root: string, sessionId: string): Promise<s
       if ((await stat(p)).isFile()) return p;
     } catch {
       // not in this folder
+    }
+  }
+  return null;
+}
+
+// A sub-agent a conversation started, by the id of the call that started it: its transcript, beside
+// <session id>/subagents/agent-<id>.meta.json, which names the call, under the conversation's own folder.
+export async function findSubagent(root: string, sessionId: string, toolUseId: string): Promise<{ path: string; description: string } | null> {
+  const parent = await findTranscript(root, sessionId);
+  if (!parent) return null;
+  const dir = join(dirname(parent), sessionId, 'subagents');
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return null;
+  }
+  for (const n of names.filter((n) => /^agent-[A-Za-z0-9]+\.meta\.json$/.test(n))) {
+    try {
+      const meta: unknown = JSON.parse(await readFile(join(dir, n), 'utf8'));
+      if (!meta || typeof meta !== 'object' || (meta as { toolUseId?: unknown }).toolUseId !== toolUseId) continue;
+      const description = (meta as { description?: unknown }).description;
+      return { path: join(dir, n.replace(/\.meta\.json$/, '.jsonl')), description: typeof description === 'string' ? description : '' };
+    } catch {
+      // being written, or not a sub-agent's
     }
   }
   return null;

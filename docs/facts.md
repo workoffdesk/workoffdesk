@@ -301,6 +301,10 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
 - A message from another Claude session leads to that session, found by the process Claude Code checked it
   came from, while it runs on the Mac; once it is gone, the button says so. (`apps/server/src/http/routes/claude.ts`,
   `apps/server/tests/integration/http/app.claude.test.ts`, `apps/server/tests/e2e/chat.spec.ts`)
+- A sub-agent's call leads to the sub-agent's own conversation, read from the transcript Claude Code keeps beside
+  its parent's and found by the call's id, and followed as it is written. (`apps/server/src/http/routes/claude.ts`,
+  `apps/server/src/agents/claude/transcript/transcriptFile.ts`, `apps/server/tests/integration/http/routes/claude.test.ts`,
+  `apps/server/tests/e2e/chat.spec.ts`)
 - A command typed after `!` shows as that command, and what it printed as a note under it.
   (`apps/server/src/agents/claude/transcript/chat.ts`, `apps/server/tests/unit/agents/claude/transcript/chat.test.ts`)
 - The interface is English or Chinese, following the phone. (`libs/i18n`)

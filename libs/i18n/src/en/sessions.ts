@@ -54,6 +54,7 @@ export const sessions = {
   notOnMac: 'This conversation is no longer on the Mac',
   readOnly: 'Read-only',
   cannotRead: 'Cannot read this conversation',
+  subagent: 'Sub-agent',
   openAlreadyOnPhone: 'Open (already open on the phone)',
   inBackgroundNoResume: 'In a Claude background session, cannot resume here',
   openElsewhereNoResume: 'Open in another Codex app, cannot resume here',

@@ -1,9 +1,9 @@
-import { appendFileSync, mkdtempSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ChatItem } from '../../../../../src/agents/claude/transcript/chat.js';
-import { findTranscript, lastSaid, readChat, readChatBefore } from '../../../../../src/agents/claude/transcript/transcriptFile.js';
+import { findSubagent, findTranscript, lastSaid, readChat, readChatBefore } from '../../../../../src/agents/claude/transcript/transcriptFile.js';
 
 const at = '2026-10-03T06:00:00.000Z';
 const user = (content: unknown, extra = {}) => ({ type: 'user', timestamp: at, message: { role: 'user', content }, ...extra });
@@ -161,6 +161,60 @@ describe('readChatBefore', () => {
     const r = await readChatBefore(f, 10_000, { turns: 5 });
     expect(said(r.items)).toEqual(['新的']);
     expect(r.next).toBe(statSync(f).size);
+  });
+});
+
+describe("a sub-agent's transcript", () => {
+  const records = [user('查一下谁在读 epoch_utc'), assistant({ type: 'text', text: '找到两处。' })];
+  const ownFile = () => {
+    const f = join(scratch(), 'agent-a1.jsonl');
+    writeFileSync(f, records.map((r) => line({ ...r, isSidechain: true, agentId: 'a1' })).join(''));
+    return f;
+  };
+  const plain = async () => {
+    const f = join(scratch(), 's.jsonl');
+    writeFileSync(f, records.map(line).join(''));
+    return (await readChat(f, 0)).items;
+  };
+
+  it("reads as the sub-agent's own conversation, the same as a conversation of its own would be", async () => {
+    expect((await readChat(ownFile(), 0, { sidechain: true })).items).toEqual(await plain());
+    expect((await readChatBefore(ownFile(), Number.MAX_SAFE_INTEGER, { sidechain: true })).items).toEqual(await plain());
+  });
+
+  it('reads what the sub-agent added since the last read as its own too', async () => {
+    const f = ownFile();
+    const { next } = await readChat(f, 0, { sidechain: true });
+    appendFileSync(f, line({ ...assistant({ type: 'text', text: '改好了。' }), isSidechain: true }));
+    expect((await readChat(f, next, { sidechain: true })).items).toEqual([{ k: 'text', text: '改好了。', at }]);
+  });
+
+  it("reads as nothing of a parent's conversation", async () => {
+    expect((await readChat(ownFile(), 0)).items).toEqual([]);
+  });
+
+  describe('found by the call that started it', () => {
+    const SID = '0b9c2a7e-1111-4222-8333-944445555666';
+    const root = scratch();
+    const subagents = join(root, '-proj', SID, 'subagents');
+    mkdirSync(subagents, { recursive: true });
+    writeFileSync(join(root, '-proj', `${SID}.jsonl`), '');
+    writeFileSync(join(subagents, 'agent-a1.meta.json'), JSON.stringify({ agentType: 'general-purpose', description: '查代码', toolUseId: 'toolu_01Ab' }));
+    writeFileSync(join(subagents, 'agent-a1.jsonl'), '');
+    writeFileSync(join(subagents, 'agent-a2.meta.json'), 'not json');
+
+    it('finds its transcript and description under the conversation that started it', async () => {
+      expect(await findSubagent(root, SID, 'toolu_01Ab')).toEqual({ path: join(subagents, 'agent-a1.jsonl'), description: '查代码' });
+    });
+
+    it.each([
+      ['a call that started none', SID, 'toolu_02Cd'],
+      ['a conversation that started none', '0b9c2a7e-1111-4222-8333-944445555667', 'toolu_01Ab'],
+      ['an id that is a path', SID, '../toolu_01Ab'],
+      ['a conversation id that is a path', '../-proj', 'toolu_01Ab'],
+    ])('finds none for %s', async (_, sid, tool) => {
+      expect(await findSubagent(root, sid, tool)).toBeNull();
+    });
   });
 });
 

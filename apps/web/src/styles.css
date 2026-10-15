@@ -640,6 +640,7 @@ input, textarea { font: inherit; color: inherit; }
 .chat-tools-list { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px 6px; padding-left: 8px; border-left: 2px solid var(--border); }
 .chat-tool pre { margin-top: 4px; max-height: 40vh; overflow: auto; }
 .chat-tool .tool-input { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+.chat-tool .tool-go { display: block; margin: 6px 0; }
 .diff-count { flex: none; display: inline-flex; gap: 6px; font-variant-numeric: tabular-nums; }
 .diff-count ins { color: var(--added); text-decoration: none; }
 .diff-count del { color: var(--danger); text-decoration: none; }

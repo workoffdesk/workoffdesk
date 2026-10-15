@@ -80,6 +80,7 @@ export const common = {
     `${status === 'completed' ? 'Background task done' : status === 'failed' ? 'Background task failed' : 'Background task'}: ${what}`,
   notePeer: (from: string) => `Message from ${from || 'another session'}`,
   goToSender: 'Go to that session',
+  seeWhatItDid: 'See what it did',
 
   // Claude Code's own slash commands, by name; the server describes them in English.
   builtinCommands: {} as Record<string, string>,

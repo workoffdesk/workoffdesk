@@ -66,6 +66,7 @@ export default function RootLayout() {
             <Stack.Screen name="conversations" options={{ title: t.conversationsOnMac, headerBackTitle: t.back }} />
             <Stack.Screen name="claude/[sid]" options={{ title: t.macSession, headerShown: false }} />
             <Stack.Screen name="codex/[sid]" options={{ title: t.macSession, headerShown: false }} />
+            <Stack.Screen name="claude/[sid]/agents/[tool]" options={{ title: t.subagent, headerShown: false }} />
             <Stack.Screen name="add-account" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
           </Stack.Protected>
           <Stack.Protected guard={!signedIn}>

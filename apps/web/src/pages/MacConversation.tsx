@@ -1,13 +1,15 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { agentName, api, MACHINE, type Agent } from '../api';
 import { rows, turns } from '@workoffdesk/client/model/chat';
 import { useChat } from '../components/ChatView';
+import { useStayAtEnd } from '../components/stayAtEnd';
 import { TurnView } from '../components/TurnView';
 import { ToolsRow } from '../components/turn/ToolsRow';
 import { shortPath, timeAgo } from '@workoffdesk/client/model/format';
 import { keptConversation } from '@workoffdesk/client/sessions/macRecent';
 import { onMacSays, previewChatUrl } from '@workoffdesk/client/sessions/newSession';
 import { useMacConversation } from '@workoffdesk/react/macConversation';
+import { ClaudeConversation } from '@workoffdesk/react/claudeConversation';
 import { PageHeader } from '../components/PageHeader';
 import { navigate } from '../router';
 import { storage } from '../platform';
@@ -25,28 +27,9 @@ export function MacConversation({ agent, sid }: { agent: Agent; sid: string }) {
     (id) => navigate(`/m/${MACHINE}/s/${id}`),
     kept,
   );
-  const scroller = useRef<HTMLDivElement>(null);
   const shown = chat ? turns(chat.items, chat.base) : [];
-
-  // The end stays in sight while the reader is at it, as turns come in and as the page and the foot below
-  // it change size (the foot's buttons come once the Mac answers, after the turns are shown).
-  const atEnd = useRef(true);
-  useLayoutEffect(() => {
-    const el = scroller.current;
-    if (!el) return;
-    const keep = () => {
-      if (atEnd.current) el.scrollTop = el.scrollHeight;
-    };
-    keep();
-    const seen = new ResizeObserver(keep);
-    seen.observe(el);
-    for (const child of el.children) seen.observe(child);
-    return () => seen.disconnect();
-  }, [shown.length]);
-  const noteWhere = () => {
-    const el = scroller.current;
-    if (el) atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-  };
+  // The foot's buttons come once the Mac answers, after the turns are shown.
+  const { scroller, noteWhere } = useStayAtEnd(shown.length);
 
   return (
     <div className="term-page">
@@ -62,13 +45,15 @@ export function MacConversation({ agent, sid }: { agent: Agent; sid: string }) {
       />
       <div className="term-wrap">
         <div className="chat" ref={scroller} onScroll={noteWhere}>
-          {rows(shown).map((r) =>
-            r.k === 'tools' ? (
-              <ToolsRow key={r.key} sessionId={sid} tools={r.tools} going={r.going} onOpen={() => {}} />
-            ) : (
-              <TurnView key={r.t.key} sessionId={sid} t={r.t} onOpen={() => {}} />
-            )
-          )}
+          <ClaudeConversation.Provider value={agent === 'claude' ? sid : null}>
+            {rows(shown).map((r) =>
+              r.k === 'tools' ? (
+                <ToolsRow key={r.key} sessionId={sid} tools={r.tools} going={r.going} onOpen={() => {}} />
+              ) : (
+                <TurnView key={r.t.key} sessionId={sid} t={r.t} onOpen={() => {}} />
+              )
+            )}
+          </ClaudeConversation.Provider>
           {!chat && !failed && <div className="chat-empty muted">{t.reading}</div>}
           {failed && <div className="chat-note">{t.cannotRead}</div>}
         </div>

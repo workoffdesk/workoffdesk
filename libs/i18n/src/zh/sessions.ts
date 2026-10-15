@@ -54,6 +54,7 @@ export const sessions: typeof en = {
   notOnMac: 'Mac 上已经没有这个对话了',
   readOnly: '只读',
   cannotRead: '读不到这个对话',
+  subagent: '子 agent',
   openAlreadyOnPhone: '打开（已经在手机上开着）',
   inBackgroundNoResume: '在 Claude 后台会话里，这里不能续',
   openElsewhereNoResume: '开在别的 Codex 应用里，这里不能续',

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { agentName, api, errorText, isAgent, MACHINE, type Agent, type TermSession } from '../api';
 import { AgentName } from '@workoffdesk/react/agentName';
+import { ClaudeConversation } from '@workoffdesk/react/claudeConversation';
 import { ChatView, SendHeld } from '../components/ChatView';
 import { RenameSheet } from '../components/RenameSheet';
 import { Composer } from '../components/Composer';
@@ -198,7 +199,9 @@ export function SessionPage({ id }: { id: string }) {
         />
         <div className="term-wrap">
           {chat && (
-            <ChatView session={session} s={s} limitActions={<LimitActions move={move} state={moveState} />} />
+            <ClaudeConversation.Provider value={kind === 'claude' ? (known?.claudeSessionId ?? null) : null}>
+              <ChatView session={session} s={s} limitActions={<LimitActions move={move} state={moveState} />} />
+            </ClaudeConversation.Provider>
           )}
           {kind === 'shell' && !ended && (
             <div className="overlay">

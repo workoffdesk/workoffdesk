@@ -79,6 +79,8 @@ up. The phone keeps a copy of what it has read, so reopening a session is instan
 
 - A message another Claude session sent shows as "Message from …"; opened, it offers **Go to that session**,
   which goes to that session while it is still running on the Mac.
+- A sub-agent's call (Agent, or Task in older Claude Code), opened, offers **See what it did**: the
+  sub-agent's own conversation, read-only, following it while it runs.
 - While Claude works through a task list, a bar says how far along it is. **Stop** (in place of the send
   button while the composer is empty) interrupts it, like Esc.
 - Commands and agents running in the background are listed in a bar that opens `/tasks`.

@@ -9,6 +9,7 @@ import { Settings } from './pages/Settings';
 import { Mac } from './pages/Mac';
 import { SessionPage } from './pages/Session';
 import { MacConversation } from './pages/MacConversation';
+import { Subagent } from './pages/Subagent';
 import type { Agent } from './api';
 import { keepFresh, useBehind } from './freshness';
 import { registerServiceWorker } from './push';
@@ -44,7 +45,14 @@ function Page() {
   const term = path.match(/^\/m\/[^/]+\/s\/([a-z0-9]+)$/)?.[1];
   const mac = path.match(/^\/(claude|codex)\/([0-9a-f-]{36})$/);
   const onMac = mac ? { agent: mac[1] as Agent, sid: mac[2] } : null;
-  const open = term ? <SessionPage key={term} id={term} /> : onMac ? <MacConversation key={path} {...onMac} /> : null;
+  const sub = path.match(/^\/claude\/([0-9a-f-]{36})\/agents\/([\w-]+)$/);
+  const open = term ? (
+    <SessionPage key={term} id={term} />
+  ) : onMac ? (
+    <MacConversation key={path} {...onMac} />
+  ) : sub ? (
+    <Subagent key={path} sid={sub[1]} tool={sub[2]} />
+  ) : null;
   if (path === '/conversations') {
     if (!wide) return <Conversations />;
     return (
@@ -62,7 +70,7 @@ function Page() {
   return (
     <div className="split">
       <div className="split-list">
-        <Sessions current={term ?? onMac?.sid} />
+        <Sessions current={term ?? onMac?.sid ?? sub?.[1]} />
       </div>
       <div className="split-pane">{open ?? <p className="split-empty muted">{t.chooseSession}</p>}</div>
     </div>

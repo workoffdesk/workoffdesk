@@ -1,11 +1,13 @@
 import { errorText } from '@workoffdesk/client/base/api';
 import { noteText, type Turn } from '@workoffdesk/client/model/chat';
 import { sentFrom } from '@workoffdesk/client/sessions/peer';
+import { startsSubagent, subagentPage } from '@workoffdesk/client/sessions/subagent';
 import { useState, type ReactNode } from 'react';
 import { api, MACHINE } from '../api';
 import { navigate } from '../router';
 import { t } from '@workoffdesk/i18n';
 import { useAgentName } from '@workoffdesk/react/agentName';
+import { useClaudeConversation } from '@workoffdesk/react/claudeConversation';
 import { Reply, ReplyWithImages, ShownAbove } from './turn/Reply';
 import { ChangesCard, DiffCount, DiffView, ToolSummary } from './turn/ToolsRow';
 import { type Opener, Pictures } from './turn/media';
@@ -27,6 +29,7 @@ export function TurnView(props: {
   retryActions?: ReactNode;
 }) {
   const who = useAgentName();
+  const conversation = useClaudeConversation();
   const { sessionId, t: turn, repeated, onOpen } = props;
   switch (turn.k) {
     case 'user':
@@ -83,6 +86,11 @@ export function TurnView(props: {
             {!turn.result && <span className="tool-running">{t.running}</span>}
           </summary>
           {turn.input && <pre className="tool-input">{turn.input}</pre>}
+          {conversation && startsSubagent(turn.name) && (
+            <button className="btn small tool-go" onClick={() => navigate(subagentPage(conversation, turn.id))}>
+              {t.seeWhatItDid}
+            </button>
+          )}
           {diff ? <DiffView d={diff} /> : <pre>{turn.result ? (turn.result.stopped ? t.toolStopped(who) : turn.result.text || t.noOutput) : t.noResultYet}</pre>}
         </details>
       );

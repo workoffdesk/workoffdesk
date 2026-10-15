@@ -3,6 +3,9 @@ import { t } from '@workoffdesk/i18n';
 import { useContext } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useAgentName } from '@workoffdesk/react/agentName';
+import { useClaudeConversation } from '@workoffdesk/react/claudeConversation';
+import { startsSubagent } from '@workoffdesk/client/sessions/subagent';
+import { router } from 'expo-router';
 import { Markdown } from '../Markdown';
 import { type S } from './styles';
 import { JumpContext, LongView, useOpened } from './common';
@@ -100,6 +103,7 @@ export function ChangesCard({ files, s }: { files: Changed[]; s: S }) {
 export function Tool({ sessionId, turn, repeated, s }: { sessionId: string; turn: ToolTurn & { key: string }; repeated?: Set<string>; s: S }) {
   const [open, setOpen] = useOpened([turn.key]);
   const who = useAgentName();
+  const conversation = useClaudeConversation();
   if (turn.plan)
     return (
       <View style={s.plan}>
@@ -120,6 +124,15 @@ export function Tool({ sessionId, turn, repeated, s }: { sessionId: string; turn
           {turn.result?.stopped && <Text style={s.running}>{t.noteInterrupted}</Text>}
         </Pressable>
         {open && turn.input && <Output text={turn.input} s={s} />}
+        {open && conversation && startsSubagent(turn.name) && (
+          <Pressable
+            style={[s.smallBtn, s.toolGo]}
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/claude/[sid]/agents/[tool]', params: { sid: conversation, tool: turn.id } })}
+          >
+            <Text style={s.smallBtnText}>{t.seeWhatItDid}</Text>
+          </Pressable>
+        )}
         {open &&
           (diff ? (
             <DiffView d={diff} s={s} />

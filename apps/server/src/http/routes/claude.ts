@@ -1,7 +1,8 @@
-import { findTranscript, readChat, readChatBefore } from '../../agents/claude/transcript/transcriptFile.js';
+import { findSubagent, findTranscript, readChat, readChatBefore } from '../../agents/claude/transcript/transcriptFile.js';
 import { heldInBackground, listAllClaudeSessions, listProjectDirs, listRecentClaudeSessions, oneClaudeSession, type RecentClaudeSession } from '../../agents/claude/transcript/transcripts.js';
 import { isDir } from '../../system/dirs.js';
 import { InvalidRequest, NotFound } from '../../system/errors.js';
+import type { FastifyReply } from 'fastify';
 import type { AppDeps } from '../app.js';
 import type { RouteModule } from './context.js';
 
@@ -62,6 +63,19 @@ export async function peerOf(deps: AppDeps, pid: number, name: string) {
   return { sid: c.sessionId, openIn: held?.id ?? null };
 }
 
+type ChatQuery = { from?: string; before?: string; sid?: string };
+
+// A page of a transcript's chat, as a session's chat is paged: on from `from`, or back from `before`, both places
+// in the transcript named `sid`; from its latest turns when the caller's copy is of another one.
+async function chatPage(path: string, sid: string, q: ChatQuery, reply: FastifyReply, sidechain = false) {
+  const from = Number(q.from ?? 0);
+  const before = q.before === undefined ? null : Number(q.before);
+  if (!Number.isSafeInteger(from) || from < 0) return reply.code(400).send({ error: 'bad from' });
+  if (before !== null && (!Number.isSafeInteger(before) || before < 0)) return reply.code(400).send({ error: 'bad before' });
+  if (q.sid !== sid) return { sid, ...(await readChat(path, 0, { sidechain })) };
+  return { sid, ...(await (before === null ? readChat(path, from, { sidechain }) : readChatBefore(path, before, { sidechain }))) };
+}
+
 // Claude sessions on this Mac to pick up again, and the folders worth starting one in.
 export const register: RouteModule = (app, ctx) => {
   const { deps } = ctx;
@@ -82,20 +96,26 @@ export const register: RouteModule = (app, ctx) => {
 
   // A Claude session's conversation, by its session id, to read before picking it up here; the same shape
   // as a session's chat. Only a transcript under Claude Code's projects folder is read.
-  app.get<{ Params: { sid: string }; Querystring: { from?: string; before?: string; sid?: string } }>(
-    '/api/claude/sessions/:sid/chat',
-    async (req, reply) => {
-      const { sid } = req.params;
-      const path = deps.claudeProjectsRoot ? await findTranscript(deps.claudeProjectsRoot, sid) : null;
-      if (!path) return reply.code(404).send({ error: 'no such conversation' });
-      const from = Number(req.query.from ?? 0);
-      const before = req.query.before === undefined ? null : Number(req.query.before);
-      if (!Number.isSafeInteger(from) || from < 0) return reply.code(400).send({ error: 'bad from' });
-      if (before !== null && (!Number.isSafeInteger(before) || before < 0)) return reply.code(400).send({ error: 'bad before' });
-      if (req.query.sid !== sid) return { sid, ...(await readChat(path, 0)) };
-      return { sid, ...(await (before === null ? readChat(path, from) : readChatBefore(path, before))) };
-    },
-  );
+  app.get<{ Params: { sid: string }; Querystring: ChatQuery }>('/api/claude/sessions/:sid/chat', async (req, reply) => {
+    const { sid } = req.params;
+    const path = deps.claudeProjectsRoot ? await findTranscript(deps.claudeProjectsRoot, sid) : null;
+    if (!path) return reply.code(404).send({ error: 'no such conversation' });
+    return chatPage(path, sid, req.query, reply);
+  });
+
+  // A sub-agent the conversation started, by the call that started it: what it was started to do, and its own
+  // conversation, read the same way.
+  const subagent = (sid: string, tool: string) => (deps.claudeProjectsRoot ? findSubagent(deps.claudeProjectsRoot, sid, tool) : null);
+  app.get<{ Params: { sid: string; tool: string } }>('/api/claude/sessions/:sid/agents/:tool', async (req, reply) => {
+    const found = await subagent(req.params.sid, req.params.tool);
+    if (!found) return reply.code(404).send({ error: 'no such sub-agent' });
+    return { description: found.description };
+  });
+  app.get<{ Params: { sid: string; tool: string }; Querystring: ChatQuery }>('/api/claude/sessions/:sid/agents/:tool/chat', async (req, reply) => {
+    const found = await subagent(req.params.sid, req.params.tool);
+    if (!found) return reply.code(404).send({ error: 'no such sub-agent' });
+    return chatPage(found.path, req.params.tool, req.query, reply, true);
+  });
 
   // The Claude accounts on this Mac, the one new sessions run on, and a pick of another.
   app.get('/api/claude/accounts', () => machine.claudeAccountsView());

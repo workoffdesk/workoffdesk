@@ -77,6 +77,7 @@ export const common: typeof en = {
   noteTask: (status, what) => `${status === 'completed' ? '后台任务完成' : status === 'failed' ? '后台任务失败' : '后台任务'}：${what}`,
   notePeer: (from) => `收到 ${from || '另一个会话'} 的消息`,
   goToSender: '去那个会话',
+  seeWhatItDid: '看它做了什么',
 
   builtinCommands: {
     agents: '管理子 agent',
