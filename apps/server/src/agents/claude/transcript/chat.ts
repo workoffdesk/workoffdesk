@@ -76,9 +76,11 @@ function taskMade(v: unknown): ChatItem | null {
   return typeof t.id === 'string' && typeof t.subject === 'string' ? { k: 'task', id: t.id, subject: t.subject, status: 'pending' } : null;
 }
 
-// A command Claude ran in the background, or one the user sent there while it ran.
+// A command Claude ran in the background, or one the user sent there while it ran, or an agent it started
+// there; each one's end comes as a task notification with this id.
 function backgroundStarted(v: unknown, tool: string): ChatItem[] {
-  const id = v && typeof v === 'object' ? (v as { backgroundTaskId?: unknown }).backgroundTaskId : null;
+  const r = v && typeof v === 'object' ? (v as { backgroundTaskId?: unknown; status?: unknown; agentId?: unknown }) : {};
+  const id = r.status === 'async_launched' ? r.agentId : r.backgroundTaskId;
   return typeof id === 'string' ? [{ k: 'bg', id, tool, status: 'running' }] : [];
 }
 

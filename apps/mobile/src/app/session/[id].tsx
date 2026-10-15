@@ -17,7 +17,7 @@ import { useAccountMove } from '@workoffdesk/react/moveAccount';
 import { answers, api, journals, keyBar } from '../../client';
 import { ChatList, type Entry } from '../../components/ChatList';
 import { ChatSkeleton, PillSkeleton } from '../../components/ChatSkeleton';
-import { CompactingBar, OnMacBar, SendHeld } from '../../components/cards/bars';
+import { CompactingBar, ForegroundBar, OnMacBar, SendHeld } from '../../components/cards/bars';
 import { LimitActions, MoveAccountSheet } from '../../components/MoveAccount';
 import { Popup } from '../../components/Popup';
 import { Composer } from '../../components/Composer';
@@ -231,6 +231,7 @@ function SessionScreen({ id }: { id: string }) {
                   {view.onMac > 0 && <OnMacBar terminals={view.onMac} sessionId={id} />}
                   {status === 'compacting' && <CompactingBar count={queued.length} />}
                   {chatShown && <TaskBar tasks={view.tasks} />}
+                  {ss.canBackground && <ForegroundBar busy={ss.backgrounding} onBackground={session.toBackground} />}
                   <QueueTray
                     queued={queued}
                     why={ss.queueWhy}

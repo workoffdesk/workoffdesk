@@ -801,7 +801,7 @@ input, textarea { font: inherit; color: inherit; }
 .outbox-item.held .bubble { opacity: 0.55; }
 .outbox-item small { display: flex; align-items: center; gap: 10px; font-size: calc(12px * var(--text-scale)); color: var(--muted); }
 .outbox-item button { padding: 2px 0; border: 0; background: none; font: inherit; color: var(--accent); }
-.send-held.compacting { background: color-mix(in srgb, var(--working) 14%, var(--surface)); border-color: var(--working); }
+.send-held.compacting, .send-held.foreground { background: color-mix(in srgb, var(--working) 14%, var(--surface)); border-color: var(--working); }
 
 /* What waits for Claude, above the composer, in the order it will go. */
 .queue { display: flex; flex-direction: column; gap: 4px; max-height: 40vh; overflow-y: auto; }

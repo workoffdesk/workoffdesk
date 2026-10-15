@@ -37,6 +37,7 @@ const machine = {
   sendMessage: async (...a: unknown[]) => called('sendMessage')(...a),
   runCommand: async (...a: unknown[]) => called('runCommand')(...a),
   press: async (...a: unknown[]) => called('press')(...a),
+  toBackground: async (...a: unknown[]) => called('toBackground')(...a),
   close: async (...a: unknown[]) => called('close')(...a),
   unsend: called('unsend'),
   sendNow: async (...a: unknown[]) => called('sendNow')(...a),
@@ -187,6 +188,19 @@ describe('POST /api/m/:machine/sessions/:id/keys and /close', () => {
     result = 'after';
     expect((await send('POST', 'abc/close')).json()).toEqual({ screen: 'after' });
     expect(reached).toEqual([['close', 'abc']]);
+  });
+});
+
+describe('POST /api/m/:machine/sessions/:id/background', () => {
+  it.each([true, false])('sends the command at work to the background, and says whether it went: %s', async (went) => {
+    result = went;
+    expect((await send('POST', 'abc/background')).json()).toEqual({ sent: went });
+    expect(reached).toEqual([['toBackground', 'abc']]);
+  });
+
+  it('presses nothing in a session there is not', async () => {
+    expect((await send('POST', 'nosuch/background')).statusCode).toBe(404);
+    expect(reached).toEqual([]);
   });
 });
 

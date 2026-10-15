@@ -58,6 +58,22 @@ export function CompactingBar({ count }: { count: number }) {
   );
 }
 
+// Above the composer while Claude runs a tool in the foreground that Claude Code offers to send to the
+// background: what is sent waits for the tool, unless it goes there.
+export function ForegroundBar({ busy, onBackground }: { busy: boolean; onBackground: () => void }) {
+  const s = useStyles();
+  const who = useAgentName();
+  return (
+    <View style={s.held} accessibilityLabel={t.foregroundRuns(who)}>
+      <View style={s.heldText}>
+        <Text style={s.heldTitle}>{t.foregroundRuns(who)}</Text>
+        <Text style={s.heldSub}>{t.foregroundSub}</Text>
+      </View>
+      <Button small label={t.runInBackground} busy={busy} onPress={onBackground} />
+    </View>
+  );
+}
+
 // Above the composer while the conversation is open in a terminal on the Mac too, in a Claude of its own, which it
 // quits; one there at work only once told to. The bar goes once the Mac no longer has it open.
 export function OnMacBar({ terminals, sessionId }: { terminals: number; sessionId: string }) {

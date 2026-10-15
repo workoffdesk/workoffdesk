@@ -79,7 +79,10 @@ up. The phone keeps a copy of what it has read, so reopening a session is instan
 
 - While Claude works through a task list, a bar says how far along it is. **Stop** (in place of the send
   button while the composer is empty) interrupts it, like Esc.
-- Commands running in the background are listed in a bar that opens `/tasks`.
+- Commands and agents running in the background are listed in a bar that opens `/tasks`.
+- While Claude runs a command in the foreground, what you send waits until it is over. A bar above the
+  composer says so, and **Run in background** sends the command to the background, as Ctrl+B does at the Mac,
+  so Claude reads your messages at once.
 - **Read aloud** under a reply reads it with the phone's voice.
 - **Rewind** under your last message opens Claude Code's own list of points to go back to.
 - When the chat cannot show what Claude is waiting on, **Screen** shows the Mac's screen as text.

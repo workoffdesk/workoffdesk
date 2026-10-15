@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { LocalMachine } from '../../../src/sessions/machine.js';
+import { tmuxName } from '../../../src/sessions/sessionName.js';
 import { machineSetup } from '../../helpers/machine.js';
 import { until } from '../../helpers/until.js';
 
@@ -180,4 +181,47 @@ describe('LocalMachine', () => {
     });
   });
 
+  describe('toBackground', () => {
+    // A tool at work drawn as Claude Code draws it, with its offer to go to the background until a while after a
+    // Ctrl+B comes; every byte it gets goes to a file.
+    const OFFERING = join(dir, 'offering.py');
+    writeFileSync(
+      OFFERING,
+      [
+        'import os, sys, time, tty',
+        'log = sys.argv[1]',
+        'tty.setraw(0)',
+        String.raw`draw = lambda offer: os.write(1, ('\x1b[2J\x1b[Hoffering-ready\r\n  Bash(sleep 600)\r\n  ⎿  Running… (5s)\r\n' + ('     (ctrl+b ctrl+b (twice) to run in background)\r\n' if offer else '')).encode())`,
+        'draw(True)',
+        'while True:',
+        '    got = os.read(0, 4096)',
+        "    with open(log, 'ab') as f: f.write(got)",
+        String.raw`    if b'\x02' in got: time.sleep(0.3); draw(False)`,
+      ].join('\n'),
+    );
+
+    it('presses one Ctrl+B, which reaches Claude past the prefix of tmux, and no second once the offer is gone', async () => {
+      const { m } = make({ claudeArgs: ['--run', `exec python3 ${OFFERING} ${dir}/bg-$WORKOFFDESK_SESSION.log`] });
+      const { id } = await m.createSession({ kind: 'claude', cwd: dir });
+      const log = join(dir, `bg-${id}.log`);
+      writeFileSync(log, '');
+      expect(await until(async () => (await m.screenText(id)).includes('to run in background'))).toBe(true);
+      m.setStatus(id, 'working');
+      expect(await m.toBackground(id)).toBe(true);
+      expect(readFileSync(log, 'latin1')).toBe('\x02');
+      expect(await m.toBackground(id)).toBe(false);
+      expect(readFileSync(log, 'latin1')).toBe('\x02');
+    });
+
+    it('presses nothing in a shell, whatever its screen says', async () => {
+      const { m } = make();
+      const { id } = await m.createSession({ kind: 'shell', cwd: dir });
+      const log = join(dir, `bg-${id}.log`);
+      writeFileSync(log, '');
+      await tmux.sendKeys(tmuxName(id), `exec python3 ${OFFERING} ${log}`);
+      expect(await until(async () => (await m.screenText(id)).includes('to run in background'))).toBe(true);
+      expect(await m.toBackground(id)).toBe(false);
+      expect(readFileSync(log, 'latin1')).toBe('');
+    });
+  });
 });

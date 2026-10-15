@@ -212,6 +212,17 @@ describe('chatItems', () => {
     for (const r of chatItems(record)) expect(r).not.toHaveProperty('diff');
   });
 
+  // Shapes from real transcripts (Claude Code 2.1.288 and 2.1.300): what Claude starts in the background, and an
+  // agent it waits for, which is not.
+  it.each([
+    ['a command', { backgroundTaskId: 'bdfoi2os0' }, [{ k: 'bg', id: 'bdfoi2os0', tool: 'r1', status: 'running' }]],
+    ['an agent', { isAsync: true, status: 'async_launched', agentId: 'ae570f17b9bca02be', description: 'Map the code' }, [{ k: 'bg', id: 'ae570f17b9bca02be', tool: 'r1', status: 'running' }]],
+    ['an agent waited for', { status: 'completed', agentId: 'ae570f17b9bca02be', content: [] }, []],
+  ])('follows what runs in the background: %s', (_, toolUseResult, started) => {
+    const record = { ...user([{ type: 'tool_result', tool_use_id: 'r1', content: 'started' }]), toolUseResult };
+    expect(chatItems(record)).toEqual([{ k: 'result', id: 'r1', text: 'started', error: false }, ...started]);
+  });
+
   // Shapes from a real transcript (Claude Code 2.1.288): the task list Claude keeps as it works.
   it.each([
     [

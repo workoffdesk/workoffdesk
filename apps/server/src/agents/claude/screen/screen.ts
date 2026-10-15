@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import type { Tmux } from '../../../system/tmux.js';
 import { keysToChoose, keysToTick, parseChoices, type Choices } from './choices.js';
+import { canBackground } from './background.js';
 import { isCompacting } from './compacting.js';
 import { liveText } from './live.js';
 import { parsePanel, type Panel } from './panel.js';
@@ -10,8 +11,16 @@ import { modeOn, suggestionOn, typedOn } from './prompt.js';
 
 // What the session's screen holds for the chat: a choice asked for, a dialog open over the prompt, what
 // Claude suggests saying next, and the permission mode.
-// live: what Claude is writing and the transcript does not have yet, while it works.
-export type ScreenRead = { choices: Choices | null; panel: Panel | null; suggestion: string | null; mode: string | null; live: string | null };
+// live: what Claude is writing and the transcript does not have yet, while it works. background: Claude Code
+// offers to send the tool it runs in the foreground to the background.
+export type ScreenRead = {
+  choices: Choices | null;
+  panel: Panel | null;
+  suggestion: string | null;
+  mode: string | null;
+  live: string | null;
+  background: boolean;
+};
 
 // How far above the screen to look for the top edge of a dialog taller than it.
 const PANEL_ABOVE = 200;
@@ -19,6 +28,8 @@ const PANEL_ABOVE = 200;
 const STASH = '\x13';
 const STASH_SHOWS_MS = 1000;
 const STASH_LOOK_MS = 50;
+// Ctrl+B, Claude Code's key to send the tool at work to the background.
+const BACKGROUND = '\x02';
 // How much of a plan file is sent to be read on the phone.
 const PLAN_MAX = 20_000;
 
@@ -41,8 +52,10 @@ export class ClaudeScreen {
     ]);
     const choices = withPlan(parseChoices(screen));
     const panel = parsePanel(screen, above);
-    const live = working && !choices && !panel ? liveText(joined, cols) : null;
-    return { screen: { choices, panel, suggestion: suggestionOn(styled), mode: modeOn(screen), live }, compacting: isCompacting(screen) };
+    const free = working && !choices && !panel;
+    const live = free ? liveText(joined, cols) : null;
+    const background = free && canBackground(joined);
+    return { screen: { choices, panel, suggestion: suggestionOn(styled), mode: modeOn(screen), live, background }, compacting: isCompacting(screen) };
   }
 
   // What is typed at the prompt, or null when nothing is.
@@ -79,6 +92,16 @@ export class ClaudeScreen {
     await this.tmux.leaveCopyMode(name);
     await this.tmux.sendRaw(name, keysToChoose(c, index));
     if (text !== undefined) await this.tmux.paste(name, text);
+    return true;
+  }
+
+  // Sends the tool Claude runs in the foreground to the background with Claude Code's key, if the screen still
+  // offers it; false when it does not (the tool is over, or a dialog has the keyboard). The key goes to the
+  // pane itself, past tmux's prefix, so it is pressed once.
+  async toBackground(name: string): Promise<boolean> {
+    if (!(await this.read(name, true)).screen.background) return false;
+    await this.tmux.leaveCopyMode(name);
+    await this.tmux.sendRaw(name, BACKGROUND);
     return true;
   }
 

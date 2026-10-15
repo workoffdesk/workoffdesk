@@ -12,6 +12,8 @@ export const sessions = {
   deleteFailed: 'Not deleted, try again',
   notConnectedTap: 'Not connected to the Mac yet; tap again once it is',
   notSentRetry: 'Not sent, try again',
+  backgroundOver: 'That command is over already',
+  notBackgrounded: 'Not sent to the background, try again',
   notMoved: 'Not moved, try again',
   notEnded: 'Not ended, try again',
   notRun: 'Not run, try again',

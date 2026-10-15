@@ -8,7 +8,7 @@ export function BackgroundBar({ running, onManage }: { running: Background[]; on
   return (
     <details className="chat-bg">
       <summary>
-        <b>{t.backgroundCommands}</b> {t.backgroundRunning(running.length)}
+        <b>{t.runningInBackground}</b> {t.backgroundRunning(running.length)}
       </summary>
       <ul>
         {running.map((b) => (

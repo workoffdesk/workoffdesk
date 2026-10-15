@@ -40,7 +40,7 @@ export class Input {
     // before its thread starts (trust this folder?).
     if (this.d.store.get().sessions[id]?.kind === 'codex') {
       const choices = this.beforeThread(id) ? codexChoices(await this.d.tmux.screen(tmuxName(id))) : null;
-      const screen = { choices, panel: null, suggestion: null, mode: null };
+      const screen = { choices, panel: null, suggestion: null, mode: null, background: false };
       this.d.journal.screenAsIs(id, screen);
       return { ...screen, live: null, asks: this.d.codex?.asks(id) ?? [] };
     }
@@ -71,6 +71,15 @@ export class Input {
     if (!ID.test(id)) throw new InvalidRequest('bad session id');
     const pressed = await this.d.claude.tick(tmuxName(id), ticked, labels);
     return this.readAfter(id, pressed, (s) => s.choices?.options.map((o) => o.label).join('\n') !== labels.join('\n'));
+  }
+
+  async toBackground(id: string): Promise<boolean> {
+    if (!ID.test(id)) throw new InvalidRequest('bad session id');
+    if (this.d.store.get().sessions[id]?.kind !== 'claude') return false;
+    // Answered once the screen no longer offers it, so a second press finds nothing to send.
+    if (!(await this.d.claude.toBackground(tmuxName(id)))) return false;
+    await this.screenOnceShown(id, (s) => !s.background, () => null).catch(() => null);
+    return true;
   }
 
   // The screen as it is once a choice was answered, or found changed, goes into the journal for the phone:

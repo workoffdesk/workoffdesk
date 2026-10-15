@@ -143,9 +143,10 @@ export const askOptions = (ask: Ask): { label: string; detail?: string; code?: s
 
 // suggestion: what Claude offers the user to say next; mode: the permission mode, null in the default one.
 // live: what Claude is writing that the transcript does not have yet (server/agents/claude/screen/live.ts).
+// background: Claude Code offers to send the tool it runs in the foreground to the background.
 // asks: what it waits on the person for, from servers that say so. The screen's choices show the same
 // prompt again while one is open, so they are not shown beside it.
-export type OnScreen = { choices: Choices | null; panel: Panel | null; suggestion?: string | null; mode?: string | null; live?: string | null; asks?: Ask[] };
+export type OnScreen = { choices: Choices | null; panel: Panel | null; suggestion?: string | null; mode?: string | null; live?: string | null; background?: boolean; asks?: Ask[] };
 
 // Claude Code's own dialog is up: a panel, or a picker the person opened that has nothing to tick.
 export const hasDialog = (on: OnScreen) => !!on.panel || (!!on.choices?.opened && !on.choices.submit);

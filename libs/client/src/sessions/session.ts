@@ -1,17 +1,18 @@
 import { t } from '@workoffdesk/i18n';
-import { ApiError, errorText, isAgent, MACHINE, type Api, type ApiInit, type Queued, type TermSession } from '../base/api';
+import { ApiError, errorText, isAgent, MACHINE, type Api, type TermSession } from '../base/api';
 import type { Answers } from '../chat/answered';
 import { hasDialog, type Choices, type ModelChoice, type OnScreen } from '../model/chat';
 import { anyOf, type Visibility } from '../base/platform';
 import { seenWhileInFront } from './seen';
 import type { Journals } from '../journal/journal';
-import type { JournalRow, SessionView } from '../journal/journalRows';
+import type { SessionView } from '../journal/journalRows';
 import { ctrlChord, typedText } from '../composer/keys';
 import { SHIFT_TAB, stepToMode } from '../composer/modes';
 import { screenNow, screenRead } from '../journal/pushes';
 import type { LinkState, SessionLink } from './sessionLink';
 import type { SessionList } from './sessionList';
 import { leaveSession } from './leave';
+import { queueActions } from './queueActions';
 import type { SlashCommand } from '../composer/slash';
 import { sessionState, startLocal, type SessionFacts, type SessionLocal, type SessionShown } from './sessionState';
 
@@ -208,29 +209,15 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
   };
   const sendText = (text: string, enter: boolean) => send(typedText(text, enter, local.ctrl));
 
-  // What the Mac answered a change to a message with.
-  const answered = (r: { message: JournalRow | null }) => {
-    if (r.message) journals.apply(id, [r.message]);
-  };
-  // A 404 is the Mac saying it does not hold the message: what showed it waiting is read again.
-  const gone = (e: unknown, otherwise: string) => {
-    const notHeld = e instanceof ApiError && e.status === 404;
-    if (notHeld) journals.refresh(id);
-    say(notHeld ? t.alreadySent : errorText(e, otherwise, otherwise));
-  };
-  const queuedUrl = (q: Queued) => `${base}/messages/${q.id}`;
-  const take = (qid: string, on: boolean) => set({ taking: new Set([...local.taking].filter((x) => x !== qid).concat(on ? [qid] : [])) });
-  const queueAction = (q: Queued, init: ApiInit, failed: string) =>
-    api<{ message: JournalRow | null }>(queuedUrl(q), { method: 'POST', ...init }).then(
-      (r) => {
-        answered(r);
-        return true;
-      },
-      (e) => {
-        gone(e, failed);
-        return false;
-      },
-    );
+  const queue = queueActions({
+    api,
+    id,
+    base,
+    journals,
+    say,
+    giveBack,
+    taking: (qid, on) => set({ taking: new Set([...local.taking].filter((x) => x !== qid).concat(on ? [qid] : [])) }),
+  });
 
   // A key pressed in a card or dialog goes as a request, not on the line, which a slow phone line can hold
   // open and carrying nothing for seconds; the answer brings the screen after it.
@@ -357,26 +344,21 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
         set({ switching: false });
       }
     },
-    // Taken once however often it arrives, so it is sent again across a Mac that is restarting; a move is not.
-    sendNow: (q: Queued) => queueAction(q, { json: {}, idempotent: true }, t.notSentRetry),
-    move: (q: Queued, by: -1 | 1) => queueAction(q, { json: { move: by } }, t.notMoved),
-    // Taken back, to change in the composer or to drop; not taken back after all, it shows as the Mac has it.
-    unsend(q: Queued, edit: boolean): Promise<boolean> {
-      take(q.id, true);
-      return api<{ text: string; message: JournalRow | null }>(queuedUrl(q), { method: 'DELETE' })
+    // Answered once the screen no longer offers it; reread so the offer goes from here at once.
+    toBackground() {
+      if (local.backgrounding) return;
+      set({ backgrounding: true });
+      void api<{ sent: boolean }>(`${base}/background`, { method: 'POST', json: {} })
         .then(
-          (r) => {
-            answered(r);
-            if (edit) giveBack(r.text);
-            return true;
-          },
-          (e) => {
-            gone(e, edit ? t.takeBackFailed : t.deleteFailed);
-            return false;
-          },
+          (r) => !r.sent && say(t.backgroundOver),
+          (e) => say(errorText(e, t.notBackgrounded, t.notConnectedTap)),
         )
-        .finally(() => take(q.id, false));
+        .finally(() => {
+          set({ backgrounding: false });
+          reread();
+        });
     },
+    ...queue,
     giveBack,
     dismissSuggestion: () => set({ dismissed: journals.view(id).screen.suggestion ?? null }),
     loadCommands: async () => (await api<{ commands: SlashCommand[] }>(`${base}/commands`)).commands,

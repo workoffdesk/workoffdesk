@@ -13,7 +13,7 @@ export function BackgroundBar({ running, onManage, s }: { running: Background[];
     <View style={s.bg}>
       <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityState={{ expanded: open }}>
         <Text style={s.bgHead}>
-          <Text style={s.bold}>{t.backgroundCommands}</Text> {t.backgroundRunning(running.length)}
+          <Text style={s.bold}>{t.runningInBackground}</Text> {t.backgroundRunning(running.length)}
         </Text>
       </Pressable>
       {open && (

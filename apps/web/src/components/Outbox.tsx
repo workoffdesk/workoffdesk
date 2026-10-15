@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { api } from '../api';
 import { ActionSheet } from './ActionSheet';
 import { IconDesktop } from '../icons';
+import { useAgentName } from '@workoffdesk/react/agentName';
 
 // Above the composer while Claude compacts its conversation, from the moment it starts.
 export function CompactingBar({ count }: { count: number }) {
@@ -56,6 +57,23 @@ export function OnMacBar({ terminals, sessionId, onError }: { terminals: number;
           onClose={() => answer(false)}
         />
       )}
+    </div>
+  );
+}
+
+// Above the composer while Claude runs a tool in the foreground that Claude Code offers to send to the
+// background: what is sent waits for the tool, unless it goes there.
+export function ForegroundBar({ busy, onBackground }: { busy: boolean; onBackground: () => void }) {
+  const who = useAgentName();
+  return (
+    <div className="send-held foreground" role="status" aria-label={t.foregroundRuns(who)}>
+      <span>
+        <b>{t.foregroundRuns(who)}</b>
+        <small>{t.foregroundSub}</small>
+      </span>
+      <button className="btn small" disabled={busy} aria-busy={busy} onClick={onBackground}>
+        {t.runInBackground}
+      </button>
     </div>
   );
 }

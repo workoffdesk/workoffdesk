@@ -98,6 +98,15 @@ export const register: RouteModule = (app, ctx) => {
     return { screen: await m.press(req.params.id, keys) };
   });
 
+  // Sends what Claude runs in the foreground to the background, so what waits in its queue goes in; sent false
+  // when the screen no longer offers it.
+  app.post<{ Params: { machine: string; id: string } }>('/api/m/:machine/sessions/:id/background', async (req, reply) => {
+    const m = machineOr404(req, reply);
+    if (!m) return reply;
+    if (!(await m.exists(req.params.id))) return reply.code(404).send({ error: 'no such session' });
+    return { sent: await m.toBackground(req.params.id) };
+  });
+
   // Closes the dialog on screen, and only it: what the ✕ under a dialog does.
   app.post<{ Params: { machine: string; id: string } }>('/api/m/:machine/sessions/:id/close', async (req, reply) => {
     const m = machineOr404(req, reply);

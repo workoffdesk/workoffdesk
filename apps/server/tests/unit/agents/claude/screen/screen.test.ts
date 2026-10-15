@@ -115,6 +115,29 @@ describe('ClaudeScreen', () => {
     });
   });
 
+  describe('toBackground', () => {
+    const FOREGROUND = screenOf('foreground-command');
+    const sent = (t: ReturnType<typeof tmux>) => t.did.filter((d) => /^(keys|leave) /.test(d));
+
+    it('presses ctrl+b once, out of copy mode first, while Claude Code offers it', async () => {
+      const t = tmux({ screen: screenOf('idle-input'), joined: FOREGROUND });
+      expect(await claude(t).toBackground('s1')).toBe(true);
+      expect(sent(t)).toEqual(['leave s1', `keys s1 ${JSON.stringify('\x02')}`]);
+    });
+
+    it('presses nothing once the command is over and the offer gone', async () => {
+      const t = tmux({ screen: screenOf('idle-input'), joined: screenOf('idle-input') });
+      expect(await claude(t).toBackground('s1')).toBe(false);
+      expect(sent(t)).toEqual([]);
+    });
+
+    it('presses nothing while a choice has the keyboard, which the key would go to', async () => {
+      const t = tmux({ joined: FOREGROUND });
+      expect(await claude(t).toBackground('s1')).toBe(false);
+      expect(sent(t)).toEqual([]);
+    });
+  });
+
   describe('tick', () => {
     it('ticks what is to be ticked, unticks the rest, and sends them', async () => {
       const t = tmux({ screen: SEVERAL });
@@ -173,6 +196,25 @@ describe('ClaudeScreen', () => {
     it('returns no live text while a dialog is open over the prompt, even as Claude works', async () => {
       const { screen } = await claude(tmux({ screen: screenOf('settings-usage'), joined: WRITING })).read('s1', true);
       expect([screen.choices, screen.panel === null, screen.live]).toEqual([null, false, null]);
+    });
+
+    describe('the offer to send the command at work to the background', () => {
+      const FOREGROUND = screenOf('foreground-command');
+
+      it('is read off the joined screen while Claude works', async () => {
+        const { screen } = await claude(tmux({ screen: screenOf('idle-input'), joined: FOREGROUND })).read('s1', true);
+        expect(screen.background).toBe(true);
+      });
+
+      it('is not there while Claude does not work, nor when its screen does not offer it', async () => {
+        expect((await claude(tmux({ screen: FOREGROUND, joined: FOREGROUND })).read('s1', false)).screen.background).toBe(false);
+        expect((await claude(tmux({ screen: screenOf('idle-input'), joined: screenOf('idle-input') })).read('s1', true)).screen.background).toBe(false);
+      });
+
+      it('is not there while a choice or a dialog has the keyboard', async () => {
+        expect((await claude(tmux({ joined: FOREGROUND })).read('s1', true)).screen.background).toBe(false);
+        expect((await claude(tmux({ screen: screenOf('settings-usage'), joined: FOREGROUND })).read('s1', true)).screen.background).toBe(false);
+      });
     });
 
     it('reads the screen still when the styled screen cannot be', async () => {

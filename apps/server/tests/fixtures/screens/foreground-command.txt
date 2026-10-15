@@ -1,0 +1,20 @@
+⏺ The build is started; it takes about four minutes. I will wait for health to say ok.
+
+  Bash(for i in $(seq 1 60); do r=$(curl -s -m 10 http://127.0.0.1:3100/api/health); case "$r" in
+      *'"status":"ok"'*) echo "OK after $((i*10))s: $r"; exit…)
+  ⎿  Running… (5m 3s · timeout 10m)
+     (ctrl+b ctrl+b (twice) to run in background)
+
+❯ is it up yet?
+
+❯ and the list page too
+  ctrl+x ctrl+s to send now
+
+· Sock-hopping… (6m 17s · ↓ 2.5k tokens)
+  ⎿  Tip: Run /install-github-app to tag @claude right from your Github issues and PRs
+
+──────────────────────────────────────────────────────────────────────────────────── upgrade ─
+❯ Press up to edit queued messages
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  Alice  main  Opus 5.5 (1M context)  ctx:24%  5h:12%
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

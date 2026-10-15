@@ -342,6 +342,38 @@ describe('createSessions', () => {
     });
   });
 
+  describe('the command at work sent to the background', () => {
+    const BACKGROUND = `POST ${BASE}/background`;
+
+    it('is asked of the Mac once however often it is pressed, and the screen read again after', async () => {
+      const { s, api, journals, snap } = setup();
+      s.toBackground();
+      s.toBackground();
+      expect(api.waiting()).toEqual([MODELS, BACKGROUND]);
+      expect(snap().backgrounding).toBe(true);
+      await api.answer(BACKGROUND, { sent: true });
+      expect(snap().backgrounding).toBe(false);
+      expect(journals.asked).toContain('reread s1');
+      expect(snap().toast).toBeNull();
+    });
+
+    it('says when the command was over already', async () => {
+      const { s, api, snap } = setup();
+      s.toBackground();
+      await api.answer(BACKGROUND, { sent: false });
+      expect(snap().toast).toBe(t.backgroundOver);
+    });
+
+    it('says when it could not be asked', async () => {
+      const { s, api, snap } = setup();
+      s.toBackground();
+      const e = new NetworkError();
+      await api.fail(BACKGROUND, e);
+      expect(snap().backgrounding).toBe(false);
+      expect(snap().toast).toBe(errorText(e, t.notBackgrounded, t.notConnectedTap));
+    });
+  });
+
   describe('the queue tray', () => {
     const MESSAGE = `POST ${BASE}/messages/m1`;
     const TAKE = `DELETE ${BASE}/messages/m1`;

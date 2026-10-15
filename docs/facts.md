@@ -300,10 +300,17 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
 - The interface is English or Chinese, following the phone. (`libs/i18n`)
 - Stop, shown in place of send while Claude works and the composer is empty, sends Esc.
   (`apps/web/src/pages/Session.tsx` `onStop`)
-- A bar shows Claude's task list progress; another lists background commands and opens `/tasks`; Read aloud
+- A bar shows Claude's task list progress; another lists the commands and agents Claude runs in the background
+  and opens `/tasks`; Read aloud
   uses the browser's `speechSynthesis`; Rewind under the last message sent opens Claude Code's own list of points
   to go back to; Screen shows the Mac's screen as text. (`apps/web/src/components/TaskBar.tsx`,
   `BackgroundBar.tsx`, `turn/Reply.tsx`, `turn/bubbles.tsx`, `libs/i18n` `showScreen`)
+- While Claude Code offers to send the tool Claude runs in the foreground to the background (its
+  `(ctrl+b to run in background)` line), a bar above the composer has Run in background, which presses Ctrl+B
+  once, and nothing when the offer is gone by then; messages waiting in Claude's queue then go in.
+  (`apps/server/src/agents/claude/screen/background.ts`, `apps/server/src/sessions/machine/input.ts` `toBackground`,
+  `apps/web/src/components/Outbox.tsx` `ForegroundBar`, `apps/mobile/src/components/cards/bars.tsx`,
+  `apps/server/tests/integration/sessions/machine.sending.test.ts`, `docs/design/2026-10-15-run-in-background.md`)
 - The pill under the composer shows the context used and switches model, permission mode and effort by typing
   the command (`/effort high`). (`apps/web/src/components/KeyMenus.tsx`)
 - `@` lists the files of the session's folder. (`libs/client/src/composer/slash.ts` `mentionAt`, `apps/server/src/http/routes/chat.ts`)

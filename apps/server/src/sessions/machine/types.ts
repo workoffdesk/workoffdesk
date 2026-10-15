@@ -100,6 +100,8 @@ export interface Machine {
   // Keys pressed in what is on screen (a dialog's slider, its Esc), as a keyboard would give them: what the
   // screen holds once it has changed, or after a while when it has not.
   press(id: string, keys: string): Promise<OnScreen>;
+  // Sends the tool Claude runs in the foreground to the background, if its screen offers it; false when not.
+  toBackground(id: string): Promise<boolean>;
   // Closes the dialog of Claude Code's on screen, with as many Esc as it takes and none after: the screen then.
   close(id: string): Promise<OnScreen>;
   // Puts the session at the size the chat reads its screen at, unless a terminal on the Mac is showing it.

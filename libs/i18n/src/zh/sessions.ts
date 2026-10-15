@@ -13,6 +13,8 @@ export const sessions: typeof en = {
   deleteFailed: '没删掉，再试一次',
   notConnectedTap: '还没连上 Mac，连上后再点一次',
   notSentRetry: '没发出去，再试一次',
+  backgroundOver: '那条命令已经跑完了',
+  notBackgrounded: '没转到后台，再试一次',
   notMoved: '没移动，再试一次',
   notEnded: '没结束掉，再试一次',
   notRun: '没运行，再试一次',

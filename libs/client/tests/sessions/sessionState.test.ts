@@ -147,6 +147,15 @@ describe('sessionState', () => {
       expect(sessionState(facts({ view: v }), local({ taking: new Set(['m1']) })).queued).toEqual([]);
     });
 
+    it('offers to send the command at work to the background only while Claude works, its screen offers it and nothing covers it', () => {
+      const offer = (status: 'working' | 'idle', over: Partial<OnScreen> = {}) =>
+        sessionState(facts({ view: view({ status, screen: screen({ background: true, ...over }) }) }), local()).canBackground;
+      expect(offer('working')).toBe(true);
+      expect(offer('idle')).toBe(false);
+      expect(offer('working', { background: false })).toBe(false);
+      expect(offer('working', { choices: opened })).toBe(false);
+    });
+
     it('can be sent now only while Claude works and nothing covers the prompt', () => {
       expect(sessionState(facts({ view: view({ status: 'working' }) }), local()).canSendNow).toBe(true);
       expect(sessionState(facts({ view: view({ status: 'idle' }) }), local()).canSendNow).toBe(false);

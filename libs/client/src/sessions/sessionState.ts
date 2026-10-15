@@ -9,6 +9,8 @@ export type SessionLocal = {
   ctrl: boolean;
   toast: string | null;
   switching: boolean;
+  // The command at work being sent to the background, until the Mac answers.
+  backgrounding: boolean;
   // A command from the pill, until the dialog it opens shows.
   commanding: string | null;
   // A dialog a pick was made in, held until the screen after the pick is read.
@@ -31,6 +33,7 @@ export const startLocal = (): SessionLocal => ({
   ctrl: false,
   toast: null,
   switching: false,
+  backgrounding: false,
   commanding: null,
   settling: null,
   refill: null,
@@ -59,6 +62,7 @@ export type SessionShown = {
   queued: InQueue[];
   queueWhy: string;
   canSendNow: boolean;
+  canBackground: boolean;
   suggestion: string | null;
   dialog: OnScreen | null;
   dialogBusy: boolean;
@@ -97,6 +101,7 @@ export function sessionState(f: SessionFacts, l: SessionLocal): SessionShown {
     queued: queue(view, l.taking),
     queueWhy: queueWhy(status, agentName(known?.kind)),
     canSendNow: status === 'working' && !covered,
+    canBackground: status === 'working' && !covered && !!screen.background,
     suggestion: isAgent(known?.kind) && status === 'idle' && screen.suggestion && screen.suggestion !== l.dismissed ? screen.suggestion : null,
     dialog: up ? screen : l.settling,
     dialogBusy: !up && !!l.settling,

@@ -5,7 +5,7 @@ import { ChatView, SendHeld } from '../components/ChatView';
 import { RenameSheet } from '../components/RenameSheet';
 import { Composer } from '../components/Composer';
 import { KeyBar } from '../components/KeyBar';
-import { CompactingBar, OnMacBar } from '../components/Outbox';
+import { CompactingBar, ForegroundBar, OnMacBar } from '../components/Outbox';
 import { createSession } from '../components/NewSessionSheet';
 import { ScreenSheet } from '../components/ScreenSheet';
 import { StatusWord } from '../components/StatusWord';
@@ -291,6 +291,7 @@ export function SessionPage({ id }: { id: string }) {
               <CompactingBar count={s.queued.length} />
             )}
             {chat && <TaskBar tasks={view.tasks} />}
+            {s.canBackground && <ForegroundBar busy={s.backgrounding} onBackground={session.toBackground} />}
             <QueueTray
               queued={s.queued}
               why={s.queueWhy}

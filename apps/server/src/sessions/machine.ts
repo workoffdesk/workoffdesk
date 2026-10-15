@@ -286,9 +286,7 @@ export class LocalMachine implements Machine {
     return taken;
   }
 
-  unsend(id: string, queuedId: string): string | null {
-    return this.d.outbox.remove(id, queuedId);
-  }
+  unsend(id: string, queuedId: string): string | null { return this.d.outbox.remove(id, queuedId); }
 
   async sendNow(id: string, queuedId: string): Promise<boolean> {
     if (!ID.test(id)) throw new InvalidRequest('bad session id');
@@ -320,6 +318,7 @@ export class LocalMachine implements Machine {
   type(id: string, text: string): Promise<void> { return this.p.input.type(id, text); }
   close(id: string): Promise<OnScreen> { return this.p.input.close(id); }
   press(id: string, keys: string): Promise<OnScreen> { return this.p.input.press(id, keys); }
+  toBackground(id: string): Promise<boolean> { return this.p.input.toBackground(id); }
   runCommand(id: string, command: string): Promise<{ ran: boolean; screen: OnScreen | null }> { return this.p.input.runCommand(id, command); }
   fitForChat(id: string): Promise<void> { return this.p.input.fitForChat(id); }
 
