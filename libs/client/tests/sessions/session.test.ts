@@ -4,6 +4,7 @@ import { ApiError, errorText, NetworkError, type TermSession } from '../../src/b
 import type { Choices, OnScreen } from '../../src/model/chat';
 import type { Message } from '../../src/journal/journalRows';
 import { SHIFT_TAB } from '../../src/composer/modes';
+import { onPush, type Push } from '../../src/journal/pushes';
 import { createSessions, SHOWS_WITHIN_MS, TOAST_MS } from '../../src/sessions/session';
 import { inFront } from '../../src/base/platform';
 import { createSessionLinks } from '../../src/sessions/sessionLink';
@@ -166,13 +167,56 @@ describe('createSessions', () => {
   });
 
   describe('keys', () => {
-    it('go once the line is live; while it is down the toast says so and nothing is kept', () => {
-      const { s, line, typed, snap } = setup();
-      expect(s.send('x')).toBe(false);
-      expect(snap().toast).toBe(t.notConnectedSend);
-      line.opens();
+    const KEYS = `POST ${BASE}/keys`;
+
+    it('go on the line while it is live, and as requests, one after another, while it is not', async () => {
+      const { s, line, typed, api, snap } = setup();
+      const pushed: Push[] = [];
+      const stop = onPush('s1', (p) => pushed.push(p));
+      expect(s.send('x')).toBe(true);
       expect(s.send('y')).toBe(true);
-      expect(typed()).toEqual(['y']);
+      expect(api.waiting()).toEqual([MODELS, KEYS]);
+      expect(api.init(KEYS)?.json).toEqual({ keys: 'x' });
+      await api.answer(KEYS, { screen: screen({}) });
+      expect(api.init(KEYS)?.json).toEqual({ keys: 'y' });
+      await api.answer(KEYS, { screen: screen({ mode: 'plan' }) });
+      expect(snap().toast).toBeNull();
+      // The screen the answer brings is the one shown.
+      expect(pushed.at(-1)).toEqual({ type: 'screen', screen: screen({ mode: 'plan' }) });
+      stop();
+      line.opens();
+      expect(s.send('z')).toBe(true);
+      expect(typed()).toEqual(['z']);
+      expect(api.waiting()).toEqual([MODELS]);
+    });
+
+    it('go nowhere once the session has ended', () => {
+      const { s, line, api, snap } = setup();
+      line.ends(4404);
+      expect(s.send('x')).toBe(false);
+      expect(api.waiting()).toEqual([MODELS]);
+      expect(snap().toast).toBeNull();
+    });
+
+    it('as a request, longer than one takes, go in pieces', async () => {
+      const { s, api } = setup();
+      s.send('a'.repeat(250));
+      expect(api.init(KEYS)?.json).toEqual({ keys: 'a'.repeat(200) });
+      await api.answer(KEYS, { screen: screen({}) });
+      expect(api.init(KEYS)?.json).toEqual({ keys: 'a'.repeat(50) });
+    });
+
+    it('say so when the request fails, and what follows it is not sent', async () => {
+      const { s, api, snap } = setup();
+      s.send('x');
+      s.send('y');
+      const e = new NetworkError();
+      await api.fail(KEYS, e);
+      expect(snap().toast).toBe(errorText(e, t.notPressed, t.notConnectedSend));
+      expect(api.waiting()).toEqual([MODELS]);
+      // What is pressed after goes.
+      s.send('z');
+      expect(api.init(KEYS)?.json).toEqual({ keys: 'z' });
     });
 
     it('turn into their Ctrl chord once when Ctrl is armed', () => {
@@ -444,12 +488,16 @@ describe('createSessions', () => {
       expect(journals.asked).toContain('reread s1');
     });
 
-    it('says so when the line is down and nothing could be pressed', async () => {
+    it('is stepped with requests while the line is down', async () => {
       const { s, api, snap } = setup();
       const done = s.switchMode('plan');
       await api.answer(CHOICES, screen({ mode: null }));
+      expect(api.init(`POST ${BASE}/keys`)?.json).toEqual({ keys: SHIFT_TAB });
+      await api.answer(`POST ${BASE}/keys`, { screen: screen({ mode: 'plan' }) });
+      await vi.advanceTimersByTimeAsync(150);
+      await api.answer(CHOICES, screen({ mode: 'plan' }));
       await done;
-      expect(snap().toast).toBe(t.notConnectedSend);
+      expect(snap().toast).toBeNull();
       expect(snap().switching).toBe(false);
     });
   });

@@ -12,6 +12,7 @@ import { screenNow, screenRead } from '../journal/pushes';
 import type { LinkState, SessionLink } from './sessionLink';
 import type { SessionList } from './sessionList';
 import { leaveSession } from './leave';
+import { keysByRequest } from './keysByRequest';
 import { queueActions } from './queueActions';
 import type { SlashCommand } from '../composer/slash';
 import { sessionState, startLocal, type SessionFacts, type SessionLocal, type SessionShown } from './sessionState';
@@ -195,6 +196,7 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
     );
   };
 
+  const pressByRequest = keysByRequest({ api, base, shown: (screen) => screenRead(id, screen), say });
   const send = (data: string) => {
     let out = data;
     if (local.ctrl && data) {
@@ -202,10 +204,10 @@ function makeSession(id: string, deps: SessionDeps, stopped: () => void) {
       const chord = ctrlChord(data[0]);
       if (chord) out = chord + data.slice(1);
     }
-    const sent = line?.send(out) ?? false;
-    // What could not go stays where it was typed; this says why.
-    if (!sent && link !== 'ended') say(t.notConnectedSend);
-    return sent;
+    if (line?.send(out)) return true;
+    if (link === 'ended') return false;
+    pressByRequest(out);
+    return true;
   };
   const sendText = (text: string, enter: boolean) => send(typedText(text, enter, local.ctrl));
 
