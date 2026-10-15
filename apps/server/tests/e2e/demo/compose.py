@@ -36,7 +36,8 @@ for y in range(H * S):
     k = y / (H * S)
     d.line([(0, y), (W * S, y)], fill=(int(13 + 10 * k), int(17 + 12 * k), int(28 + 30 * k)))
 
-# iPhone 16 Pro Max: a 440x956-point screen; the recording is the part between the status bar and the home indicator.
+# A 440x956-point iPhone screen (the 17 Pro Max's, which record.ts records on); the frames are the part between the
+# status bar and the home indicator.
 PT_W, PT_H, PT_TOP, PT_BOTTOM = 440, 956, 54, 34
 SCREEN_W = 420
 K = SCREEN_W / PT_W
@@ -93,7 +94,7 @@ def screen(shot):
     bx = x + 52 * u
     d.rounded_rectangle([bx, 21 * u, bx + 25 * u, 33 * u], radius=4 * u, outline=(160, 160, 160), width=max(1, round(u)))
     d.rounded_rectangle([bx + 2 * u, 23 * u, bx + 20 * u, 31 * u], radius=2 * u, fill=(255, 255, 255))
-    d.rounded_rectangle([bx + 26 * u, 25 * u, bx + 28 * u, 29 * u], radius=u, fill=(160, 160, 160))
+    d.rounded_rectangle([bx + 26 * u, 25 * u, bx + 28 * u, 29 * u], radius=u - 1, fill=(160, 160, 160))
     # home indicator
     d.rounded_rectangle([(PT_W / 2 - 70) * u, (PT_H - 13) * u, (PT_W / 2 + 70) * u, (PT_H - 8) * u], radius=3 * u, fill=(235, 235, 240))
     return scr

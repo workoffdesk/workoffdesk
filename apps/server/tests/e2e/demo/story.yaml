@@ -1,0 +1,30 @@
+# The recorded story. Pauses and caption marks come from record.ts over HTTP, so the timing is the test's.
+appId: ${APP_ID}
+---
+- evalScript: ${http.get(MARKS + '/cap/0')}
+- evalScript: ${http.get(MARKS + '/wait/3200')}
+- tapOn: .*${OPEN}.*
+- extendedWaitUntil:
+    visible: .*${OLD_REPLY}.*
+    timeout: 15000
+- evalScript: ${http.get(MARKS + '/cap/1')}
+- evalScript: ${http.get(MARKS + '/wait/700')}
+- tapOn:
+    id: composer
+- inputText: ${ASK}
+- evalScript: ${http.get(MARKS + '/wait/500')}
+- tapOn: ${SEND}
+- extendedWaitUntil:
+    visible: .*${OPTION}.*
+    timeout: 60000
+- evalScript: ${http.get(MARKS + '/cap/3')}
+- evalScript: ${http.get(MARKS + '/wait/1800')}
+- tapOn: .*${OPTION}.*
+- evalScript: ${http.get(MARKS + '/wait/900')}
+- tapOn: ${SUBMIT}
+- extendedWaitUntil:
+    visible: .*${DONE}.*
+    timeout: 60000
+- evalScript: ${http.get(MARKS + '/cap/4')}
+- evalScript: ${http.get(MARKS + '/wait/3500')}
+- evalScript: ${http.get(MARKS + '/end')}

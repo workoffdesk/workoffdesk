@@ -1,0 +1,35 @@
+# Signs the app in to the test server, before anything is recorded (record.ts passes the values).
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: server
+    timeout: 30000
+- tapOn:
+    id: server
+- eraseText
+- inputText: ${SERVER}
+- hideKeyboard
+- tapOn:
+    id: username
+- inputText: ${USERNAME}
+- hideKeyboard
+- tapOn:
+    id: password
+- inputText: ${PASSWORD}
+# The password field keeps its keyboard; a tap on the app's name puts it away.
+- tapOn: WorkOffDesk
+- tapOn: ${LOGIN}
+# iOS offers to keep the password.
+- extendedWaitUntil:
+    visible: ${NOT_NOW}
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: ${NOT_NOW}
+    optional: true
+- extendedWaitUntil:
+    visible: .*${OPEN}.*
+    timeout: 20000

@@ -43,7 +43,8 @@ pnpm check                              # every package: lint, typecheck, tests;
 pnpm --filter workoffdesk test:e2e      # Playwright, iPhone WebKit; starts its own server, tmux and home
 pnpm --filter workoffdesk test:pack     # packs, installs the tarball into a temporary prefix, and checks it serves
 pnpm --filter workoffdesk screens       # the screenshots in docs/screens, in English and Chinese
-pnpm --filter workoffdesk demo          # the README's demo GIFs in docs/screens; needs ffmpeg and Python's Pillow
+pnpm --filter workoffdesk demo          # the README's demo GIFs in docs/screens, recorded from the iPhone app in the
+                                        # Simulator; needs Xcode, Maestro, ffmpeg and Python's Pillow
 swift test --package-path apps/mac      # the menu bar app; pnpm check leaves it out
 ```
 
