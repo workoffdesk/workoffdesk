@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createReleaseWatch, MIN_SERVER, serverTooOld } from '../../src/base/release';
 
@@ -47,6 +48,11 @@ describe('serverTooOld', () => {
 
   it('needs a release this client works against', () => {
     expect(MIN_SERVER).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it('is never newer than the server built from the same commit', () => {
+    const { version } = JSON.parse(readFileSync(new URL('../../../../apps/server/package.json', import.meta.url), 'utf8'));
+    expect(serverTooOld(version)).toBe(false);
   });
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "workoffdesk",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Your Mac's Claude Code and Codex sessions, on your phone: chat, answer prompts, pick up where the terminal left off. Self-hosted, no account.",
   "license": "MIT",
   "keywords": [

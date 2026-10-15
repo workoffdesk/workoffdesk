@@ -4,7 +4,7 @@
 // The oldest server release this client works against. An App Store app runs one JS against every Mac's
 // server, so when the client starts to need something a release before did not have, this moves to the
 // release that has it (the package's version, which the server names).
-export const MIN_SERVER = '1.0.1';
+export const MIN_SERVER = '1.0.2';
 
 const RELEASE = /^(\d+)\.(\d+)\.(\d+)(-.+)?$/;
 
