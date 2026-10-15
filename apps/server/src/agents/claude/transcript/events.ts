@@ -26,7 +26,8 @@ export type ClaudeEvent = { at?: string } & (
   | { k: 'claude:compactBoundary'; manual: boolean }
   // Words written as the person's and no one's: a note Claude Code adds for Claude.
   | { k: 'claude:noted' }
-  | { k: 'claude:peer'; from: string; body: string }
+  // pid: the sender's process, as Claude Code checked it.
+  | { k: 'claude:peer'; from: string; body: string; pid?: number }
   | { k: 'claude:teammates'; messages: { from: string; body: string }[] }
   | { k: 'claude:taskNotification'; text: string }
   // A prompt from neither the person nor anyone named above.
@@ -121,7 +122,10 @@ function userEvent(r: TranscriptRecord): ClaudeEvent {
     if (text.startsWith(TEAMMATES)) return { k: 'claude:teammates', messages: teammates(text) };
     return r.isMeta ? { k: 'claude:noted' } : personSaid(r);
   }
-  if (origin.kind === 'peer') return { k: 'claude:peer', from: str(origin.name), body: str(origin.body) };
+  if (origin.kind === 'peer') {
+    const pid = origin.verifiedPeerPid;
+    return { k: 'claude:peer', from: str(origin.name), body: str(origin.body), ...(Number.isSafeInteger(pid) && { pid: pid as number }) };
+  }
   if (r.isMeta) return { k: 'claude:noted' };
   if (origin.kind === 'human') return personSaid(r);
   const text = blocksText(r.message?.content).trim();

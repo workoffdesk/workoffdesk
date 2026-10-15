@@ -50,6 +50,7 @@ export const common: typeof en = {
     'open-on-mac': '这个对话还开在电脑的终端里',
     'mac-would-not-quit': '电脑上那边没有退出，没有续上',
     'mac-unanswered': '电脑没及时说清这个对话是不是还开着，稍等再试一次',
+    'peer-gone': '发这条消息的会话已经不在 Mac 上运行了',
     'open-elsewhere': '这个对话开在别的 Codex 应用里（编辑器或 Codex App），先在那边关掉',
     'conversation-gone': '这个对话已经不在 Agent 那里了（Claude Code 默认 30 天后删除），这里仍能查看说过的内容',
     'not-an-image': '只能上传图片（PNG、JPEG、GIF、WebP、HEIC）',
@@ -75,6 +76,7 @@ export const common: typeof en = {
   noteLimit: '额度用完了',
   noteTask: (status, what) => `${status === 'completed' ? '后台任务完成' : status === 'failed' ? '后台任务失败' : '后台任务'}：${what}`,
   notePeer: (from) => `收到 ${from || '另一个会话'} 的消息`,
+  goToSender: '去那个会话',
 
   builtinCommands: {
     agents: '管理子 agent',

@@ -684,6 +684,8 @@ input, textarea { font: inherit; color: inherit; }
 .chat-note summary::after { content: ' ›'; }
 .chat-note[open] summary::after { content: ' ⌄'; }
 .chat-note-detail { margin-top: 6px; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); text-align: left; max-height: 40vh; overflow: auto; }
+.chat-note-go { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 6px; }
+.chat-note-go small { color: var(--danger); }
 .chat-shown-above { align-self: flex-start; margin: -2px 0 0 18px; padding: 4px 0; border: 0; background: none; font-size: calc(12px * var(--text-scale)); color: var(--accent); }
 .chat-empty { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .chat-waiting {

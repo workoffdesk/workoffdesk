@@ -18,8 +18,8 @@ export class InvalidRequest extends DomainError {
 }
 
 export class NotFound extends DomainError {
-  constructor(message: string) {
-    super(404, message);
+  constructor(message: string, code?: string) {
+    super(404, message, code);
   }
 }
 

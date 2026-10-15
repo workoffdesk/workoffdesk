@@ -27,7 +27,7 @@ export type NoteEvent =
   // limit: the account hit a usage limit, which another account does not share.
   | { e: 'failed'; limit?: true }
   | { e: 'task'; status: string; what: string }
-  | { e: 'peer'; from: string };
+  | { e: 'peer'; from: string; pid?: number };
 
 // What a file tool changed: the lines around each change, ' ' kept, '-' gone, '+' come, as Claude Code worked
 // them out. The counts are of every changed line; only the first DIFF_LINES_MAX lines are kept.
@@ -229,7 +229,7 @@ function eventItems(e: ClaudeEvent): ChatItem[] {
     case 'claude:compacted':
       return [{ k: 'note', event: { e: 'compacted' } }];
     case 'claude:peer':
-      return [{ k: 'note', event: { e: 'peer', from: e.from }, detail: e.body }];
+      return [{ k: 'note', event: { e: 'peer', from: e.from, ...(e.pid !== undefined && { pid: e.pid }) }, detail: e.body }];
     // A body that is a JSON object is a status update between agents (idle, shutting down), for Claude alone.
     case 'claude:teammates':
       return e.messages.flatMap((m): ChatItem[] => (m.body && !/^\{[\s\S]*\}$/.test(m.body) ? [{ k: 'note', event: { e: 'peer', from: m.from }, detail: m.body }] : []));

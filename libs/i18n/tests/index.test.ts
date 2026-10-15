@@ -31,7 +31,7 @@ describe('the dictionaries', () => {
       readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(join(dir, e.name)) : e.name.endsWith('.ts') ? [join(dir, e.name)] : []));
     const codes = new Set<string>();
     for (const f of files(join(__dirname, '../../../apps/server/src')))
-      for (const m of readFileSync(f, 'utf8').matchAll(/new (?:Conflict|InvalidRequest|UnsupportedMedia|NotAnImage)\(.*?,\s*'([a-z-]+)'\)/g)) codes.add(m[1]);
+      for (const m of readFileSync(f, 'utf8').matchAll(/new (?:Conflict|InvalidRequest|NotFound|UnsupportedMedia|NotAnImage)\(.*?,\s*'([a-z-]+)'\)/g)) codes.add(m[1]);
     expect(codes.size).toBeGreaterThan(0);
     for (const lang of ['en', 'zh'] as const) expect(keys(dictionaries[lang].serverErrors)).toEqual([...codes].sort());
   });

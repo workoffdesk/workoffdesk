@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { findTranscript } from '../../agents/claude/transcript/transcriptFile.js';
-import { listMacClaudes, MacUnanswered, openStatus, stopMacProcess, type MacClaude, type MacOpen } from '../../agents/claude/terminals.js';
+import { findMacClaude, listMacClaudes, MacUnanswered, openStatus, stopMacProcess, type MacClaude, type MacOpen } from '../../agents/claude/terminals.js';
 import { tuiCommand } from '../../agents/codex/appServer.js';
 import type { CodexOnMac } from '../../agents/codex/threads.js';
 import type { Titles } from '../../journal/ingest.js';
@@ -199,6 +199,12 @@ export class Lifecycle {
     }
     const transcript = (sid: string) => (this.d.claudeProjectsRoot ? findTranscript(this.d.claudeProjectsRoot, sid).catch(() => null) : null);
     return new Map(await Promise.all([...open].map(async ([sid, list]) => [sid, { claudes: list, status: await openStatus(list, () => transcript(sid)) }] as const)));
+  }
+
+  macClaudeOf(pid: number) {
+    return findMacClaude(this.d.claudeBin, pid).catch((e: unknown) => {
+      throw e instanceof MacUnanswered ? new Conflict(m.takeOver.macUnanswered, 'mac-unanswered') : e;
+    });
   }
 
   // Waited on, or being taken over now (Claude on the Mac quitting, the session here starting).

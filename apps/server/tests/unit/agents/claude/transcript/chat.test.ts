@@ -265,7 +265,7 @@ describe('chatItems', () => {
       isMeta: true,
       promptSource: 'system',
       turnOrigin: 'peer',
-      origin: { kind: 'peer', from: 'uds:/tmp/cc-socks/1.sock', name: 'random-ca', fromMode: 'prompting', body: '设计稿看完了。\n五条意见。' },
+      origin: { kind: 'peer', from: 'uds:/tmp/cc-socks/1.sock', name: 'random-ca', fromMode: 'prompting', body: '设计稿看完了。\n五条意见。', verifiedPeerPid: 73750 },
     };
     const fromHuman = { origin: { kind: 'human' }, promptSource: 'typed', turnOrigin: 'human' };
 
@@ -294,8 +294,17 @@ describe('chatItems', () => {
 
     it('shows a message from another session by who sent it, with the message to open', () => {
       expect(chatItems(user(`Another Claude session sent a message:\n<cross-session-message from="x">…`, fromPeer))).toEqual([
-        { k: 'note', event: { e: 'peer', from: 'random-ca' }, detail: '设计稿看完了。\n五条意见。' },
+        { k: 'note', event: { e: 'peer', from: 'random-ca', pid: 73750 }, detail: '设计稿看完了。\n五条意见。' },
       ]);
+    });
+
+    it.each([
+      ['recorded by a Claude Code that does not check it', undefined],
+      ['not a process id', 'x'],
+      ['not a whole number', 1.5],
+    ])('leaves out who sent a message when its process is %s', (_, verifiedPeerPid) => {
+      const [note] = chatItems(user('…', { ...fromPeer, origin: { ...fromPeer.origin, verifiedPeerPid } }));
+      expect(note).toEqual({ k: 'note', event: { e: 'peer', from: 'random-ca' }, detail: '设计稿看完了。\n五条意见。' });
     });
 
     it('never draws as the user a prompt that came from anywhere but the user, kinds not known yet included', () => {

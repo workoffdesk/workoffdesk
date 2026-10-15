@@ -298,6 +298,9 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
 - A tool call opened shows what it was asked to do whole (a command, a sub-agent's prompt), up to 4000
   characters, above what it printed, while it runs and after. (`apps/server/src/agents/claude/transcript/chat.ts`,
   `apps/server/src/agents/codex/items.ts`, `apps/server/tests/e2e/chat.spec.ts`)
+- A message from another Claude session leads to that session, found by the process Claude Code checked it
+  came from, while it runs on the Mac; once it is gone, the button says so. (`apps/server/src/http/routes/claude.ts`,
+  `apps/server/tests/integration/http/app.claude.test.ts`, `apps/server/tests/e2e/chat.spec.ts`)
 - A command typed after `!` shows as that command, and what it printed as a note under it.
   (`apps/server/src/agents/claude/transcript/chat.ts`, `apps/server/tests/unit/agents/claude/transcript/chat.test.ts`)
 - The interface is English or Chinese, following the phone. (`libs/i18n`)

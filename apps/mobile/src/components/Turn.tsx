@@ -1,4 +1,7 @@
+import { errorText } from '@workoffdesk/client/base/api';
 import { noteText, type ToolTurn, type Turn } from '@workoffdesk/client/model/chat';
+import { sentFrom } from '@workoffdesk/client/sessions/peer';
+import { router } from 'expo-router';
 import { clock, duration } from '@workoffdesk/client/model/format';
 import { t } from '@workoffdesk/i18n';
 import { memo, useState, type ReactNode } from 'react';
@@ -7,6 +10,7 @@ import { type S, useStyles } from './turn/styles';
 import { useOpened } from './turn/common';
 import { ChangesCard, DiffCount, Tool, ToolSummary } from './turn/tools';
 import { Mine, Reply } from './turn/bubbles';
+import { api } from '../client';
 
 function Note({ turn, onRetry, retryActions, s }: { turn: Extract<Turn, { k: 'note' }>; onRetry?: () => void; retryActions?: ReactNode; s: S }) {
   const [open, setOpen] = useState(false);
@@ -32,6 +36,40 @@ function Note({ turn, onRetry, retryActions, s }: { turn: Extract<Turn, { k: 'no
         {noteText(turn)} {open ? '⌄' : '›'}
       </Text>
       {open && <Text style={s.noteDetail}>{turn.detail}</Text>}
+      {open && 'event' in turn && turn.event.e === 'peer' && turn.event.pid !== undefined && <GoToSender pid={turn.event.pid} name={turn.event.from} s={s} />}
+    </View>
+  );
+}
+
+// A message from another Claude on the Mac leads to it, or says why it cannot.
+function GoToSender({ pid, name, s }: { pid: number; name: string; s: S }) {
+  const [said, setSaid] = useState<string | null>(null);
+  const [going, setGoing] = useState(false);
+  const go = () => {
+    setGoing(true);
+    setSaid(null);
+    sentFrom(api, pid, name).then(
+      (to) => {
+        setGoing(false);
+        if ('session' in to) router.push({ pathname: '/session/[id]', params: { id: to.session } });
+        else router.push({ pathname: '/claude/[sid]', params: { sid: to.onMac } });
+      },
+      (e: unknown) => {
+        setGoing(false);
+        setSaid(errorText(e, t.failed));
+      },
+    );
+  };
+  return (
+    <View style={s.center}>
+      <Pressable style={s.smallBtn} onPress={go} disabled={going} accessibilityRole="button" accessibilityState={{ disabled: going }}>
+        <Text style={s.smallBtnText}>{t.goToSender}</Text>
+      </Pressable>
+      {said && (
+        <Text style={s.danger} accessibilityRole="alert">
+          {said}
+        </Text>
+      )}
     </View>
   );
 }

@@ -19,7 +19,8 @@ export type NoteEvent =
   // limit: the account hit a usage limit, which another account does not share.
   | { e: 'failed'; limit?: true }
   | { e: 'task'; status: string; what: string }
-  | { e: 'peer'; from: string };
+  // pid: the sender's process, to go to it by.
+  | { e: 'peer'; from: string; pid?: number };
 // What a note says, in the phone's language when the server sent it as an event.
 export function noteText(n: { text: string } | { event: NoteEvent }): string {
   if ('text' in n) return n.text;

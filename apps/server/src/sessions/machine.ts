@@ -299,6 +299,7 @@ export class LocalMachine implements Machine {
   createSession(spec: CreateSpec): Promise<TermSession> { return this.p.lifecycle.createSession(spec); }
   continueSession(id: string): Promise<TermSession> { return this.p.lifecycle.continueSession(id); }
   openOnMac(recentMs?: number): Promise<Map<string, MacOpen>> { return this.p.lifecycle.openOnMac(recentMs); }
+  macClaudeOf(pid: number) { return this.p.lifecycle.macClaudeOf(pid); }
   quitOnMac(id: string, force?: boolean): Promise<void> { return this.p.lifecycle.quitOthersOnMac(id, force); }
   takeOverWhenIdle(spec: ConversationResume): Promise<TermSession | null> { return this.p.takeOvers.whenIdle(spec); }
   takingOver(claudeSessionId: string): boolean { return this.p.lifecycle.takingOver(claudeSessionId); }

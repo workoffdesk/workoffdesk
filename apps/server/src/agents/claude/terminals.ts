@@ -52,15 +52,28 @@ const orElse =
   };
 const outOf = (e: unknown) => String((e as { stdout?: unknown }).stdout ?? '');
 
+// Every interactive Claude listed, WorkOffDesk's own included (here), with the name it goes by.
+type Listed = MacClaude & { name: string | null; here: boolean };
+
 // Asked for again while a listing runs, the one running answers.
-const running = new Map<string, Promise<MacClaude[]>>();
-const made = new Map<string, { at: number; claudes: MacClaude[] }>();
+const running = new Map<string, Promise<Listed[]>>();
+const made = new Map<string, { at: number; claudes: Listed[] }>();
 
 // None when Claude Code cannot say (too old for `agents`, not installed): then nothing is known to be open.
 // MacUnanswered when it does not answer in time. recentMs: for what is only shown, one made up to that long ago
 // will do, and is answered at once while a new one is made (listing starts Claude Code, which can take seconds);
 // one not answered then is the last that was.
 export function listMacClaudes(claudeBin: string, recentMs = 0): Promise<MacClaude[]> {
+  return listed(claudeBin, recentMs).then((all) => all.flatMap(({ name: _, here, ...c }) => (here ? [] : [c])));
+}
+
+// The conversation and name of a Claude running on this Mac, WorkOffDesk's own included, by its process.
+export async function findMacClaude(claudeBin: string, pid: number): Promise<{ sessionId: string; name: string | null } | null> {
+  const c = (await listed(claudeBin, 0)).find((a) => a.pid === pid);
+  return c ? { sessionId: c.sessionId, name: c.name } : null;
+}
+
+function listed(claudeBin: string, recentMs: number): Promise<Listed[]> {
   const last = made.get(claudeBin);
   const listing = running.get(claudeBin) ?? listAgain(claudeBin);
   if (!recentMs) return listing;
@@ -68,7 +81,7 @@ export function listMacClaudes(claudeBin: string, recentMs = 0): Promise<MacClau
   return listing.catch(() => made.get(claudeBin)?.claudes ?? []);
 }
 
-function listAgain(claudeBin: string): Promise<MacClaude[]> {
+function listAgain(claudeBin: string): Promise<Listed[]> {
   const at = Date.now();
   const next = listNow(claudeBin)
     .catch(orElse(() => []))
@@ -83,7 +96,7 @@ function listAgain(claudeBin: string): Promise<MacClaude[]> {
   return next;
 }
 
-async function listNow(claudeBin: string): Promise<MacClaude[]> {
+async function listNow(claudeBin: string): Promise<Listed[]> {
   const listings = await Promise.all(
     [...(await configDirs())].map((dir) =>
       run(claudeBin, ['agents', '--json'], dir === undefined ? undefined : { ...process.env, CLAUDE_CONFIG_DIR: dir })
@@ -94,7 +107,15 @@ async function listNow(claudeBin: string): Promise<MacClaude[]> {
   const listed = listings.flatMap((l) => (Array.isArray(l) ? l : []));
   const found = listed.flatMap((a) =>
     a && a.kind === 'interactive' && Number.isSafeInteger(a.pid) && typeof a.sessionId === 'string' && typeof a.cwd === 'string'
-      ? [{ pid: a.pid as number, sessionId: a.sessionId as string, cwd: a.cwd as string, status: STATUSES.has(a.status) ? a.status : 'busy' }]
+      ? [
+          {
+            pid: a.pid as number,
+            sessionId: a.sessionId as string,
+            cwd: a.cwd as string,
+            status: STATUSES.has(a.status) ? a.status : 'busy',
+            name: typeof a.name === 'string' && a.name ? a.name : null,
+          },
+        ]
       : [],
   );
   // One dir can be named two ways (this server's own, and set by a terminal to the same path).
@@ -103,7 +124,7 @@ async function listNow(claudeBin: string): Promise<MacClaude[]> {
   const procs = await processes(interactive.map((a) => a.pid));
   return interactive.flatMap((a) => {
     const p = procs.get(a.pid);
-    return p && !p.inWorkOffDesk ? [{ ...a, tty: p.tty }] : [];
+    return p ? [{ ...a, tty: p.tty, here: p.inWorkOffDesk }] : [];
   });
 }
 

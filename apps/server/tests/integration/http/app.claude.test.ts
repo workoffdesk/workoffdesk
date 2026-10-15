@@ -1,14 +1,31 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { spawn, spawnSync } from 'node:child_process';
+import { afterAll, describe, expect, it } from 'vitest';
 import { liveServer } from '../../helpers/server.js';
 import { until } from '../../helpers/until.js';
 
-// A Claude that runs until its session is ended, and says no Claude is open in a terminal.
-const runs = join(mkdtempSync(join(tmpdir(), 'ts-cl-bin-')), 'claude');
-writeFileSync(runs, `#!/bin/sh\nif [ "$1" = agents ]; then echo '[]'; exit 0; fi\nexec sleep 600\n`);
+// A Claude that runs until its session is ended, and lists the Claudes running on the Mac as AGENTS has them.
+const bin = mkdtempSync(join(tmpdir(), 'ts-cl-bin-'));
+const runs = join(bin, 'claude');
+const AGENTS = join(bin, 'agents.json');
+// While it is there, the listing does not answer.
+const HANGS = join(bin, 'hangs');
+writeFileSync(runs, `#!/bin/sh\nif [ "$1" = agents ]; then [ -f ${JSON.stringify(HANGS)} ] && exec sleep 30; cat ${JSON.stringify(AGENTS)}; exit 0; fi\nexec sleep 600\n`);
 chmodSync(runs, 0o755);
+// Claudes running on the Mac that sent a message: one whose conversation a session here goes on with, one
+// in a terminal, and one gone since.
+const SENDER_HERE = 'a1b2c3d4-0000-4000-8000-000000000001';
+const SENDER_THERE = 'a1b2c3d4-0000-4000-8000-000000000002';
+// node, whose environment ps shows, unlike that of the system's own programs.
+const sender = (env: Record<string, string> = {}) =>
+  spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { detached: true, stdio: 'ignore', env: { PATH: '/bin:/usr/bin', ...env } });
+const [here, there] = [sender({ WORKOFFDESK_SESSION: 'abcd1234' }), sender()];
+const gone = spawnSync('/usr/bin/true').pid!;
+afterAll(() => [here, there].forEach((p) => p.kill('SIGKILL')));
+const agent = (pid: number, sessionId: string, name?: string) => ({ pid, sessionId, cwd: '/Users/someone/proj', kind: 'interactive', status: 'idle', name });
+writeFileSync(AGENTS, JSON.stringify([agent(here.pid!, SENDER_HERE, 'Docs'), agent(there.pid!, SENDER_THERE), agent(gone, SENDER_THERE, 'Gone')]));
 const live = liveServer('cl', { signedIn: true, claudeBin: runs });
 const { dir, store, claudeRoot, claudeJobsRoot, claudeDir, api, openWs } = live;
 
@@ -114,6 +131,61 @@ describe('GET /api/claude/recent', () => {
 
   it('requires a login', async () => {
     expect((await api('/api/claude/recent', { headers: { cookie: 'x=y' } })).status).toBe(401);
+  });
+});
+
+describe('GET /api/claude/peers/:pid', () => {
+  const peer = (pid: number | string, name = '') => api(`/api/claude/peers/${pid}?name=${encodeURIComponent(name)}`);
+
+  it('answers the conversation of a Claude running in a terminal, held by no session here', async () => {
+    const r = await peer(there.pid!);
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ sid: SENDER_THERE, openIn: null });
+  });
+
+  it('answers the session here that goes on with the conversation of the Claude that sent it', async () => {
+    const s = await (await api('/api/m/local/sessions', { method: 'POST', body: JSON.stringify({ kind: 'claude', cwd: dir, resumeId: SENDER_HERE }) })).json();
+    try {
+      expect(await (await peer(here.pid!, 'Docs')).json()).toEqual({ sid: SENDER_HERE, openIn: s.id });
+    } finally {
+      await api(`/api/m/local/sessions/${s.id}`, { method: 'DELETE' });
+    }
+  });
+
+  it('answers no session here for one ended here, kept as past', async () => {
+    const s = await (await api('/api/m/local/sessions', { method: 'POST', body: JSON.stringify({ kind: 'claude', cwd: dir, resumeId: SENDER_HERE }) })).json();
+    try {
+      await api(`/api/m/local/sessions/${s.id}`, { method: 'DELETE' });
+      expect(await until(async () => (await (await api('/api/m/local/sessions')).json()).find((x: any) => x.id === s.id)?.status === 'ended')).toBe(true);
+      expect(await (await peer(here.pid!, 'Docs')).json()).toEqual({ sid: SENDER_HERE, openIn: null });
+    } finally {
+      await api(`/api/m/local/sessions/${s.id}`, { method: 'DELETE' });
+    }
+  });
+
+  it.each([
+    ['not running on the Mac', () => peer(here.pid! + 100_000, 'Docs')],
+    ['gone since it was listed', () => peer(gone, 'Gone')],
+    ['listed under another name: its process is now another Claude', () => peer(here.pid!, 'Someone else')],
+  ])('says the Claude that sent it is no longer there when it is %s', async (_, ask) => {
+    const r = await ask();
+    expect(r.status).toBe(404);
+    expect(await r.json()).toMatchObject({ code: 'peer-gone' });
+  });
+
+  it('says the Mac did not answer, rather than that the Claude is gone, when the listing hangs', async () => {
+    writeFileSync(HANGS, '');
+    try {
+      const r = await peer(there.pid!);
+      expect(r.status).toBe(409);
+      expect(await r.json()).toMatchObject({ code: 'mac-unanswered' });
+    } finally {
+      rmSync(HANGS, { force: true });
+    }
+  });
+
+  it.each(['x', '-1', '1.5'])('refuses %s for a process', async (pid) => {
+    expect((await peer(pid)).status).toBe(400);
   });
 });
 

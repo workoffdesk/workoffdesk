@@ -1,9 +1,9 @@
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
-import { listMacClaudes, MacUnanswered, stopMacProcess } from '../../../../src/agents/claude/terminals.js';
+import { findMacClaude, listMacClaudes, MacUnanswered, stopMacProcess } from '../../../../src/agents/claude/terminals.js';
 import { alive } from '../../../helpers/processes.js';
 import { testTmux } from '../../../helpers/tmux.js';
 
@@ -14,9 +14,11 @@ const LIST = 'workoffdesk-test-agents.json';
 // While it is there, Claude Code does not answer.
 const HANGS = join(dir, 'hangs');
 const fakeClaude = join(dir, 'claude');
+// A line for every time it is run.
+const RUNS = join(dir, 'runs');
 writeFileSync(
   fakeClaude,
-  `#!/bin/sh\n[ -f ${JSON.stringify(HANGS)} ] && exec sleep 30\n[ "$1 $2" = "agents --json" ] || exit 2\nif [ -f "$CLAUDE_CONFIG_DIR/${LIST}" ]; then cat "$CLAUDE_CONFIG_DIR/${LIST}"; else cat ${JSON.stringify(join(dir, LIST))}; fi\n`,
+  `#!/bin/sh\necho >> ${JSON.stringify(RUNS)}\n[ -f ${JSON.stringify(HANGS)} ] && exec sleep 30\n[ "$1 $2" = "agents --json" ] || exit 2\nif [ -f "$CLAUDE_CONFIG_DIR/${LIST}" ]; then cat "$CLAUDE_CONFIG_DIR/${LIST}"; else cat ${JSON.stringify(join(dir, LIST))}; fi\n`,
 );
 chmodSync(fakeClaude, 0o755);
 const lists = (agents: unknown, configDir = dir) => writeFileSync(join(configDir, LIST), JSON.stringify(agents));
@@ -47,6 +49,22 @@ const gonePid = async () => {
   return p.pid!;
 };
 const agent = (pid: number, o: Record<string, unknown> = {}) => ({ pid, sessionId: `s-${pid}`, cwd: '/Users/someone/app', kind: 'interactive', status: 'idle', ...o });
+
+describe('findMacClaude', () => {
+  it('finds a Claude running by its process, WorkOffDesk\'s own too, with its conversation and name', async () => {
+    const [mine, open] = [await runs({ env: { WORKOFFDESK_SESSION: 'abcd1234' } }), await runs()];
+    lists([agent(mine, { name: 'Docs' }), agent(open)]);
+    expect(await findMacClaude(fakeClaude, mine)).toEqual({ sessionId: `s-${mine}`, name: 'Docs' });
+    expect(await findMacClaude(fakeClaude, open)).toEqual({ sessionId: `s-${open}`, name: null });
+  });
+
+  it('finds none for a process not listed, or gone since it was', async () => {
+    const [listed, gone] = [await runs(), await gonePid()];
+    lists([agent(listed), agent(gone)]);
+    expect(await findMacClaude(fakeClaude, listed + 100_000)).toBeNull();
+    expect(await findMacClaude(fakeClaude, gone)).toBeNull();
+  });
+});
 
 describe('listMacClaudes', () => {
   it('lists the interactive ones Claude Code lists, each as it says, with its terminal', async () => {
@@ -107,10 +125,14 @@ describe('listMacClaudes', () => {
 
   it('lists once for everyone who asks while a listing runs', async () => {
     lists([]);
-    const [a, b] = [listMacClaudes(fakeClaude), listMacClaudes(fakeClaude)];
-    expect(a).toBe(b);
-    await a;
-    expect(listMacClaudes(fakeClaude)).not.toBe(a);
+    const ran = () => readFileSync(RUNS, 'utf8').length;
+    await listMacClaudes(fakeClaude);
+    const before = ran();
+    await listMacClaudes(fakeClaude);
+    const once = ran() - before;
+    expect(once).toBeGreaterThan(0);
+    await Promise.all([listMacClaudes(fakeClaude), listMacClaudes(fakeClaude), findMacClaude(fakeClaude, 1)]);
+    expect(ran() - before - once).toBe(once);
   });
 
   describe('when Claude Code does not answer in time', () => {

@@ -1,5 +1,9 @@
+import { errorText } from '@workoffdesk/client/base/api';
 import { noteText, type Turn } from '@workoffdesk/client/model/chat';
-import type { ReactNode } from 'react';
+import { sentFrom } from '@workoffdesk/client/sessions/peer';
+import { useState, type ReactNode } from 'react';
+import { api, MACHINE } from '../api';
+import { navigate } from '../router';
 import { t } from '@workoffdesk/i18n';
 import { useAgentName } from '@workoffdesk/react/agentName';
 import { Reply, ReplyWithImages, ShownAbove } from './turn/Reply';
@@ -56,6 +60,7 @@ export function TurnView(props: {
         <details className="chat-note">
           <summary>{noteText(turn)}</summary>
           <div className="chat-note-detail">{turn.detail}</div>
+          {'event' in turn && turn.event.e === 'peer' && turn.event.pid !== undefined && <GoToSender pid={turn.event.pid} name={turn.event.from} />}
         </details>
       );
     case 'changes':
@@ -94,4 +99,29 @@ export function TurnView(props: {
       );
     }
   }
+}
+
+// A message from another Claude on the Mac leads to it, or says why it cannot.
+function GoToSender({ pid, name }: { pid: number; name: string }) {
+  const [said, setSaid] = useState<string | null>(null);
+  const [going, setGoing] = useState(false);
+  const go = () => {
+    setGoing(true);
+    setSaid(null);
+    sentFrom(api, pid, name).then(
+      (to) => navigate('session' in to ? `/m/${MACHINE}/s/${to.session}` : `/claude/${to.onMac}`),
+      (e: unknown) => {
+        setGoing(false);
+        setSaid(errorText(e, t.failed));
+      },
+    );
+  };
+  return (
+    <div className="chat-note-go">
+      <button className="btn small" disabled={going} onClick={go}>
+        {t.goToSender}
+      </button>
+      {said && <small role="alert">{said}</small>}
+    </div>
+  );
 }

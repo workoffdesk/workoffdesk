@@ -77,6 +77,8 @@ A Claude session is shown as its conversation, read from Claude Code's transcrip
 replies rendered as Markdown, and tool calls folded (tap to see the whole command and its output). Older turns load as you scroll
 up. The phone keeps a copy of what it has read, so reopening a session is instant.
 
+- A message another Claude session sent shows as "Message from …"; opened, it offers **Go to that session**,
+  which goes to that session while it is still running on the Mac.
 - While Claude works through a task list, a bar says how far along it is. **Stop** (in place of the send
   button while the composer is empty) interrupts it, like Esc.
 - Commands and agents running in the background are listed in a bar that opens `/tasks`.

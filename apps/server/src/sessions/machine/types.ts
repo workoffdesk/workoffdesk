@@ -57,6 +57,9 @@ export interface Machine {
   createSession(spec: CreateSpec): Promise<TermSession>;
   // The Claude conversations open in a terminal on this Mac outside every WorkOffDesk on it, by conversation id.
   openOnMac(recentMs?: number): Promise<Map<string, MacOpen>>;
+  // The conversation and name of a Claude running on this Mac, WorkOffDesk's own included, by its process, as
+  // the Mac says now.
+  macClaudeOf(pid: number): Promise<{ sessionId: string; name: string | null } | null>;
   // Quits each Claude in a terminal on the Mac that holds the session's conversation too; unless force, none while
   // one there is at work or asking.
   quitOnMac(id: string, force?: boolean): Promise<void>;

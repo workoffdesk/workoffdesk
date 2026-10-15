@@ -1,7 +1,7 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { E2E_HOME } from '../../playwright.config';
@@ -192,6 +192,39 @@ test.describe('the chat', () => {
     appendFileSync(transcript, jsonl(rec.user([{ type: 'tool_result', tool_use_id: 'toolu_1', content: 'src/time.ts:3: epoch_utc' }])));
     await expect(chat.getByText('src/time.ts:3: epoch_utc')).toBeVisible();
     await expect(asked).toHaveText(command);
+  });
+
+  test('goes from a message another session sent to that session, and says when it is gone', async ({ page }) => {
+    const stays = join(E2E_HOME, 'claude-stays');
+    const agents = join(E2E_HOME, 'mac-agents.json');
+    writeFileSync(stays, '');
+    const there = spawn('sleep', ['600'], { stdio: 'ignore', env: { PATH: '/bin:/usr/bin' } });
+    const gone = spawnSync('/usr/bin/true').pid!;
+    try {
+      await login(page);
+      const sender = await newClaude(page);
+      await page.getByRole('button', { name: '返回' }).click();
+      const { transcript } = await newClaude(page);
+      const listed = (pid: number, name: string) => ({ pid, sessionId: basename(sender.transcript, '.jsonl'), cwd: E2E_HOME, kind: 'interactive', status: 'idle', name });
+      writeFileSync(agents, JSON.stringify([listed(there.pid!, 'Docs'), listed(gone, 'Old')]));
+      const peer = (name: string, body: string, pid: number) => ({ ...rec.user(body), isMeta: true, origin: { kind: 'peer', name, body, verifiedPeerPid: pid } });
+      writeFileSync(transcript, jsonl(peer('Old', '早先的一条', gone), peer('Docs', '设计稿看完了。', there.pid!)));
+
+      const chat = page.getByTestId('chat');
+      const note = (name: string) => chat.locator('.chat-note').filter({ hasText: `收到 ${name} 的消息` });
+      await note('Old').locator('summary').click();
+      await note('Old').getByRole('button', { name: '去那个会话' }).click();
+      await expect(note('Old').getByRole('alert')).toHaveText('发这条消息的会话已经不在 Mac 上运行了');
+      await shot(page, 'peer-gone');
+
+      await note('Docs').locator('summary').click();
+      await note('Docs').getByRole('button', { name: '去那个会话' }).click();
+      await expect(page).toHaveURL(new RegExp(`/m/local/s/${sender.id}$`));
+    } finally {
+      rmSync(agents, { force: true });
+      rmSync(stays, { force: true });
+      there.kill('SIGKILL');
+    }
   });
 
   test('follows new replies while at its end, and stays put while reading further up', async ({ page }) => {

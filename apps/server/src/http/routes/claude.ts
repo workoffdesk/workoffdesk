@@ -1,6 +1,7 @@
 import { findTranscript, readChat, readChatBefore } from '../../agents/claude/transcript/transcriptFile.js';
 import { heldInBackground, listAllClaudeSessions, listProjectDirs, listRecentClaudeSessions, oneClaudeSession, type RecentClaudeSession } from '../../agents/claude/transcript/transcripts.js';
 import { isDir } from '../../system/dirs.js';
+import { InvalidRequest, NotFound } from '../../system/errors.js';
 import type { AppDeps } from '../app.js';
 import type { RouteModule } from './context.js';
 
@@ -52,12 +53,27 @@ async function claudeRows(deps: AppDeps, list: (root: string) => Promise<RecentC
   });
 }
 
+// The conversation of the Claude on this Mac that sent a message, by its process, and the session here that
+// goes on with it. The name it sent under is checked: a process gone since can be another Claude now.
+export async function peerOf(deps: AppDeps, pid: number, name: string) {
+  const c = await deps.machine.macClaudeOf(pid);
+  if (!c || (c.name !== null && c.name !== name)) throw new NotFound('the Claude that sent this is no longer running on the Mac', 'peer-gone');
+  const held = (await deps.machine.listSessions()).find((s) => s.claudeSessionId === c.sessionId && s.status !== 'ended');
+  return { sid: c.sessionId, openIn: held?.id ?? null };
+}
+
 // Claude sessions on this Mac to pick up again, and the folders worth starting one in.
 export const register: RouteModule = (app, ctx) => {
   const { deps } = ctx;
   const { machine } = deps;
 
   app.get('/api/claude/recent', () => recentClaude(deps));
+
+  app.get<{ Params: { pid: string }; Querystring: { name?: string } }>('/api/claude/peers/:pid', (req) => {
+    const pid = Number(req.params.pid);
+    if (!Number.isSafeInteger(pid) || pid <= 0) throw new InvalidRequest('bad process id');
+    return peerOf(deps, pid, req.query.name ?? '');
+  });
 
   // Stops waiting to take a conversation over from the Mac.
   app.delete<{ Params: { sid: string } }>('/api/claude/sessions/:sid/take-over', async (req, reply) =>
