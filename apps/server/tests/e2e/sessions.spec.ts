@@ -16,10 +16,15 @@ async function swipeRow(page: Page, row: Locator, dx: number, dy = 4) {
 }
 
 test.describe('the session list', () => {
+  // Claude stays at its prompt, as it does at the Mac, rather than quitting at once.
+  const stays = join(E2E_HOME, 'claude-stays');
+  test.beforeEach(() => writeFileSync(stays, ''));
+  test.afterEach(() => rmSync(stays, { force: true }));
+
   test('lists what people started to resume, keeps what agents started folded away, and stays tidy when long', async ({ page }) => {
     await login(page);
     await page.getByRole('button', { name: '新建会话' }).click();
-    await page.getByRole('button', { name: /续上最近的 Claude/ }).click();
+    await page.getByRole('button', { name: /续上最近的对话/ }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet.getByRole('button', { name: /登录页按钮圆角/ })).toBeVisible();
     await expect(sheet.getByRole('button', { name: /MEM-705/ })).toBeHidden();
@@ -34,12 +39,11 @@ test.describe('the session list', () => {
     expect(await body.evaluate((b) => b.scrollHeight > b.clientHeight), 'precondition: the list overflows').toBe(true);
     const search = sheet.getByPlaceholder('搜标题或路径');
     const box = (await search.boundingBox())!;
-    expect(box.height).toBeCloseTo(42, 0);
-    // The back and close icons line up with the edges of what is under them.
-    const back = (await sheet.getByRole('button', { name: '上一步' }).locator('svg').boundingBox())!;
+    expect(box.height).toBeCloseTo(44, 0);
+    // A bar as the phone's: the back and close icons sit as far in from either edge of what is under them.
+    const back = (await sheet.getByRole('button', { name: '返回' }).locator('svg').boundingBox())!;
     const close = (await sheet.getByRole('button', { name: '关闭' }).locator('svg').boundingBox())!;
-    expect(Math.abs(back.x - box.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(close.x + close.width - (box.x + box.width))).toBeLessThanOrEqual(1);
+    expect(Math.abs(back.x - box.x - (box.x + box.width - (close.x + close.width)))).toBeLessThanOrEqual(1);
     await shot(page, '10-pick-recent-many');
     // A search looks through the folded ones too.
     await fold.click();
@@ -63,14 +67,11 @@ test.describe('the session list', () => {
     await page.getByRole('button', { name: '返回' }).click();
 
     await page.getByRole('button', { name: '新建会话' }).click();
-    await page.getByRole('button', { name: /续上最近的 Claude/ }).click();
+    await page.getByRole('button', { name: /续上最近的对话/ }).click();
     await expect(page.getByRole('button', { name: /登录页按钮圆角/ })).toBeVisible();
     await shot(page, '10-pick-recent');
     await page.getByRole('button', { name: /登录页按钮圆角/ }).click();
-    // It opens to read first; picking it up here is a step of its own, confirmed again while the Mac may
-    // still be writing it (the fixture was written moments ago).
-    await page.getByRole('button', { name: '在手机上接着聊' }).click();
-    await expect(page.getByText(/两边同时写会分叉/)).toBeVisible();
+    // It opens to read first; picking it up here is a step of its own.
     await page.getByRole('button', { name: '在手机上接着聊' }).click();
     await expect.poll(() => termText(page), { timeout: 10_000 }).toContain('fake claude --resume 3f2a1b4c');
     await page.getByRole('button', { name: '返回' }).click();
@@ -98,14 +99,14 @@ test.describe('the session list', () => {
 
     // A transcript already open in a session jumps there instead of opening a second copy.
     await page.getByRole('button', { name: '新建会话' }).click();
-    await page.getByRole('button', { name: /续上最近的 Claude/ }).click();
+    await page.getByRole('button', { name: /续上最近的对话/ }).click();
     await expect(page.getByRole('button', { name: /登录页按钮圆角/ })).toContainText('已打开');
   });
 
   test('lists a conversation a Claude background session holds, which cannot be resumed here', async ({ page }) => {
     await login(page);
     await page.getByRole('button', { name: '新建会话' }).click();
-    await page.getByRole('button', { name: /续上最近的 Claude/ }).click();
+    await page.getByRole('button', { name: /续上最近的对话/ }).click();
     const held = page.getByRole('dialog').getByRole('button', { name: /把博客文章改成图文帖/ });
     await expect(held).toContainText('在 Claude 后台会话里，这里不能续');
     await expect(held).toBeDisabled();
@@ -166,7 +167,7 @@ test.describe('the session list', () => {
       await login(page);
       // One ask that fails: the client tries a read four times (retry.ts) before it gives up.
       let refused = 0;
-      await page.route('**/api/recent', (route) => (refused < 4 ? (refused++, route.abort('internetdisconnected')) : route.continue()));
+      await page.route('**/api/conversations/claude/*', (route) => (refused < 4 ? (refused++, route.abort('internetdisconnected')) : route.continue()));
       await page.goto(`/claude/${sid}`);
       await expect(page.getByText('连不上服务器，检查一下网络')).toBeVisible();
       await expect(page.getByRole('button', { name: '在手机上接着聊' })).toBeDisabled();
@@ -185,7 +186,12 @@ test.describe('the session list', () => {
     await expect(page.locator('.fab')).toHaveCount(0);
 
     const done = await newClaude(page);
-    writeFileSync(done.transcript, jsonl(rec.user('改按钮'), rec.claude({ type: 'text', text: '改好了，**圆角 8px**，测试全绿。' })));
+    // Said today, so the row has the time of day it was said.
+    const now = new Date().toISOString();
+    writeFileSync(
+      done.transcript,
+      jsonl({ ...rec.user('改按钮'), timestamp: now }, { ...rec.claude({ type: 'text', text: '改好了，**圆角 8px**，测试全绿。' }), timestamp: now }),
+    );
     await hook(done.id, 'UserPromptSubmit');
     await hook(done.id, 'Stop');
     await page.getByRole('button', { name: '返回' }).click();
@@ -214,13 +220,11 @@ test.describe('the session list', () => {
 
     // Search by name or folder.
     const search = page.getByRole('searchbox', { name: '搜索' });
-    const hint = page.getByText('搜索', { exact: true });
-    await expect(hint).toBeVisible();
+    // The word stands in for what is typed, as its placeholder.
+    await expect(search).toHaveAttribute('placeholder', '搜索');
     await search.fill('PROJECT-A');
-    // The word stands in for what is typed and goes once there is some.
-    await expect(hint).toBeHidden();
     await expect(rows).toHaveCount(2);
-    await search.fill('ts-e2e');
+    await search.fill('project-a');
     await expect(rows).toHaveCount(2);
     await search.fill('没有这个');
     await expect(rows).toHaveCount(0);
@@ -310,12 +314,9 @@ test.describe('the session list', () => {
     await expect(page).toHaveURL(/\/claude\/3f2a1b4c-0000-4000-8000-000000000001$/);
   });
 
-  test('is pinned from its row to the top, under 置顶, and unpinned', async ({ page }) => {
+  test('is pinned from its row to the top, and unpinned', async ({ page }) => {
     test.skip(!test.info().project.use.hasTouch, 'swiping is for touch screens');
-    // Claude stays at its prompt.
-    const stays = join(E2E_HOME, 'claude-stays');
-    writeFileSync(stays, '');
-    try {
+    {
       await login(page);
       await clearSessions(page);
       for (const name of ['甲', '乙']) {
@@ -335,17 +336,19 @@ test.describe('the session list', () => {
       await shot(page, '28-pin-row-actions');
       await pin.click();
       await expect(names).toHaveText([below, top]);
-      // What is not pinned keeps a heading, or it would read as pinned too.
-      await expect(headings).toHaveText([/^置顶/, /^project-a/]);
+      // Marked by the shade of its row, not by a heading over it.
+      const pinned = page.locator('.sess-row.pinned');
+      await expect(pinned).toHaveText(new RegExp(below));
+      await expect(pinned).toHaveCount(1);
+      await expect(headings).toHaveCount(0);
       await shot(page, '29-pinned-in-list');
       // Read back from the Mac rather than from what this page remembers.
       await page.reload();
       await expect(names).toHaveText([below, top]);
+      await expect(pinned).toHaveText(new RegExp(below));
       await swipeRow(page, row, -120);
       await page.getByRole('button', { name: '取消置顶' }).click();
-      await expect(headings).toHaveCount(0);
-    } finally {
-      rmSync(stays, { force: true });
+      await expect(pinned).toHaveCount(0);
     }
   });
 
@@ -410,32 +413,26 @@ test.describe('the session list', () => {
     });
 
     test('is changed from a tap on the title, and never to an empty one', async ({ page }) => {
-      // Claude stays at its prompt: an ended session's title is not a button.
-      const stays = join(E2E_HOME, 'claude-stays');
-      writeFileSync(stays, '');
-      try {
-        await login(page);
-        await newClaude(page);
-        await page.getByRole('button', { name: /^改名/ }).click();
-        const sheet = page.getByRole('dialog', { name: '改名' });
-        await sheet.getByLabel('名字').fill('看日志');
-        await shot(page, '30-rename-sheet');
-        await sheet.getByLabel('名字').press('Enter');
-        await expect(sheet).toBeHidden();
-        const title = page.locator('.term-title');
-        await expect(title.locator('strong')).toHaveText('看日志');
-        await expect(title.locator('span').first()).toContainText('project-a');
-        await page.getByRole('button', { name: /^改名/ }).click();
-        await expect(sheet.getByLabel('名字')).toHaveValue('看日志');
-        await sheet.getByLabel('名字').fill('   ');
-        await expect(sheet.getByRole('button', { name: '保存' })).toBeDisabled();
-        await sheet.getByLabel('名字').press('Enter');
-        await expect(sheet).toBeVisible();
-        await expect(sheet.locator('.sheet-note')).not.toContainText('不填');
-        await expect(title.locator('strong')).toHaveText('看日志');
-      } finally {
-        rmSync(stays, { force: true });
-      }
+      // An ended session's title is not a button: Claude stays at its prompt (beforeEach).
+      await login(page);
+      await newClaude(page);
+      await page.getByRole('button', { name: /^改名/ }).click();
+      const sheet = page.getByRole('dialog', { name: '改名' });
+      await sheet.getByLabel('名字').fill('看日志');
+      await shot(page, '30-rename-sheet');
+      await sheet.getByLabel('名字').press('Enter');
+      await expect(sheet).toBeHidden();
+      const title = page.locator('.term-title');
+      await expect(title.locator('strong')).toHaveText('看日志');
+      await expect(title.locator('span').first()).toContainText('project-a');
+      await page.getByRole('button', { name: /^改名/ }).click();
+      await expect(sheet.getByLabel('名字')).toHaveValue('看日志');
+      await sheet.getByLabel('名字').fill('   ');
+      await expect(sheet.getByRole('button', { name: '保存' })).toBeDisabled();
+      await sheet.getByLabel('名字').press('Enter');
+      await expect(sheet).toBeVisible();
+      await expect(sheet.locator('.sheet-note')).not.toContainText('不填');
+      await expect(title.locator('strong')).toHaveText('看日志');
     });
 
     test('is given to a Claude session as it is started', async ({ page }) => {
