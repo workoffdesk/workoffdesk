@@ -25,14 +25,18 @@ describe('the dictionaries', () => {
     for (const k of ['status', 'serverErrors', 'push', 'panelTitles', 'modes'] as const) expect(keys(zh[k])).toEqual(keys(en[k]));
   });
 
-  // The server names by a code each error the phone shows; a code with no words for it would show raw English.
-  it('have words for every error code the server sends', () => {
+  // The Mac, real or the demo's, names by a code each error the phone shows; a code with no words for it would show
+  // raw English.
+  it('have words for every error code the server or the demo sends', () => {
     const files = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(join(dir, e.name)) : e.name.endsWith('.ts') ? [join(dir, e.name)] : []));
     const codes = new Set<string>();
     for (const f of files(join(__dirname, '../../../apps/server/src')))
       for (const m of readFileSync(f, 'utf8').matchAll(/new (?:Conflict|InvalidRequest|NotFound|UnsupportedMedia|NotAnImage)\(.*?,\s*'([a-z-]+)'\)/g)) codes.add(m[1]);
+    for (const f of files(join(__dirname, '../../client/src/demo')))
+      for (const m of readFileSync(f, 'utf8').matchAll(/code: '([a-z-]+)'/g)) codes.add(m[1]);
     expect(codes.size).toBeGreaterThan(0);
+    expect(codes).toContain('demo');
     for (const lang of ['en', 'zh'] as const) expect(keys(dictionaries[lang].serverErrors)).toEqual([...codes].sort());
   });
 });

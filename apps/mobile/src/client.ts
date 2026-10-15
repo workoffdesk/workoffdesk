@@ -15,6 +15,9 @@ import { createReleaseWatch } from '@workoffdesk/client/base/release';
 import { createSessionList } from '@workoffdesk/client/sessions/sessionList';
 import { createSlowReport, SLOW_PATH } from '@workoffdesk/client/base/slow';
 import { createSnippets } from '@workoffdesk/client/composer/snippets';
+import { accountsOnStart, DEMO_LOGIN, isDemo, sameAccount, type Login } from '@workoffdesk/client/demo/account';
+import { createDemoMac } from '@workoffdesk/client/demo/demoMac';
+import { lang } from '@workoffdesk/i18n';
 import { createGroupingChoice, createThemeChoice } from '@workoffdesk/client/settings/choices';
 import { createTextSize } from '@workoffdesk/client/settings/textSize';
 import * as Clipboard from 'expo-clipboard';
@@ -31,7 +34,7 @@ import { createPictures } from './pictures';
 // the Keychain), a store for what is kept on the device, whether the app is in front, and sockets that
 // carry the token.
 
-export type Login = { server: string; token: string; user?: string };
+export type { Login };
 
 // The account in use, and every account kept on the phone, the one in use among them.
 const LOGIN_KEY = 'workoffdesk.login';
@@ -58,12 +61,9 @@ function kept(key: string): unknown {
   }
 }
 
-// One account is a user on a server; signing in to it again replaces its login.
-const sameAccount = (a: Login, b: Login) => a.server === b.server && (a.user ?? '') === (b.user ?? '');
-
 let login = loginOf(kept(LOGIN_KEY));
 const keptAccounts = ((kept(ACCOUNTS_KEY) as unknown[] | null) ?? []).map(loginOf).filter((a): a is Login => !!a);
-let accounts: Login[] = login && !keptAccounts.some((a) => a.token === login!.token) ? [...keptAccounts.filter((a) => !sameAccount(a, login!)), login] : keptAccounts;
+let accounts: Login[] = accountsOnStart(login, keptAccounts);
 const loginListeners = new Set<() => void>();
 const keep = (l: Login | null, list: Login[]) =>
   Promise.all([l ? SecureStore.setItemAsync(LOGIN_KEY, JSON.stringify(l)) : SecureStore.deleteItemAsync(LOGIN_KEY), SecureStore.setItemAsync(ACCOUNTS_KEY, JSON.stringify(list))]);
@@ -84,8 +84,13 @@ const USER_AGENT = `WorkOffDesk/${Constants.expoConfig?.version ?? '0'} (iPhone;
 // The server's release: when it moves on, there is newer JS for this app to fetch.
 export const release = createReleaseWatch();
 
+// The Mac the demo simulates, made once the demo is first used, in the language of the app then.
+let demoMac: ReturnType<typeof createDemoMac> | null = null;
+const demo = () => (demoMac ??= createDemoMac({ lang }));
+
 export const { api, wsUrl, signIn } = createApi({
   base: () => login?.server ?? '',
+  fetch: (url, init) => (isDemo(login) ? demo().fetch(url, init) : fetch(url, init)),
   headers: () => ({ 'user-agent': USER_AGENT, ...(login ? { authorization: `Bearer ${login.token}` } : {}) }),
   onUnauthorized: (sent) => signedOut(sent.get('authorization')?.replace(/^Bearer /, '')),
   onVersion: release.saw,
@@ -108,6 +113,7 @@ type NativeWebSocket = new (url: string, protocols: undefined, options: { header
 // A socket refused for a login no longer in use is a line dropped (1006): it opens again with the one in use.
 const CLOSE_DROPPED = 1006;
 const open: OpenSocket = (path, on) => {
+  if (isDemo(login)) return demo().open(path, on);
   const by = login?.token;
   const closed = (code: number) => on.close(CLOSE_SIGNED_OUT.includes(code) && by !== login?.token ? CLOSE_DROPPED : code);
   return standardSocket(new (WebSocket as unknown as NativeWebSocket)(wsUrl(path), undefined, { headers: signIn() }), { ...on, close: closed });
@@ -185,6 +191,10 @@ export const auth = {
     if (gone.token === login?.token) return auth.signOut();
     setLogin(login, accounts.filter((a) => a.token !== gone.token));
     await askAs(gone)('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  },
+  // The demo in use, from the sign-in form: not kept as an account, and left by signing out.
+  tryDemo() {
+    changeAccount(DEMO_LOGIN, accounts);
   },
   // Signs this token out on the server too; the phone forgets it whether or not the server heard.
   async signOut() {

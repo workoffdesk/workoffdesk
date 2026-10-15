@@ -51,6 +51,7 @@ export const common: typeof en = {
     'mac-would-not-quit': '电脑上那边没有退出，没有续上',
     'mac-unanswered': '电脑没及时说清这个对话是不是还开着，稍等再试一次',
     'peer-gone': '发这条消息的会话已经不在 Mac 上运行了',
+    demo: '演示里做不了这个，连上你的 Mac 就可以',
     'open-elsewhere': '这个对话开在别的 Codex 应用里（编辑器或 Codex App），先在那边关掉',
     'conversation-gone': '这个对话已经不在 Agent 那里了（Claude Code 默认 30 天后删除），这里仍能查看说过的内容',
     'not-an-image': '只能上传图片（PNG、JPEG、GIF、WebP、HEIC）',
@@ -78,6 +79,10 @@ export const common: typeof en = {
   notePeer: (from) => `收到 ${from || '另一个会话'} 的消息`,
   goToSender: '去那个会话',
   seeWhatItDid: '看它做了什么',
+  tryDemo: '先看看演示',
+  tryDemoSub: '手边没有 Mac?用预先写好的会话看看它怎么用。',
+  demoBanner: '演示：会话是预先写好的，没有连任何 Mac。',
+  connectMyMac: '连接我的 Mac',
 
   builtinCommands: {
     agents: '管理子 agent',

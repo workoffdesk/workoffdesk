@@ -52,6 +52,7 @@ export const common = {
     'mac-would-not-quit': 'It did not quit on the Mac, so nothing was resumed.',
     'mac-unanswered': 'The Mac did not say in time whether this conversation is still open there. Try again in a moment.',
     'peer-gone': 'The session that sent this is no longer running on the Mac.',
+    demo: 'Not in the demo: connect your Mac to do this.',
     'open-elsewhere': 'This conversation is open in another Codex app (an editor or the Codex app). Close it there first.',
     'conversation-gone': 'The agent no longer keeps this conversation (Claude Code deletes them after 30 days unless set to keep them longer). What was said can still be read here.',
     'not-an-image': 'Only images can be uploaded (PNG, JPEG, GIF, WebP, HEIC).',
@@ -81,6 +82,10 @@ export const common = {
   notePeer: (from: string) => `Message from ${from || 'another session'}`,
   goToSender: 'Go to that session',
   seeWhatItDid: 'See what it did',
+  tryDemo: 'Try the demo',
+  tryDemoSub: 'No Mac at hand? See how it works on made-up sessions.',
+  demoBanner: 'Demo: made-up sessions, no Mac connected.',
+  connectMyMac: 'Connect my Mac',
 
   // Claude Code's own slash commands, by name; the server describes them in English.
   builtinCommands: {} as Record<string, string>,

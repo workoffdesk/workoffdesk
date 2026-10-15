@@ -356,6 +356,12 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   `WORKOFFDESK_TEAM_ID` choose the bundle id and team. (`apps/mobile/app.config.ts`, `apps/mobile/scripts/release-ios.sh`)
 - A server built with the same `WORKOFFDESK_IOS_BUNDLE_ID` serves the app's JavaScript updates; built without
   it, it serves none. (`apps/server/scripts/build-app-update.mjs`)
+- The sign-in form offers a demo: `api` and `open` go to a Mac simulated on the phone (`createDemoMac`), with
+  three sessions in the app's language; a message is answered by a scripted turn, Esc stops it, sessions start,
+  end, rename and pin, and anything else answers 409 with the code `demo`. The demo is not kept as an account;
+  signing out leaves it. (`libs/client/src/demo/demoMac.ts`, `libs/client/src/demo/content.ts`,
+  `libs/client/src/demo/account.ts`, `apps/mobile/src/client.ts`, `apps/mobile/src/components/LoginForm.tsx`,
+  `libs/client/tests/demo/demoMac.test.ts`)
 
 ## Logs
 

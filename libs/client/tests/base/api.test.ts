@@ -181,3 +181,17 @@ describe('onVersion', () => {
     expect(seen).toEqual([]);
   });
 });
+
+describe('the fetch a client is given', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('carries its requests, and the network is not asked', async () => {
+    const network = vi.fn(() => Promise.reject(new Error('the network was asked')));
+    vi.stubGlobal('fetch', network);
+    const given = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() => Promise.resolve(Response.json({ ok: true })));
+    const { api } = createApi({ base: () => 'demo:', onUnauthorized: () => {}, fetch: given });
+    await expect(api('/api/x', { method: 'POST', json: { a: 1 } })).resolves.toEqual({ ok: true });
+    expect(given).toHaveBeenCalledWith('demo:/api/x', expect.objectContaining({ method: 'POST', body: '{"a":1}' }));
+    expect(network).not.toHaveBeenCalled();
+  });
+});

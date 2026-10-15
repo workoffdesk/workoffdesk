@@ -295,6 +295,7 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/unit/system/errors.test.ts`, `apps/web/tests/unit/styles.css.test.ts`, `apps/mobile/tests/theme.test.mjs`,
   `apps/mac/Tests/WorkOffDeskKitTests/WordsTests.swift`,
   `apps/mac/Tests/WorkOffDeskUITests/MenuViewTests.swift`
+- The demo: `libs/client/tests/demo/demoMac.test.ts`, `libs/client/tests/demo/account.test.ts`
 - End to end: `apps/server/tests/e2e/chat.spec.ts`, `apps/server/tests/e2e/composer.spec.ts`,
   `apps/server/tests/e2e/layout.spec.ts`, `apps/server/tests/e2e/pictures.spec.ts`,
   `apps/server/tests/e2e/sessions.spec.ts`, `apps/server/tests/e2e/settings.spec.ts`,

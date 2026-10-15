@@ -8,6 +8,13 @@ Probably not. The web app, added to the home screen, does everything the app doe
 included. The native app is for those who want it, and you build it yourself: notifications to an app must be
 signed with a key of the team that signs the app, so there is no shared build that could reach your Mac.
 
+## Try it without a Mac
+
+The sign-in form has "Try the demo": the app on a Mac it simulates on the phone, with three made-up sessions in
+the app's language. A message sent there is answered by a short scripted turn, and a reply can be stopped;
+sessions can be started, ended, renamed and pinned. What needs a real Mac (pictures, files, voice, the terminal)
+says it is not in the demo. Nothing goes over the network. "Connect my Mac" at the top of the list leaves it.
+
 ## What you need
 
 - A paid Apple Developer account.

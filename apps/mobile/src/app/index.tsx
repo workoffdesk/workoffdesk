@@ -9,11 +9,12 @@ import { followMacRecent, keptMacRecent, macShown, notGoneOnHere } from '@workof
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useUpdateReady } from '../appUpdate';
-import { api, groupingChoice, seen, sessionList, storage, visibility } from '../client';
+import { api, auth, groupingChoice, seen, sessionList, storage, visibility } from '../client';
+import { isDemo } from '@workoffdesk/client/demo/account';
 import { useGrouping } from '@workoffdesk/react/settings';
 import { scrollHolds } from '../scrollHold';
 import { RenameSheet } from '../components/RenameSheet';
-import { useSessions } from '../hooks';
+import { useLogin, useSessions } from '../hooks';
 import { MacRow, Row, rowStyles, type RowAction } from '../components/rows';
 import { useTheme, type Theme } from '../theme';
 import { bareHeader } from '../components/header';
@@ -48,6 +49,7 @@ export default function Sessions() {
   const st = useMemo(() => styles(theme), [theme]);
   const rs = useMemo(() => rowStyles(theme), [theme]);
   const sessions = useSessions();
+  const demo = isDemo(useLogin());
   const mac = useMacSessions(sessions ?? null);
   const [query, setQuery] = useState('');
   const [renaming, setRenaming] = useState<TermSession | null>(null);
@@ -128,6 +130,16 @@ export default function Sessions() {
         ItemSeparatorComponent={() => <View style={rs.rule} />}
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={empty}
+        ListHeaderComponent={
+          demo ? (
+            <View style={st.demo} accessibilityRole="summary">
+              <Text style={st.demoText}>{t.demoBanner}</Text>
+              <Pressable hitSlop={8} accessibilityRole="button" onPress={() => void auth.signOut()}>
+                <Text style={st.demoGo}>{t.connectMyMac}</Text>
+              </Pressable>
+            </View>
+          ) : null
+        }
         ListFooterComponent={
           mac.length > 0 && !query.trim() ? (
             <View>
@@ -175,6 +187,9 @@ const styles = ({ c, fs }: Theme) =>
       textAlign: 'center',
     },
     list: { flex: 1, backgroundColor: c.bg },
+    demo: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, margin: 16, marginBottom: 4, padding: 12, borderRadius: 12, backgroundColor: c.surface },
+    demoText: { flexShrink: 1, color: c.text, fontSize: fs(14) },
+    demoGo: { color: c.accent, fontSize: fs(14), fontWeight: '600' },
     hint: { fontSize: fs(12), color: c.muted, paddingTop: 8, paddingBottom: 24, paddingHorizontal: 16 },
     center: { textAlign: 'center', color: c.muted, fontSize: fs(15), paddingVertical: 40 },
     empty: { alignItems: 'center', gap: 10, paddingVertical: 56, paddingHorizontal: 16, opacity: 0.9 },

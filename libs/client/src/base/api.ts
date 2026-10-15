@@ -46,6 +46,8 @@ export type ApiConfig = {
   onVersion?: (version: string) => void;
   // A try at a request that took SLOW_MS or more, however it ended, for someone to find where the time goes.
   onSlow?: (slow: Slow) => void;
+  // What carries the requests; the network's fetch unless given.
+  fetch?: (url: string, init: RequestInit) => Promise<Response>;
 };
 
 export const SLOW_MS = 2000;
@@ -124,7 +126,7 @@ export function createApi(config: ApiConfig) {
     let res: Response;
     const sent = Date.now();
     try {
-      res = await fetch(config.base() + path, { ...rest, headers, body: json !== undefined ? JSON.stringify(json) : rest.body });
+      res = await (config.fetch ?? fetch)(config.base() + path, { ...rest, headers, body: json !== undefined ? JSON.stringify(json) : rest.body });
     } catch (e) {
       throw new NetworkError((e as Error | null)?.message ?? 'fetch failed', { cause: e });
     }

@@ -137,6 +137,14 @@ export function LoginForm({ onCancel, again }: { onCancel?: () => void; again?: 
                 <Text style={s.cancelText}>{t.cancel}</Text>
               </Pressable>
             )}
+            {!again && (
+              <View style={s.demo}>
+                <Pressable style={({ pressed }) => [s.cancel, pressed && s.pressed]} disabled={busy} onPress={auth.tryDemo} accessibilityRole="button">
+                  <Text style={s.cancelText}>{t.tryDemo}</Text>
+                </Pressable>
+                <Text style={[s.hint, s.demoSub]}>{t.tryDemoSub}</Text>
+              </View>
+            )}
           </View>
         </Pressable>
       </ScrollView>
@@ -172,6 +180,8 @@ const styles = ({ c, fs }: Theme) =>
     buttonText: { color: c.accentText, fontWeight: '600', fontSize: fs(16) },
     cancel: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
     cancelText: { color: c.accent, fontSize: fs(16) },
+    demo: { marginTop: 8 },
+    demoSub: { textAlign: 'center' },
     disabled: { opacity: 0.55 },
     pressed: { opacity: 0.85 },
   });
