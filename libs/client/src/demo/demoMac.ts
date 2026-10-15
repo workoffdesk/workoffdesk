@@ -27,7 +27,8 @@ type Sim = {
   subagents: Map<string, { description: string; items: ChatItem[] }>;
 };
 
-const answer = (body: unknown, status = 200) => Promise.resolve(Response.json(body ?? {}, { status }));
+const answer = (body: unknown, status = 200) =>
+  Promise.resolve(new Response(JSON.stringify(body ?? {}), { status, headers: { 'content-type': 'application/json' } }));
 const notInDemo = () => answer({ error: 'not in the demo', code: 'demo' }, 409);
 const notFound = (error: string) => answer({ error }, 404);
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -226,8 +227,8 @@ export function createDemoMac(o: { lang: 'en' | 'zh' }) {
       .sort((a, b) => a.pos - b.pos);
 
   async function fetch(url: string, init: RequestInit = {}): Promise<Response> {
-    const at = new URL(url.slice(DEMO_SERVER.length), 'http://demo');
-    const path = at.pathname;
+    const [path, query = ''] = url.slice(DEMO_SERVER.length).split('?');
+    const at = { searchParams: new URLSearchParams(query) };
     const method = init.method ?? 'GET';
     const body = typeof init.body === 'string' && init.body ? (JSON.parse(init.body) as Record<string, unknown>) : {};
     const sessions = `/api/m/${MACHINE}/sessions`;
@@ -236,7 +237,9 @@ export function createDemoMac(o: { lang: 'en' | 'zh' }) {
     if (path === sessions && method === 'GET') return answer([...sims.values()].map((s) => s.session));
     if (path === sessions && method === 'POST') return start(body);
     if (path === '/api/claude/projects') return answer(text.folders);
-    if (path === '/api/recent' || path === '/api/claude/recent' || path === '/api/auth/logins') return answer([]);
+    if (['/api/recent', '/api/claude/recent', '/api/auth/logins', '/api/auth/passkeys'].includes(path) && method === 'GET') return answer([]);
+    if (path === '/api/conversations') return answer({ conversations: [], more: false });
+    if (path === `/api/m/${MACHINE}/agents`) return answer({ codex: true });
     if (['/api/push/apns', '/api/slow', '/api/chat-end', '/api/auth/logout'].includes(path)) return answer({});
 
     const sub = path.match(/^\/api\/claude\/sessions\/([^/]+)\/agents\/([^/]+)(\/chat)?$/);

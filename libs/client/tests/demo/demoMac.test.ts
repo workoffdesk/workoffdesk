@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { t } from '@workoffdesk/i18n';
+import { Response as PhoneResponse } from 'whatwg-fetch';
 import { ApiError, createApi, errorText, MACHINE, type TermSession } from '../../src/base/api';
 import { createChatFeeds } from '../../src/chat/chatFeed';
 import { createDemoMac, DEMO_SERVER } from '../../src/demo/demoMac';
 import { createJournals } from '../../src/journal/journal';
 import { createSessionLinks, type LinkState } from '../../src/sessions/sessionLink';
 import { createSessionList } from '../../src/sessions/sessionList';
-import { createSession } from '../../src/sessions/newSession';
+import { createMacHistory } from '../../src/sessions/macHistory';
+import { agentsOn, createSession } from '../../src/sessions/newSession';
+import { fetchLogins, fetchPasskeys } from '../../src/settings/signIns';
 import { fakeVisibility, flush, memoryStorage } from '../helpers/fakes';
 
 // The client the app runs, on the Mac the demo simulates.
@@ -39,12 +42,15 @@ const settle = async (ms = 0) => {
 const texts = (d: ReturnType<typeof demo>, id: string) => d.journals.view(id).items.map((i) => ('text' in i ? i.text : i.k));
 
 let d: ReturnType<typeof demo>;
+// The phone's Response is React Native's, from whatwg-fetch, which has less than Node's.
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.stubGlobal('Response', PhoneResponse);
   d = demo();
 });
 afterEach(() => {
   d.stop();
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
@@ -246,7 +252,17 @@ describe('the Mac the demo simulates', () => {
 
   it('takes what the app sends on its own, and does nothing with it', async () => {
     for (const [path, json] of [['/api/push/apns', { token: 'x' }], ['/api/slow', { slow: {} }], ['/api/chat-end', { numbers: {} }]] as const)
-      await expect(d.api(path, { method: 'POST', json })).resolves.not.toThrow;
+      await d.api(path, { method: 'POST', json });
     await expect(d.api('/api/auth/logout', { method: 'POST' })).resolves.toBeDefined();
+  });
+
+  it("answers what the app's screens load by themselves with nothing to show, not with an error", async () => {
+    expect(await fetchPasskeys(d.api)).toEqual({ state: 'loaded', rows: [] });
+    expect(await fetchLogins(d.api)).toEqual({ state: 'loaded', rows: [] });
+    expect(await agentsOn(d.api)).toEqual({ codex: true });
+    const history = createMacHistory(d.api);
+    history.reload();
+    await settle(100);
+    expect(history.getSnapshot()).toMatchObject({ rows: [], error: null, loading: false });
   });
 });
