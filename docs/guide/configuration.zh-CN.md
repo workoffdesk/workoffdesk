@@ -54,6 +54,10 @@ iPhone App 的通知走苹果的推送服务，需要签这个 App 的那个 App
 
 每台设备先试苹果的正式推送服务(TestFlight 和 App Store 的版本),再试沙盒(从 Xcode 装的版本),记住应答的那一个。
 
+别人发布给大家用的 iPhone App 用不了你的密钥，也不走它：不管有没有 `apns.json`,你的 Mac 都把每条通知为那台
+手机加密，交给 App 指定的中转。发布者的服务器就是那个中转，在它的 `apns.json` 里加上
+`"relayTopic": "<这个 App 的 bundle id>"`(见[发布给别人用的版本](ios-app.zh-CN.md#发布给别人用的版本))。
+
 ## 重启服务
 
 ```bash

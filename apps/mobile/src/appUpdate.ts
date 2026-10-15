@@ -2,11 +2,14 @@ import { reloadAppAsync } from 'expo';
 import * as Updates from 'expo-updates';
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import { auth, release, storage, type Login } from './client';
+import Constants from 'expo-constants';
+import { auth, release, storage } from './client';
+import { updateUrlOf } from './updateSource';
 import { watchReload } from './reloadWatch';
 
-// The app runs the JS of the server it is signed in to (for its native runtime): it asks that server for
-// an update on starting, every so often, and as soon as an answer names a newer release of the server, and
+// The app runs the JS of the server it is signed in to (for its native runtime), or, built to be published,
+// of the server the build names: it asks for an update on starting, every so often, and, from the server it
+// is signed in to, as soon as an answer names a newer release of it, and
 // downloads it in the background without a word. The newest one starts on the next cold start, on coming back
 // after a while away, or from Settings, where it is offered, as iOS offers its own updates. Signed out, the next
 // start runs the app's own JS again.
@@ -21,11 +24,8 @@ const PLACE_FRESH_MS = 30_000;
 // How long starting again may take before the page says it did not, and how to start it by hand.
 const REOPEN_WAIT_MS = 6000;
 
-// Only where the transport keeps others from swapping the JS: https, or this phone's own loopback.
-const SAFE_SERVER = /^(?:https:\/\/|http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/|$))/i;
-
-export const updateUrlOf = (login: Login | null): string | null =>
-  login && SAFE_SERVER.test(login.server) ? `${login.server.replace(/\/+$/, '')}/api/app-update/manifest` : null;
+// A published build names the one server its JS comes from (app.config.ts).
+const FIXED: string | undefined = Constants.expoConfig?.extra?.updateUrl;
 
 let here: string | null = null;
 // The page on screen, for the update to come back to.
@@ -91,23 +91,26 @@ export function useAppUpdates(): void {
         );
     };
     const follow = () => {
-      const next = updateUrlOf(auth.current());
+      const next = updateUrlOf(auth.current(), FIXED);
       if (next === url) return;
       url = next;
       failures = 0;
       clearTimeout(retry);
       try {
-        Updates.setUpdateURLAndRequestHeadersOverride(next ? { updateUrl: next, requestHeaders: {} } : null);
+        Updates.setUpdateURLAndRequestHeadersOverride(next && !FIXED ? { updateUrl: next, requestHeaders: {} } : null);
       } catch {
-        url = null;
-        return;
+        // A published build left nothing to clear, unless it ran a build of someone's own before.
+        if (!FIXED) {
+          url = null;
+          return;
+        }
       }
       if (next) check();
     };
 
     follow();
     const unsubscribe = auth.subscribe(follow);
-    const leave = release.subscribe(() => url && check());
+    const leave = release.subscribe(() => url && !FIXED && check());
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
         awaySince ??= Date.now();

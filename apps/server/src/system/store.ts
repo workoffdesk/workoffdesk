@@ -28,14 +28,19 @@ export type PushSub = {
   createdAt: number;
 };
 
-// An iPhone app that asked for notifications. words: what to say for each event, in the phone's language.
+// An iPhone app that asked for notifications. words: what to say for each event, in the phone's language;
+// hidden, for a notification the phone could not open. relay: the App Store app's relay, and the key this
+// server seals notifications with for it (notify/seal.ts).
 export type ApnsDeviceRecord = {
   token: string;
   topic: string;
-  words: { waiting: string; idle: string };
+  words: { waiting: string; idle: string; hidden?: string };
+  relay?: ApnsRelay;
   host?: 'production' | 'sandbox';
   createdAt: number;
 };
+
+export type ApnsRelay = { url: string; key: string };
 
 export type SessionKind = 'shell' | 'claude' | 'codex';
 

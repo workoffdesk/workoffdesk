@@ -8,8 +8,9 @@ English · [简体中文](README.zh-CN.md)
 
 ## What makes it different
 
-- **No account, no relay of ours.** It is a small web app on your own Mac; your phone reaches it over the
-  path you choose, such as Tailscale, a Cloudflare Tunnel or your own server.
+- **No account, nothing in between.** It is a small web app on your own Mac; your phone reaches it over the
+  path you choose, such as Tailscale, a Cloudflare Tunnel or your own server. Only an iPhone app someone
+  publishes for others has its notifications passed on by the publisher's relay, sealed so it cannot read them.
 - **Sessions outlive the phone.** Each one runs in tmux on the Mac: closing the page, locking the phone or
   restarting the service does not end it.
 - **Leaving the desk, take it with you; back at it, keep going.** A Claude Code conversation running in a

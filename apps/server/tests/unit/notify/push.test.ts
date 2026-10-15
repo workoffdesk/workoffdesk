@@ -1,15 +1,23 @@
-import { generateKeyPairSync } from 'node:crypto';
+import { createDecipheriv, generateKeyPairSync } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { Apns, type ApnsPost } from '../../../src/notify/apns.js';
 import { Pusher } from '../../../src/notify/push.js';
+import { threadOf } from '../../../src/notify/seal.js';
 import { Store } from '../../../src/system/store.js';
 
 const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
 const KEY = { teamId: 'TEAM123456', keyId: 'KEY1234567', key: privateKey };
 const TOKEN = 'a'.repeat(64);
+
+function openSealed(keyB64: string, sealed: string): unknown {
+  const box = Buffer.from(sealed, 'base64');
+  const d = createDecipheriv('aes-256-gcm', Buffer.from(keyB64, 'base64'), box.subarray(0, 12));
+  d.setAuthTag(box.subarray(box.length - 16));
+  return JSON.parse(Buffer.concat([d.update(box.subarray(12, box.length - 16)), d.final()]).toString('utf8'));
+}
 
 type Answer = { status: number; reason?: string };
 function fakePost(answer: (host: string) => Answer) {
@@ -52,6 +60,62 @@ describe('Pusher', () => {
       pusher.setVisible('abc', 'c1', true);
       await pusher.notify('abc', 'proj', 'idle', '');
       expect(post).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('with the App Store app, through its relay', () => {
+    const relayKey = Buffer.alloc(32, 3).toString('base64');
+    const RELAYED = { token: 'e'.repeat(64), topic: 'com.example.store', words: { waiting: 'Needs you', idle: 'Done', hidden: 'New on your Mac' }, relay: { url: 'https://relay.example', key: relayKey }, createdAt: 1 };
+    const setup = (o: { key?: typeof KEY & { relayTopic?: string }; relayAnswer?: () => Promise<number> } = {}) => {
+      const store = new Store(join(mkdtempSync(join(tmpdir(), 'ts-push-')), 'state.json'));
+      store.update((s) => {
+        s.apnsDevices = [{ ...RELAYED }];
+      });
+      const post = fakePost(() => ({ status: 200 }));
+      const relayPost = vi.fn(o.relayAnswer ?? (async () => 200));
+      const pusher = new Pusher(store, { subject: 'mailto:x@example.com', apns: o.key ? new Apns(o.key, post) : undefined, relayPost });
+      return { store, post, relayPost, pusher };
+    };
+    const sent = (relayPost: ReturnType<typeof setup>['relayPost']) =>
+      relayPost.mock.calls.map(([url, body]) => [url, JSON.parse(body as string)] as const);
+
+    it('seals what Claude said for the phone alone, and gives the relay only the words for a sealed one', async () => {
+      const { relayPost, pusher } = setup();
+      await pusher.notify('abc', 'proj', 'waiting', 'Which one?');
+      const [[url, body]] = sent(relayPost);
+      expect(url).toBe('https://relay.example/api/push/relay');
+      expect(body).toEqual({ token: RELAYED.token, topic: RELAYED.topic, sealed: expect.any(String), thread: threadOf(relayKey, 'abc'), hidden: 'New on your Mac' });
+      expect(JSON.stringify(body)).not.toMatch(/proj|Which one|abc|Needs you/);
+      expect(openSealed(relayKey, body.sealed)).toEqual({ alert: { title: 'proj', subtitle: 'Needs you', body: 'Which one?' }, sessionId: 'abc' });
+    });
+
+    it("goes through the relay though this server has a key, which is for its owner's own app", async () => {
+      const { post, relayPost, pusher } = setup({ key: KEY });
+      await pusher.notify('abc', 'proj', 'idle', '');
+      expect(relayPost).toHaveBeenCalledTimes(1);
+      expect(post).not.toHaveBeenCalled();
+    });
+
+    it('goes straight to Apple when this server is the relay for that app', async () => {
+      const { post, relayPost, pusher } = setup({ key: { ...KEY, relayTopic: RELAYED.topic } });
+      await pusher.notify('abc', 'proj', 'idle', '');
+      expect(relayPost).not.toHaveBeenCalled();
+      expect(JSON.parse(post.mock.calls[0][3])).toEqual({ aps: { alert: { title: 'proj', body: 'Done' }, sound: 'default', 'thread-id': 'abc' }, body: { sessionId: 'abc' } });
+    });
+
+    it('forgets a device the relay says is gone', async () => {
+      const { store, pusher } = setup({ relayAnswer: async () => 410 });
+      await pusher.notify('abc', 'proj', 'idle', '');
+      expect(store.get().apnsDevices).toEqual([]);
+    });
+
+    it.each([
+      ['an answer that is not 410', async () => 502],
+      ['a relay that cannot be reached', async () => Promise.reject(new TypeError('fetch failed'))],
+    ])('keeps the device, and says nothing, after %s', async (_name, relayAnswer) => {
+      const { store, pusher } = setup({ relayAnswer });
+      await expect(pusher.notify('abc', 'proj', 'idle', '')).resolves.toBeUndefined();
+      expect(store.get().apnsDevices).toHaveLength(1);
     });
   });
 

@@ -104,7 +104,8 @@ export async function startServer(o: ServerOptions) {
   // Push services want a contact URL; Apple rejects anything but https: or mailto:.
   const subject = o.config.origin.startsWith('https://') ? o.config.origin : 'mailto:workoffdesk@localhost';
   const apnsKey = loadApnsKey(o.home);
-  const pusher = new Pusher(store, { subject, send: o.pushSend, apns: apnsKey ? new Apns(apnsKey, o.apnsPost) : undefined });
+  const apns = apnsKey ? new Apns(apnsKey, o.apnsPost) : undefined;
+  const pusher = new Pusher(store, { subject, send: o.pushSend, apns });
   machine.setNotifier(pusher);
   const hooks = await startHookServer(
     hookSock,
@@ -141,6 +142,7 @@ export async function startServer(o: ServerOptions) {
     auditPath: join(o.home, 'logs/audit.log'),
     webDir: o.webDir,
     pusher,
+    relay: apns,
     claudeProjectsRoot: o.claudeProjectsRoot ?? join(homedir(), '.claude/projects'),
     claudeJobsRoot: o.claudeJobsRoot ?? join(homedir(), '.claude/jobs'),
     claudeDir: o.claudeDir ?? join(homedir(), '.claude'),

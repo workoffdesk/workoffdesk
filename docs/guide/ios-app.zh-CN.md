@@ -4,8 +4,9 @@
 
 ## 你需要它吗?
 
-多半不需要。网页应用添加到主屏幕后，App 能做的它都能做，推送通知也有。原生 App 给想要它的人用，而且要你
-自己编译：发给 App 的通知必须用签这个 App 的那个团队的密钥签名，所以不存在一个通用的版本能连到你的 Mac。
+多半不需要。网页应用添加到主屏幕后，App 能做的它都能做，推送通知也有。原生 App 给想要它的人用。你自己编译的
+版本由你的团队签名，你的 Mac 用你团队的密钥给它发通知。别人发布给大家用的版本拿不到这把密钥，它的通知要经
+发布者的中转转交，内容只有你的手机解得开，见[发布给别人用的版本](#发布给别人用的版本)。
 
 ## 不连 Mac 先试试
 
@@ -64,3 +65,18 @@ workoffdesk deploy ~/workoffdesk-build
 TestFlight 上的新版本才能带来。改 App 的配置也会，它的 `package.json` 也算在内。构建的 runtime 和线上的不一样时,
 `workoffdesk deploy` 会拒绝，因为装着线上那个 runtime 的手机就再也收不到更新;App 的新版本发出去以后，再用
 `--new-app-runtime` 部署。
+
+## 发布给别人用的版本
+
+别人不用自己编译就能装的版本，比如 App Store 上的，要连的是不归你的 Mac。编译时在 `WORKOFFDESK_IOS_BUNDLE_ID`
+旁边多设两项就行；不设这两项的版本，什么都不变：
+
+- `WORKOFFDESK_IOS_UPDATE_URL`:它的 JavaScript 更新只从这一个地方拿，即你服务器的
+  `https://<你的服务器>/api/app-update/manifest`。它不会从它登录的那台 Mac 拿。
+- `WORKOFFDESK_IOS_PUSH_RELAY`:你服务器的 https 地址(只要协议和域名),由它把通知转交给苹果。这样编出来的
+  版本带一个通知扩展。手机生成一把密钥，存在钥匙串里，交给它登录的每一台 Mac;Mac 用它把每条通知加密后发给
+  中转，中转只看得到设备、时间和大小，看不到内容。设这一项还要设 `WORKOFFDESK_TEAM_ID`。
+
+只有你服务器的 `apns.json` 用 `"relayTopic"` 写明这个 App 的 bundle id 时，它才做中转(见
+[iPhone App 的通知](configuration.zh-CN.md#iphone-app-的通知)),而且只转这一个 App 的，每台设备每分钟最多
+30 条。Mac 上的 workoffdesk 比 App 的 JavaScript 要求的旧时,App 里会有一屏告诉你怎么更新。

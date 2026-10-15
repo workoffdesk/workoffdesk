@@ -42,6 +42,8 @@ export const common = {
   sending: 'Sending…',
   sendingMessage: 'Message being sent',
   tryAgain: 'Try again',
+  macTooOld: 'Update WorkOffDesk on your Mac',
+  macTooOldWhy: (mac: string, needs: string) => `Your Mac runs WorkOffDesk ${mac}; this app needs ${needs} or newer. On the Mac, run:`,
   device: 'Device',
 
   // Errors the server names by code
@@ -91,6 +93,6 @@ export const common = {
   builtinCommands: {} as Record<string, string>,
 
   // Push notifications
-  push: { waiting: 'Needs your confirmation', idle: 'Done with this turn' },
+  push: { waiting: 'Needs your confirmation', idle: 'Done with this turn', hidden: 'Something new on your Mac' },
 
 };

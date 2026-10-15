@@ -60,6 +60,11 @@ signs the app. Web push needs nothing of the kind.
 Each device is tried on Apple's production service first (TestFlight and App Store builds), then on the
 sandbox (builds from Xcode), and remembered on the one that answered.
 
+An iPhone app someone publishes for others cannot use your key. It sends no notification through it: your Mac
+seals each one for the phone and hands it to the relay the app names, with or without `apns.json`. The server
+of whoever publishes it is that relay, with `"relayTopic": "<the app's bundle id>"` added to its `apns.json`
+(see [Publishing a build for others](ios-app.md#publishing-a-build-for-others)).
+
 ## Restarting the service
 
 ```bash

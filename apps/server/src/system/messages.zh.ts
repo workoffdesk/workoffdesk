@@ -98,7 +98,7 @@ ${o.frontDoor}
     sleepsOff: 'preventSleep 是 false：Mac 空闲睡眠之后，手机就连不上，直到有人把它叫醒',
     sleepFix: (file) => `把 ${file} 里的 "preventSleep": false 删掉，然后重启服务。`,
     awake: '服务运行时 Mac 不会空闲睡眠',
-    noApns: '没有推送密钥：iPhone App 收不到通知；网页推送不受影响',
+    noApns: '没有推送密钥：自己编译的 iPhone App 收不到通知；App Store 版走它的中转，网页推送也不受影响',
     apnsKey: (keyId) => `推送密钥 ${keyId}`,
     apnsFix: (file) => `改好 ${file}；不用 iPhone App 的话删掉它。`,
     failed: '有检查没通过；每个 ✗ 下面写了怎么办。',

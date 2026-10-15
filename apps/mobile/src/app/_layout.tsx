@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { onPage, pageBeforeReopen, useAppUpdates } from '../appUpdate';
 import { ErrorScreen, sayUncaughtErrors } from '../errors';
 import { useLogin } from '../hooks';
+import { MacTooOld } from '../MacTooOld';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { useNotifications } from '../notifications';
 import { useTheme } from '../theme';
@@ -74,6 +75,7 @@ export default function RootLayout() {
           </Stack.Protected>
         </Stack>
         {signedIn && <VideoPlayer />}
+        {signedIn && <MacTooOld />}
       </ThemeProvider>
     </KeyboardProvider>
   );

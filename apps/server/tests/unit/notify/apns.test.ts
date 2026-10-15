@@ -23,7 +23,7 @@ describe('Apns', () => {
   it('posts the alert to the device with a bearer token signed by the team key', async () => {
     const post = fakePost(() => ({ status: 200 }));
     const apns = new Apns(KEY, post, () => 1_000_000);
-    expect(await apns.send(device('production'), { aps: { alert: { title: 't', body: 'b' } } }, 'abc')).toEqual({ host: 'production', gone: false });
+    expect(await apns.send(device('production'), { aps: { alert: { title: 't', body: 'b' } } }, 'abc')).toEqual({ host: 'production', gone: false, sent: true });
     const [host, path, headers, body] = post.mock.calls[0];
     expect([host, path, JSON.parse(body)]).toEqual(['production', `/3/device/${TOKEN}`, { aps: { alert: { title: 't', body: 'b' } } }]);
     expect(headers).toMatchObject({ 'apns-topic': 'com.example.app', 'apns-push-type': 'alert', 'apns-priority': '10', 'apns-collapse-id': 'abc' });
@@ -36,7 +36,7 @@ describe('Apns', () => {
   it('finds a device that has not said which service it uses: production first, then sandbox', async () => {
     const post = fakePost((host) => (host === 'production' ? { status: 400, reason: 'BadDeviceToken' } : { status: 200 }));
     const apns = new Apns(KEY, post);
-    expect(await apns.send(device(), {}, 'x')).toEqual({ host: 'sandbox', gone: false });
+    expect(await apns.send(device(), {}, 'x')).toEqual({ host: 'sandbox', gone: false, sent: true });
     expect(post.mock.calls.map((c) => c[0])).toEqual(['production', 'sandbox']);
   });
 
@@ -51,7 +51,7 @@ describe('Apns', () => {
 
   it('keeps a device whose push failed for another reason, and tries only its own service', async () => {
     const post = fakePost(() => ({ status: 500, reason: 'InternalServerError' }));
-    expect(await new Apns(KEY, post).send(device('sandbox'), {}, 'x')).toEqual({ host: 'sandbox', gone: false });
+    expect(await new Apns(KEY, post).send(device('sandbox'), {}, 'x')).toEqual({ host: 'sandbox', gone: false, sent: false });
     expect(post.mock.calls.map((c) => c[0])).toEqual(['sandbox']);
   });
 
@@ -59,7 +59,7 @@ describe('Apns', () => {
     const post = vi.fn<ApnsPost>(async () => {
       throw new Error('ECONNRESET');
     });
-    expect((await new Apns(KEY, post).send(device(), {}, 'x')).gone).toBe(false);
+    expect(await new Apns(KEY, post).send(device(), {}, 'x')).toMatchObject({ gone: false, sent: false });
   });
 
   it('signs a new token after 50 minutes, or at once when Apple says it expired', async () => {
@@ -100,7 +100,19 @@ describe('loadApnsKey', () => {
     expect([k.teamId, k.keyId, k.key.asymmetricKeyType]).toEqual(['TEAM123456', 'KEY1234567', 'ec']);
   });
 
+  it('reads the App Store app it relays for, if it names one', () => {
+    const h = home();
+    writeFileSync(join(h, 'k.p8'), pem);
+    const base = { teamId: 'TEAM123456', keyId: 'KEY1234567', keyFile: join(h, 'k.p8') };
+    writeFileSync(join(h, 'apns.json'), JSON.stringify(base));
+    expect(loadApnsKey(h)!.relayTopic).toBeUndefined();
+    writeFileSync(join(h, 'apns.json'), JSON.stringify({ ...base, relayTopic: 'com.example.store' }));
+    expect(loadApnsKey(h)!.relayTopic).toBe('com.example.store');
+  });
+
   it.each<[string, (h: string) => unknown, RegExp]>([
+    ['a relay topic that is not a bundle id', (h) => ({ teamId: 'TEAM123456', keyId: 'KEY1234567', keyFile: join(h, 'k.p8'), relayTopic: 'no spaces allowed' }), /"relayTopic" is not a bundle id/],
+    ['a relay topic that is not text', (h) => ({ teamId: 'TEAM123456', keyId: 'KEY1234567', keyFile: join(h, 'k.p8'), relayTopic: true }), /"relayTopic" is not a bundle id/],
     ['not JSON', () => 'nope', /not JSON/],
     ['no team', (h) => ({ keyId: 'KEY1234567', keyFile: join(h, 'k.p8') }), /"teamId" is missing/],
     ['an empty team', (h) => ({ teamId: '', keyId: 'KEY1234567', keyFile: join(h, 'k.p8') }), /"teamId" is missing/],

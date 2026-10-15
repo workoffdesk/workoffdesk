@@ -51,9 +51,9 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   (`apps/server/src/cli.ts` `helpText`, `apps/server/src/system/messages.ts` `cli.help`)
 - workoffdesk has no account and no service of its own: the only server is the one on your Mac, and the
   phone reaches it over whatever HTTPS path you put in front. The server's only
-  outbound connections are web push to the browser's push service and APNs for the iPhone app; `doctor` also
-  asks your own address for `/healthz`. (`apps/server/src/notify/push.ts`, `apps/server/src/notify/apns.ts`,
-  `apps/server/src/ops/doctor.ts`)
+  outbound connections are web push to the browser's push service, APNs for the iPhone app, and the relay an
+  iPhone app published for others names, for that app's notifications; `doctor` also asks your own address for
+  `/healthz`. (`apps/server/src/notify/push.ts`, `apps/server/src/notify/apns.ts`, `apps/server/src/ops/doctor.ts`)
 - While the service runs it keeps the Mac from idle sleep with `caffeinate -i -w <pid>`: the display still
   sleeps, closing the lid still sleeps the Mac, and the assertion ends with the service. `"preventSleep": false`
   turns it off. (`apps/server/src/ops/awake.ts`, `apps/server/tests/unit/ops/awake.test.ts`)
@@ -345,6 +345,25 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
 - The iPhone app's notifications need an APNs key of the team that signs the app, named in `apns.json`
   (`teamId`, `keyId`, `keyFile`). A device is tried on Apple's production service, then the sandbox, and kept on
   the one that answered. (`apps/server/src/notify/apns.ts`)
+- An iPhone app built with `WORKOFFDESK_IOS_PUSH_RELAY` gives each Mac a 32-byte key of its own and that relay.
+  The Mac seals each notification for it with AES-256-GCM and posts the sealed text, the device token, a thread
+  id derived from the session with that key, and the words the phone gave for a notification it cannot open;
+  the relay sees nothing of what it says. A device with a relay goes through it whether or not the Mac has
+  `apns.json`, unless the Mac is that relay. (`apps/server/src/notify/seal.ts`, `apps/server/src/notify/push.ts`,
+  `apps/server/tests/unit/notify/seal.test.ts`, `apps/server/tests/unit/notify/push.test.ts`)
+- A server relays only when its `apns.json` names `relayTopic`: it then takes `POST /api/push/relay` without a
+  sign-in, for that bundle id only, at most 30 a minute per device and 600 in all, and logs neither the device
+  nor the sealed text. (`apps/server/src/http/routes/pushRelay.ts`,
+  `apps/server/tests/integration/http/routes/pushRelay.test.ts`)
+- The extension of such a build opens the sealed text with the key it reads from the shared keychain group; a
+  notification it cannot open shows the words it was sent with. (`apps/mobile/plugins/push-extension/NotificationService.swift`,
+  `apps/mobile/plugins/withPushExtension.js`)
+- An iPhone app built with `WORKOFFDESK_IOS_UPDATE_URL` takes JavaScript updates only from that URL, never from
+  the server it is signed in to; built without it, from the server it is signed in to. (`apps/mobile/app.config.ts`,
+  `apps/mobile/src/updateSource.ts`, `apps/mobile/tests/updateSource.test.mjs`, `apps/mobile/tests/app.config.test.mjs`)
+- The iPhone app shows a screen saying how to update the Mac's workoffdesk when the release its answers name is
+  older than `MIN_SERVER`, and blocks nothing when an answer names none. (`libs/client/src/base/release.ts`,
+  `apps/mobile/src/MacTooOld.tsx`, `libs/client/tests/base/release.test.ts`)
 - A notification tapped in the iPhone app opens its session over the session list, closing whatever was open, and
   moves nothing when that session is already in front. (`apps/mobile/src/openSession.ts`,
   `apps/mobile/src/notifications.ts`, `apps/mobile/tests/openSession.test.mjs`)

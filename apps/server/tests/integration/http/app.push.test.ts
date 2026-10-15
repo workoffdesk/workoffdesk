@@ -37,10 +37,32 @@ describe('/api/push', () => {
     expect(store.get().apnsDevices).toHaveLength(0);
   });
 
+  it('keeps the relay an App Store app names, with its key and the words for a notification it cannot open', async () => {
+    const token = 'd'.repeat(64);
+    const relay = { url: 'https://relay.example', key: Buffer.alloc(32, 1).toString('base64') };
+    const device = { token, topic: 'com.example.app', words: { waiting: 'W', idle: 'I', hidden: 'New on your Mac' }, relay };
+    expect((await api('/api/push/apns', { method: 'POST', body: JSON.stringify(device) })).status).toBe(204);
+    const newKey = { ...device, relay: { ...relay, key: Buffer.alloc(32, 2).toString('base64') } };
+    expect((await api('/api/push/apns', { method: 'POST', body: JSON.stringify(newKey) })).status).toBe(204);
+    expect(store.get().apnsDevices.map(({ words, relay: r }) => ({ words, relay: r }))).toEqual([{ words: device.words, relay: newKey.relay }]);
+    await api('/api/push/apns', { method: 'DELETE', body: JSON.stringify({ token }) });
+  });
+
+  it('is ready for an app with a relay, though this server has no key of its own', async () => {
+    expect(await (await api('/api/push/apns')).json()).toEqual({ ready: false });
+    expect(await (await api('/api/push/apns?relay=1')).json()).toEqual({ ready: true });
+  });
+
+  const w = { waiting: 'w', idle: 'i' };
   it.each([
-    ['a token that is not hex', { token: 'zz', topic: 'a.b', words: { waiting: 'w', idle: 'i' } }],
-    ['no topic', { token: 'c'.repeat(64), words: { waiting: 'w', idle: 'i' } }],
+    ['a token that is not hex', { token: 'zz', topic: 'a.b', words: w }],
+    ['no topic', { token: 'c'.repeat(64), words: w }],
     ['no words', { token: 'c'.repeat(64), topic: 'a.b' }],
+    ['a relay that is not https', { token: 'c'.repeat(64), topic: 'a.b', words: w, relay: { url: 'http://relay.example', key: Buffer.alloc(32).toString('base64') } }],
+    ['a relay with a path', { token: 'c'.repeat(64), topic: 'a.b', words: w, relay: { url: 'https://relay.example/x', key: Buffer.alloc(32).toString('base64') } }],
+    ['a relay key that is not 32 bytes', { token: 'c'.repeat(64), topic: 'a.b', words: w, relay: { url: 'https://relay.example', key: Buffer.alloc(16).toString('base64') } }],
+    ['a relay but no words for a notification it cannot open', { token: 'c'.repeat(64), topic: 'a.b', words: w, relay: { url: 'https://relay.example', key: Buffer.alloc(32).toString('base64') } }],
+    ['words for a hidden notification too long', { token: 'c'.repeat(64), topic: 'a.b', words: { ...w, hidden: 'x'.repeat(121) } }],
   ])('rejects an iPhone app record with %s', async (_name, body) => {
     expect((await api('/api/push/apns', { method: 'POST', body: JSON.stringify(body) })).status).toBe(400);
   });

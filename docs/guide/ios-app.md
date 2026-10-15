@@ -5,8 +5,10 @@ English · [简体中文](ios-app.zh-CN.md)
 ## Do you need it?
 
 Probably not. The web app, added to the home screen, does everything the app does, push notifications
-included. The native app is for those who want it, and you build it yourself: notifications to an app must be
-signed with a key of the team that signs the app, so there is no shared build that could reach your Mac.
+included. The native app is for those who want it. A build of your own is signed by your team, and your Mac
+sends its notifications with your team's key. A build someone publishes for others cannot have that key, so
+its notifications go through the publisher's relay, sealed for your phone alone; see
+[Publishing a build for others](#publishing-a-build-for-others).
 
 ## Try it without a Mac
 
@@ -70,3 +72,21 @@ app's runtime changes, and only a new build from TestFlight brings it. So does a
 its `package.json` among them. `workoffdesk deploy` refuses a build whose runtime is not the live one's, as
 phones on that one would get no more updates; once a new build of the app is out, deploy it with
 `--new-app-runtime`.
+
+## Publishing a build for others
+
+A build that people install without building it, such as one on the App Store, runs against Macs that are not
+yours. Two settings, next to `WORKOFFDESK_IOS_BUNDLE_ID` when you build it, make it work, and neither changes
+a build without them:
+
+- `WORKOFFDESK_IOS_UPDATE_URL`: the one place its JavaScript updates come from, your server's
+  `https://<your server>/api/app-update/manifest`. It never takes them from the Mac it is signed in to.
+- `WORKOFFDESK_IOS_PUSH_RELAY`: the https origin of your server, which passes its notifications on to Apple.
+  The build gets a notification extension. The phone makes a key, kept in its keychain, and gives it to each
+  Mac it signs in to; the Mac seals each notification with it and sends it to the relay, which sees the
+  device, the time and the size, never what it says. It needs `WORKOFFDESK_TEAM_ID`.
+
+Your server relays only when its `apns.json` names the app's bundle id as `"relayTopic"` (see
+[iPhone app notifications](configuration.md#iphone-app-notifications)), and then only for that app, at most 30
+notifications a minute for a device. A Mac whose workoffdesk is older than the app's JavaScript needs gets a
+screen in the app saying how to update it.

@@ -4,9 +4,11 @@ import { connect, type ClientHttp2Session } from 'node:http2';
 import { join } from 'node:path';
 
 // Notifications to the iPhone app go through Apple's push service, signed with a token key (.p8) of the
-// team that signs the app. <home>/apns.json names it: { "teamId", "keyId", "keyFile" }.
+// team that signs the app. <home>/apns.json names it: { "teamId", "keyId", "keyFile" }, and, on the server that
+// relays for an App Store app, that app's bundle id as "relayTopic".
 
-export type ApnsKey = { teamId: string; keyId: string; key: KeyObject };
+// relayTopic: the App Store app this server relays for (routes/pushRelay.ts).
+export type ApnsKey = { teamId: string; keyId: string; key: KeyObject; relayTopic?: string };
 export type ApnsHost = 'production' | 'sandbox';
 export type ApnsDevice = { token: string; topic: string; host?: ApnsHost };
 export type ApnsPost = (host: ApnsHost, path: string, headers: Record<string, string>, body: string) => Promise<{ status: number; reason?: string }>;
@@ -27,12 +29,13 @@ export function loadApnsKey(home: string): ApnsKey | null {
   } catch {
     throw wrong('not JSON');
   }
-  const { teamId, keyId, keyFile } = raw ?? {};
+  const { teamId, keyId, keyFile, relayTopic } = raw ?? {};
   if (typeof teamId !== 'string' || !teamId) throw wrong('"teamId" is missing (the Team ID in the Apple Developer account)');
   if (typeof keyId !== 'string' || !keyId) throw wrong('"keyId" is missing (the 10 characters in AuthKey_<keyId>.p8)');
   if (typeof keyFile !== 'string' || !existsSync(keyFile)) throw wrong(`"keyFile" names no file: ${String(keyFile)}`);
+  if (relayTopic !== undefined && (typeof relayTopic !== 'string' || !/^[A-Za-z0-9.-]{1,155}$/.test(relayTopic))) throw wrong(`"relayTopic" is not a bundle id: ${String(relayTopic)}`);
   try {
-    return { teamId, keyId, key: createPrivateKey(readFileSync(keyFile)) };
+    return { teamId, keyId, key: createPrivateKey(readFileSync(keyFile)), ...(relayTopic ? { relayTopic } : {}) };
   } catch {
     throw wrong(`"keyFile" is not a .p8 key: ${keyFile}`);
   }
@@ -47,9 +50,13 @@ export class Apns {
     private readonly now: () => number = Date.now,
   ) {}
 
+  get relayTopic(): string | undefined {
+    return this.key.relayTopic;
+  }
+
   // A device that has not answered yet is tried on the production service (TestFlight and the App Store),
   // then on the sandbox (builds from Xcode). host: the service it answered on.
-  async send(device: ApnsDevice, payload: object, collapseId: string): Promise<{ host?: ApnsHost; gone: boolean }> {
+  async send(device: ApnsDevice, payload: object, collapseId: string): Promise<{ host?: ApnsHost; gone: boolean; sent: boolean }> {
     const hosts: ApnsHost[] = device.host ? [device.host] : ['production', 'sandbox'];
     const body = JSON.stringify(payload);
     for (const host of hosts) {
@@ -65,14 +72,14 @@ export class Apns {
       try {
         res = await this.post(host, `/3/device/${device.token}`, headers, body);
       } catch {
-        return { host: device.host, gone: false };
+        return { host: device.host, gone: false, sent: false };
       }
-      if (res.status === 200) return { host, gone: false };
-      if (res.status === 410) return { host, gone: true };
+      if (res.status === 200) return { host, gone: false, sent: true };
+      if (res.status === 410) return { host, gone: true, sent: false };
       if (res.status === 403 && /ProviderToken/.test(res.reason ?? '')) this.token = null;
-      if (res.reason !== 'BadDeviceToken') return { host: device.host ?? host, gone: false };
+      if (res.reason !== 'BadDeviceToken') return { host: device.host ?? host, gone: false, sent: false };
     }
-    return { gone: true };
+    return { gone: true, sent: false };
   }
 
   private bearer(): string {

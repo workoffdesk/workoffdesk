@@ -68,6 +68,7 @@ const loginListeners = new Set<() => void>();
 const keep = (l: Login | null, list: Login[]) =>
   Promise.all([l ? SecureStore.setItemAsync(LOGIN_KEY, JSON.stringify(l)) : SecureStore.deleteItemAsync(LOGIN_KEY), SecureStore.setItemAsync(ACCOUNTS_KEY, JSON.stringify(list))]);
 const setLogin = (l: Login | null, list: Login[]) => {
+  if (l?.server !== login?.server) release.forget();
   login = l;
   accounts = list;
   void keep(l, list).catch(() => {});

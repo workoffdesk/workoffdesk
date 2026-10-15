@@ -1,13 +1,18 @@
 import { t } from '@workoffdesk/i18n';
 import Constants from 'expo-constants';
+import { getRandomBytes } from 'expo-crypto';
 import * as Notifications from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { api, auth, storage } from './client';
 import { openSessionFromOutside } from './openSession';
+import { deviceOf, keyText, readyPath, type Relay } from './pushRelay';
 
 // Notifications when Claude needs you or finishes a turn, sent by the server through Apple's push service
-// (server/apns.ts). The server says them in the words this phone gave it.
+// (server/apns.ts). The server says them in the words this phone gave it. A published build's come through
+// its relay, sealed with a key of this phone's that its notification extension reads from the keychain
+// (plugins/withPushExtension.js).
 
 export type NotifyState = 'unready' | 'denied' | 'off' | 'on';
 
@@ -22,8 +27,23 @@ export const onHere = () => {
   }
 };
 
+const RELAY: string | undefined = Constants.expoConfig?.extra?.pushRelay;
+const KEYCHAIN_GROUP: string | undefined = Constants.expoConfig?.extra?.keychainGroup;
+
+// Made once on this phone, and kept where the extension finds it, also while the phone is locked.
+function relayOf(): Relay | undefined {
+  if (!RELAY || !KEYCHAIN_GROUP) return undefined;
+  const where = { keychainService: 'push', accessGroup: KEYCHAIN_GROUP, keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK };
+  let key = SecureStore.getItem('key', where);
+  if (!key) {
+    key = keyText(getRandomBytes(32));
+    SecureStore.setItem('key', key, where);
+  }
+  return { url: RELAY, key };
+}
+
 async function serverReady(): Promise<boolean> {
-  return api<{ ready: boolean }>('/api/push/apns').then(
+  return api<{ ready: boolean }>(readyPath(RELAY)).then(
     (r) => r.ready,
     () => false,
   );
@@ -38,7 +58,7 @@ async function tell(token?: string): Promise<void> {
   const server = auth.current()?.server ?? '';
   if (told?.server === server && told.token === now) return;
   const topic = Constants.expoConfig?.ios?.bundleIdentifier ?? '';
-  await api('/api/push/apns', { method: 'POST', json: { token: now, topic, words: t.push } });
+  await api('/api/push/apns', { method: 'POST', json: deviceOf(now, topic, t.push, relayOf()) });
   told = { server, token: now };
 }
 

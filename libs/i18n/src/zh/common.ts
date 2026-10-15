@@ -42,6 +42,8 @@ export const common: typeof en = {
   sending: '发送中…',
   sendingMessage: '正在发送的消息',
   tryAgain: '再试一次',
+  macTooOld: '请更新 Mac 上的 WorkOffDesk',
+  macTooOldWhy: (mac, needs) => `你的 Mac 上是 WorkOffDesk ${mac}，这个 App 需要 ${needs} 或更新的版本。在 Mac 上运行：`,
   device: '设备',
 
   serverErrors: {
@@ -109,6 +111,6 @@ export const common: typeof en = {
     usage: '看额度用了多少',
   },
 
-  push: { waiting: '需要你确认', idle: '这一轮做完了' },
+  push: { waiting: '需要你确认', idle: '这一轮做完了', hidden: '你的 Mac 上有新动态' },
 
 };

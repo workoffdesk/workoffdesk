@@ -10,6 +10,7 @@ import { DomainError, errorReply } from '../system/errors.js';
 import { EventHub } from '../sessions/events.js';
 import type { LocalMachine } from '../sessions/machine.js';
 import type { OpsDeps } from '../ops/report.js';
+import type { Apns } from '../notify/apns.js';
 import type { Pusher } from '../notify/push.js';
 import type { Store } from '../system/store.js';
 import type { AppContext } from './routes/context.js';
@@ -23,6 +24,7 @@ import { register as journal } from './routes/journal.js';
 import { register as mac } from './routes/mac.js';
 import { register as media } from './routes/media.js';
 import { register as push } from './routes/push.js';
+import { register as pushRelay } from './routes/pushRelay.js';
 import { register as sessions } from './routes/sessions.js';
 import { register as web } from './routes/web.js';
 import { VERSION } from '../system/version.js';
@@ -39,6 +41,8 @@ export type AppDeps = {
   webDir?: string;
   now?: () => number;
   pusher?: Pusher;
+  // The App Store app this server passes notifications on for, from other people's Macs (routes/pushRelay.ts).
+  relay?: Apns;
   claudeProjectsRoot?: string;
   // Claude Code's background sessions (~/.claude/jobs).
   claudeJobsRoot?: string;
@@ -174,6 +178,7 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   const ctx: AppContext = { deps, guard, logins, hub, secure, now, audit, createLogin, startLogin, admit, dropRevokedSockets, machineOr404 };
 
   for (const register of [health, auth, sessions, chat, journal, media, claude, codex, push, appUpdate, mac]) await register(app, ctx);
+  if (deps.relay?.relayTopic) await pushRelay(deps.relay)(app, ctx);
 
   if (deps.extend) await deps.extend(app, ctx);
 

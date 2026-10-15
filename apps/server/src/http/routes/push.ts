@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util';
+import type { ApnsDeviceRecord, ApnsRelay } from '../../system/store.js';
 import type { RouteModule } from './context.js';
 
 // The phones that get a notification when Claude needs an answer.
@@ -27,8 +29,9 @@ export const register: RouteModule = (app, ctx) => {
     return reply.code(204).send();
   });
 
-  // The iPhone app: ready says whether this server holds a key to reach it.
-  app.get('/api/push/apns', async () => ({ ready: !!pusher?.toPhones }));
+  // The iPhone app: ready says whether this server can reach it, with its own key or through the relay the
+  // app names (relay=1).
+  app.get<{ Querystring: { relay?: string } }>('/api/push/apns', async (req) => ({ ready: req.query.relay === '1' || !!pusher?.toPhones }));
 
   app.post<{ Body: unknown }>('/api/push/apns', async (req, reply) => {
     const d = parseDevice(req.body);
@@ -36,7 +39,7 @@ export const register: RouteModule = (app, ctx) => {
     // A phone tells its token on every start and whenever iOS hands it out: what is known already is not
     // written again.
     const was = store.get().apnsDevices.find((x) => x.token === d.token);
-    if (was && was.topic === d.topic && was.words.waiting === d.words.waiting && was.words.idle === d.words.idle) return reply.code(204).send();
+    if (was && isDeepStrictEqual({ topic: was.topic, words: was.words, relay: was.relay }, { topic: d.topic, words: d.words, relay: d.relay })) return reply.code(204).send();
     store.update((s) => {
       const was = s.apnsDevices.find((x) => x.token === d.token);
       s.apnsDevices = [...s.apnsDevices.filter((x) => x.token !== d.token), { ...d, host: was?.host, createdAt: was?.createdAt ?? now() }];
@@ -53,14 +56,40 @@ export const register: RouteModule = (app, ctx) => {
   });
 };
 
-const words = (v: unknown) => typeof v === 'string' && v.length > 0 && v.length <= 200;
+const words = (v: unknown, max = 200) => typeof v === 'string' && v.length > 0 && v.length <= max;
 
-function parseDevice(body: unknown): { token: string; topic: string; words: { waiting: string; idle: string } } | null {
-  const b = body as { token?: unknown; topic?: unknown; words?: { waiting?: unknown; idle?: unknown } } | null;
+type Device = Pick<ApnsDeviceRecord, 'token' | 'topic' | 'words' | 'relay'>;
+
+function parseDevice(body: unknown): Device | null {
+  const b = body as { token?: unknown; topic?: unknown; words?: { waiting?: unknown; idle?: unknown; hidden?: unknown }; relay?: unknown } | null;
   if (!b || typeof b.token !== 'string' || !/^[0-9a-f]{64,200}$/i.test(b.token)) return null;
   if (typeof b.topic !== 'string' || !/^[A-Za-z0-9.-]{1,155}$/.test(b.topic)) return null;
   if (!words(b.words?.waiting) || !words(b.words?.idle)) return null;
-  return { token: b.token, topic: b.topic, words: { waiting: b.words!.waiting as string, idle: b.words!.idle as string } };
+  const hidden = b.words?.hidden;
+  if (hidden !== undefined && !words(hidden, 120)) return null;
+  const relay = b.relay === undefined ? undefined : parseRelay(b.relay);
+  if (relay === null || (relay && hidden === undefined)) return null;
+  return {
+    token: b.token,
+    topic: b.topic,
+    words: { waiting: b.words!.waiting as string, idle: b.words!.idle as string, ...(hidden === undefined ? {} : { hidden: hidden as string }) },
+    ...(relay ? { relay } : {}),
+  };
+}
+
+// An https origin, and a 32-byte key in base64.
+function parseRelay(v: unknown): ApnsRelay | null {
+  const r = v as { url?: unknown; key?: unknown } | null;
+  if (!r || typeof r.url !== 'string' || typeof r.key !== 'string') return null;
+  let url: URL;
+  try {
+    url = new URL(r.url);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' || url.origin !== r.url.replace(/\/$/, '')) return null;
+  if (!/^[A-Za-z0-9+/]{43}=$/.test(r.key) || Buffer.from(r.key, 'base64').length !== 32) return null;
+  return { url: url.origin, key: r.key };
 }
 
 function parseSubscription(body: unknown): { endpoint: string; keys: { p256dh: string; auth: string } } | null {
