@@ -24,10 +24,9 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: brew install tmux
-      # Each tmux pane and each terminal a test attaches takes a pty, and test files run side by side, past the
-      # 511 macOS allows by default.
-      - run: sudo sysctl -w kern.tty.ptmx_max=999
       - run: pnpm install --frozen-lockfile
+      # How many ptys the tests hold at once, every two seconds: tmux has failed to fork with "Device not
+      # configured", which is what running out of them looks like.
       - run: |
           (while sleep 2; do lsof -n /dev/ptmx 2>/dev/null | tail -n +2 | wc -l; done > "$RUNNER_TEMP/ptys" 2>&1) &
           pnpm --filter workoffdesk check
