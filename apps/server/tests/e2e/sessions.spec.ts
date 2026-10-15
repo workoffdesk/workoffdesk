@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
@@ -131,6 +132,28 @@ test.describe('the session list', () => {
     await expect(page.getByText(/battle-pigeon 已经不在这台 Mac 上了/)).toBeVisible();
     await expect(page.getByRole('button', { name: /接管到手机|在手机上接着聊/ })).toHaveCount(0);
     await shot(page, '54-mac-conversation-folder-gone');
+  });
+
+  test('offers to take a conversation over once going on with it is refused for its being open on the Mac', async ({ page }) => {
+    const sid = '3f2a1b4c-0000-4000-8000-0000000000ac';
+    writeFileSync(join(E2E_HOME, 'claude-projects', '-p', `${sid}.jsonl`), jsonl({ type: 'user', cwd: E2E_HOME, message: { content: '复盘一下广告数据' } }));
+    await login(page);
+    await page.goto(`/claude/${sid}`);
+    const goOn = page.getByRole('button', { name: '在手机上接着聊' });
+    await expect(goOn).toBeEnabled();
+    // Opened in a terminal on the Mac after the page last asked.
+    const there = spawn('sleep', ['600'], { stdio: 'ignore', env: { PATH: '/bin:/usr/bin' } });
+    const agents = join(E2E_HOME, 'mac-agents.json');
+    writeFileSync(agents, JSON.stringify([{ pid: there.pid, sessionId: sid, cwd: E2E_HOME, kind: 'interactive', status: 'idle' }]));
+    try {
+      await goOn.click();
+      await expect(page.getByText('这个对话还开在电脑的终端里')).toBeVisible();
+      await expect(page.getByRole('button', { name: '接管到手机' })).toBeEnabled();
+      await expect(goOn).toHaveCount(0);
+    } finally {
+      rmSync(agents, { force: true });
+      there.kill('SIGKILL');
+    }
   });
 
   // Its reads go through the page's own fetch, where they can be made to fail, not through the service worker.

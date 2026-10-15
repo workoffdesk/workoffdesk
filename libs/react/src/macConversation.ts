@@ -19,7 +19,7 @@ export function useMacConversation(api: Api, agent: Agent, sid: string, go: (id:
   const [error, setError] = useState<string | null>(null);
   // The last time the Mac was asked, it could not be reached; it is asked again until it answers.
   const [unreachable, setUnreachable] = useState(false);
-  // Asked again after each take-over asked for, and every few seconds while the conversation is open on the Mac.
+  // Asked again after each press, and every few seconds while the conversation is open on the Mac.
   const [asked, setAsked] = useState(0);
   // This page follows a take-over waiting on the Mac: to the session once it is open, or to say it was not.
   const [following, setFollowing] = useState(false);
@@ -65,10 +65,11 @@ export function useMacConversation(api: Api, agent: Agent, sid: string, go: (id:
     try {
       const made = await work(info.cwd);
       if (made) return go(made.id);
-      setAsked((n) => n + 1);
     } catch (e) {
       setError(errorText(e, t.openFailed));
     }
+    // What the Mac said of it may be what the press was refused for (opened in a terminal since): it is asked again.
+    setAsked((n) => n + 1);
     setBusy(false);
   };
   return {
