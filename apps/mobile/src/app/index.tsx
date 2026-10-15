@@ -187,7 +187,7 @@ const styles = ({ c, fs }: Theme) =>
       textAlign: 'center',
     },
     list: { flex: 1, backgroundColor: c.bg },
-    demo: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, margin: 16, marginBottom: 4, padding: 12, borderRadius: 12, backgroundColor: c.surface },
+    demo: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, margin: 16, padding: 12, borderRadius: 12, backgroundColor: c.surface },
     demoText: { flexShrink: 1, color: c.text, fontSize: fs(14) },
     demoGo: { color: c.accent, fontSize: fs(14), fontWeight: '600' },
     hint: { fontSize: fs(12), color: c.muted, paddingTop: 8, paddingBottom: 24, paddingHorizontal: 16 },

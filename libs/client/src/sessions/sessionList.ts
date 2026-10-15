@@ -253,6 +253,7 @@ export function createSessionList(config: SessionListConfig) {
       lingering = undefined;
       stop();
       names.clear();
+      asOf = null;
       publish(null);
       try {
         storage.removeItem(SESSIONS_KEY);

@@ -230,6 +230,16 @@ describe('createSessionList', () => {
     expect(server.sockets).toHaveLength(2);
   });
 
+  it('dates the lists of the next login by its own Mac only, whose clock may be behind the last one', () => {
+    const { server, list } = setup();
+    list.subscribe(vi.fn());
+    server.last().says({ ...listOf('demo'), asOf: 5_000 });
+    list.forget();
+    list.reopen();
+    server.last().says({ ...listOf('mine'), asOf: 1_000 });
+    expect(list.current()?.map((s) => s.id)).toEqual(['mine']);
+  });
+
   describe('ended sessions', () => {
     it('are remembered as they last were, whether the Mac dropped them or this device ended them', () => {
       const { server, list } = setup();
