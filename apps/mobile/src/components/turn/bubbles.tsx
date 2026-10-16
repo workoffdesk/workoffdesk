@@ -2,11 +2,11 @@ import { UITextView } from '@bsky.app/react-native-uitextview';
 import { clock } from '@workoffdesk/client/model/format';
 import { replyImages, splitMine } from '@workoffdesk/client/chat/images';
 import { linkSpans, renderedText } from '@workoffdesk/client/chat/markdownBlocks';
-import { bestVoice } from '@workoffdesk/client/chat/readAloud';
+import { readingVoice } from '@workoffdesk/client/chat/readAloud';
 import { speechLocale, t } from '@workoffdesk/i18n';
 import * as Speech from 'expo-speech';
 import { useContext, useEffect, useRef, useState } from 'react';
-import { Linking, Text, View } from 'react-native';
+import { Alert, AppState, Linking, Platform, Text, View } from 'react-native';
 import { Markdown } from '../Markdown';
 import { type S, useStyles } from './styles';
 import { Action, JumpContext, useCopy } from './common';
@@ -86,22 +86,29 @@ export function Mine({ sessionId, text, at, onRewind }: { sessionId: string; tex
   );
 }
 
-// The best voice the phone has for reading aloud, looked up once: the phone's own otherwise.
-let voiceFound: Promise<string | undefined> | undefined;
-function useReadingVoice() {
-  const [voice, setVoice] = useState<string>();
+// The voice to read aloud in, and whether a better one is to be downloaded in the Settings app, where the way
+// is on iOS. Looked up again on coming back to the app, as from there.
+type ReadingVoice = { voice?: string; plain: boolean };
+function useReadingVoice(): ReadingVoice {
+  const [found, setFound] = useState<ReadingVoice>({ plain: false });
   useEffect(() => {
     let mounted = true;
-    voiceFound ??= Speech.getAvailableVoicesAsync().then(
-      (voices) => bestVoice(voices.map((v) => ({ id: v.identifier, name: v.name, lang: v.language, enhanced: v.quality === Speech.VoiceQuality.Enhanced })), speechLocale),
-      () => undefined,
-    );
-    void voiceFound.then((v) => mounted && setVoice(v));
+    const look = () =>
+      void Speech.getAvailableVoicesAsync().then(
+        (voices) => {
+          const { voice, plain } = readingVoice(voices.map((v) => ({ id: v.identifier, name: v.name, lang: v.language, enhanced: v.quality === Speech.VoiceQuality.Enhanced })), speechLocale);
+          if (mounted) setFound({ voice, plain: plain && Platform.OS === 'ios' });
+        },
+        () => {},
+      );
+    look();
+    const sub = AppState.addEventListener('change', (state) => state === 'active' && look());
     return () => {
       mounted = false;
+      sub.remove();
     };
   }, []);
-  return voice;
+  return found;
 }
 
 // Under the end of a reply: copy what Claude said, or have the phone read it out. What this reply is
@@ -110,7 +117,7 @@ function ReplyActions({ text, s }: { text: string; s: S }) {
   const { copied, copy } = useCopy();
   const [reading, setReading] = useState(false);
   const speaking = useRef(false);
-  const voice = useReadingVoice();
+  const { voice, plain } = useReadingVoice();
   useEffect(
     () => () => {
       if (speaking.current) void Speech.stop();
@@ -132,6 +139,11 @@ function ReplyActions({ text, s }: { text: string; s: S }) {
     <View style={s.actions}>
       <Action label={copied ? t.copied : t.copy} onPress={() => copy(text)} s={s} />
       <Action label={reading ? t.stopReading : t.readAloud} onPress={read} s={s} />
+      {plain && (
+        <Text style={s.action} onPress={() => Alert.alert(t.betterVoiceTitle, t.betterVoice)} accessibilityRole="button" accessibilityLabel={t.betterVoiceTitle}>
+          ?
+        </Text>
+      )}
     </View>
   );
 }

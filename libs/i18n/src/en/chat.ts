@@ -31,6 +31,8 @@ export const chat = {
   rewind: 'Rewind',
   stopReading: 'Stop reading',
   readAloud: 'Read aloud',
+  betterVoiceTitle: 'A more natural voice',
+  betterVoice: 'Reading aloud uses the phone\'s plain voice. In Settings → Accessibility → Spoken Content → Voices, pick the language and download a Premium voice; back here, it is used.',
   webImage: 'Web image',
   seeImageAbove: '↑ See the image above',
   running: 'Running',

@@ -31,6 +31,8 @@ export const chat: typeof en = {
   rewind: '回退',
   stopReading: '停止朗读',
   readAloud: '朗读',
+  betterVoiceTitle: '更自然的朗读声音',
+  betterVoice: '朗读用的是手机自带的声音。去 设置 → 辅助功能 → 朗读内容 → 声音，选好语言，下载一个标着「高级」的声音，回到这里就会用上。',
   webImage: '外链图片',
   seeImageAbove: '↑ 看上面那张图',
   running: '运行中',

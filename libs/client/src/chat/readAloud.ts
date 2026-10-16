@@ -27,3 +27,10 @@ export function bestVoice(voices: readonly SpokenVoice[], locale: string): strin
   }
   return best?.id;
 }
+
+// The voice to read in, and whether it is the plain one while a better one could be downloaded. Chinese has
+// none to download: its natural voices are Siri's, which iOS never lists to an app.
+export function readingVoice(voices: readonly SpokenVoice[], locale: string): { voice?: string; plain: boolean } {
+  const voice = bestVoice(voices, locale);
+  return voice ? { voice, plain: false } : { plain: place(locale).language !== 'zh' };
+}

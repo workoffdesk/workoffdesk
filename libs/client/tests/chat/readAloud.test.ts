@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bestVoice, type SpokenVoice } from '../../src/chat/readAloud';
+import { bestVoice, readingVoice, type SpokenVoice } from '../../src/chat/readAloud';
 
 // As iOS lists them to the app, and Safari to the web app: the quality is in the identifier, since the app's
 // own quality field calls a premium voice Default.
@@ -29,5 +29,20 @@ describe('bestVoice', () => {
     ['a voice whose language starts the same way', [{ ...premium, lang: 'zha-CN' }], 'zh-CN'],
   ])('leaves the system its own voice with %s', (_, voices, locale) => {
     expect(bestVoice(voices, locale)).toBeUndefined();
+  });
+});
+
+describe('readingVoice', () => {
+  it('reads in the best voice there is, with nothing to get', () => {
+    expect(readingVoice([compact, premium], 'zh-CN')).toEqual({ voice: premium.id, plain: false });
+  });
+
+  it('has a better voice to get when it reads English in the plain one', () => {
+    expect(readingVoice([{ id: 'com.apple.voice.compact.en-US.Samantha', name: 'Samantha', lang: 'en-US' }], 'en-US')).toEqual({ plain: true });
+  });
+
+  // The natural Chinese voices are Siri's, which iOS downloads but never lists to an app.
+  it.each(['zh-CN', 'zh-Hans-CN', 'zh-TW'])('has none to get for %s, whatever is downloaded', (locale) => {
+    expect(readingVoice([compact, { ...compact, lang: 'zh-TW' }], locale)).toEqual({ plain: false });
   });
 });
