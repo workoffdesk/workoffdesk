@@ -23,6 +23,8 @@ export function writeTmuxConf(path: string): void {
 // The server also exits on its own once its last session ends, while a command is talking to it.
 const NOT_RUNNING = /no server running|error connecting|No such file or directory|server exited unexpectedly/;
 const NO_SESSION = /can't find session|session not found/;
+const NO_PTY = /fork failed/;
+const PTY_TRIES = 4;
 const stderrOf = (e: unknown) => String((e as { stderr?: unknown } | null)?.stderr ?? '');
 // Long enough for a loaded Mac; a client still waiting then is killed rather than left behind.
 const TIMEOUT_MS = 10_000;
@@ -118,10 +120,30 @@ export class Tmux {
     }
   }
 
-  // Ends what the session's pane runs and starts `command` there instead, in the same session.
+  // Ends what the session's pane runs and starts `command` there instead, in the same session. A pane tmux got no
+  // pty for is left empty, and tmux before 3.8 crashes when one is respawned again: the command starts in a new pane
+  // in its place (docs/design/2026-10-16-respawn-without-a-pty.md).
   async respawnPane(name: string, opts: { cwd: string; command: string; env: Record<string, string> }): Promise<void> {
-    const envArgs = Object.entries(opts.env).flatMap(([k, v]) => ['-e', `${k}=${v}`]);
-    await this.run(['respawn-pane', '-k', '-t', `=${name}:`, '-c', opts.cwd, ...envArgs, opts.command]);
+    const start = ['-c', opts.cwd, ...Object.entries(opts.env).flatMap(([k, v]) => ['-e', `${k}=${v}`]), opts.command];
+    const [dead, pane] = (await this.run(['display-message', '-p', '-t', `=${name}:`, '#{pane_dead} #{pane_id}'])).trim().split(' ');
+    if (dead !== '1') {
+      try {
+        await this.run(['respawn-pane', '-k', '-t', pane, ...start]);
+        return;
+      } catch (e) {
+        if (!NO_PTY.test(stderrOf(e))) throw e;
+      }
+    }
+    for (let tries = 1; ; tries++) {
+      await new Promise((r) => setTimeout(r, 100 * tries));
+      try {
+        await this.run(['split-window', '-t', pane, ...start]);
+        break;
+      } catch (e) {
+        if (tries === PTY_TRIES || !NO_PTY.test(stderrOf(e))) throw e;
+      }
+    }
+    await this.run(['kill-pane', '-t', pane]);
   }
 
   async hasSession(name: string): Promise<boolean> {

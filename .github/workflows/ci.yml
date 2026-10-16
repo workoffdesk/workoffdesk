@@ -25,14 +25,7 @@ jobs:
           cache: pnpm
       - run: brew install tmux
       - run: pnpm install --frozen-lockfile
-      # How many ptys the tests hold at once, every two seconds: tmux has failed to fork with "Device not
-      # configured", which is what running out of them looks like.
-      - run: |
-          (while sleep 2; do lsof -n /dev/ptmx 2>/dev/null | tail -n +2 | wc -l; done > "$RUNNER_TEMP/ptys" 2>&1) &
-          pnpm --filter workoffdesk check
-      - if: always()
-        run: |
-          echo "most ptys open at once during the tests: $(sort -n "$RUNNER_TEMP/ptys" | tail -1)"
+      - run: pnpm --filter workoffdesk check
       - run: pnpm --filter workoffdesk build
       - run: pnpm --filter workoffdesk test:pack
       # The menu bar app (apps/mac), which only a Mac builds.

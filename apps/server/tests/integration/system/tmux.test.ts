@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -82,6 +82,102 @@ describe('Tmux', () => {
     expect(await inMode('ts-copy')).toBe('0');
     await tmux.leaveCopyMode('ts-newer');
     expect(await inMode('ts-newer')).toBe('0');
+  });
+
+  // macOS hands a pty the lowest free number: the one respawn-pane just let go of can come back while its old
+  // device is still going away, and tmux then starts nothing and leaves the pane empty. tmux before 3.8 crashes
+  // when such a pane is respawned again (docs/design/2026-10-16-respawn-without-a-pty.md).
+  describe('when tmux gets no pty for a pane', () => {
+    const PTY_LOST = 'fork failed: Device not configured';
+    // A tmux whose respawn-pane and split-window fail as above their first `respawns` and `splits` times, a failed
+    // respawn leaving the pane empty as tmux does; it counts each of the two it is given.
+    const flaky = (name: string, fails: { respawns?: number; splits?: number }, said = PTY_LOST) => {
+      const bin = join(dir, `tmux-${name}`);
+      const count = (cmd: string) => join(dir, `${name}.${cmd}`);
+      const tmuxHere = `tmux "$1" "$2" "$3" "$4"`;
+      writeFileSync(
+        bin,
+        [
+          '#!/bin/sh',
+          'case "$5" in respawn-pane) limit=' + (fails.respawns ?? 0) + ' ;; split-window) limit=' + (fails.splits ?? 0) + ' ;; *) exec tmux "$@" ;; esac',
+          `echo x >> "${dir}/${name}.$5"`,
+          `if [ "$(wc -l < "${dir}/${name}.$5")" -gt $limit ]; then exec tmux "$@"; fi`,
+          `if [ "$5" = respawn-pane ] && [ '${said}' = '${PTY_LOST}' ]; then`,
+          `  ${tmuxHere} set-option -p -t "$8" remain-on-exit on`,
+          `  ${tmuxHere} respawn-pane -k -t "$8" "exit 0"`,
+          `  while [ "$(${tmuxHere} display-message -p -t "$8" '#{pane_dead}')" != 1 ]; do sleep 0.05; done`,
+          'fi',
+          `echo '${said}' >&2`,
+          'exit 1',
+          '',
+        ].join('\n'),
+      );
+      chmodSync(bin, 0o755);
+      const times = (cmd: string) => (existsSync(count(cmd)) ? readFileSync(count(cmd), 'utf8').split('\n').filter(Boolean).length : 0);
+      return { t: new Tmux({ socket, conf, bin }), respawns: () => times('respawn-pane'), splits: () => times('split-window') };
+    };
+    const panes = (name: string) =>
+      execFileAsync('tmux', ['-L', socket, 'list-panes', '-t', `=${name}:`, '-F', '#{pane_dead}']).then((r) => r.stdout.trim().split('\n'));
+    const NEW = { cwd: dir, env: { MARK: '42' }, command: 'sh -c "echo new-$MARK; sleep 60"' };
+    const runsNew = (name: string) => until(async () => (await tmux.capture(name, 50)).includes('new-42'));
+
+    it('starts the command in a new pane in place of the one left empty, not respawning it again', async () => {
+      const { t, respawns, splits } = flaky('pty-lost', { respawns: 1 });
+      await tmux.newSession('ts-lost', { cwd: dir, env: {}, command: 'sleep 60' });
+      await t.respawnPane('ts-lost', NEW);
+      expect(await runsNew('ts-lost')).toBe(true);
+      expect(await panes('ts-lost')).toEqual(['0']);
+      expect([respawns(), splits()]).toEqual([1, 1]);
+    });
+
+    it('replaces a pane left empty before, without respawning it', async () => {
+      const { t, respawns } = flaky('empty-before', {});
+      await tmux.newSession('ts-empty', { cwd: dir, env: {}, command: 'sleep 60' });
+      await execFileAsync('tmux', ['-L', socket, 'set-option', '-p', '-t', '=ts-empty:', 'remain-on-exit', 'on']);
+      await execFileAsync('tmux', ['-L', socket, 'respawn-pane', '-k', '-t', '=ts-empty:', 'exit 0']);
+      expect(await until(async () => (await panes('ts-empty'))[0] === '1')).toBe(true);
+      await t.respawnPane('ts-empty', NEW);
+      expect(await runsNew('ts-empty')).toBe(true);
+      expect(await panes('ts-empty')).toEqual(['0']);
+      expect(respawns()).toBe(0);
+    });
+
+    it('tries the new pane again when it gets no pty either', async () => {
+      const { t, splits } = flaky('split-lost', { respawns: 1, splits: 2 });
+      await tmux.newSession('ts-split-lost', { cwd: dir, env: {}, command: 'sleep 60' });
+      await t.respawnPane('ts-split-lost', NEW);
+      expect(await runsNew('ts-split-lost')).toBe(true);
+      expect(await panes('ts-split-lost')).toEqual(['0']);
+      expect(splits()).toBe(3);
+    });
+
+    it('gives up after a few tries, saying why, and leaves the session there', async () => {
+      const { t, respawns, splits } = flaky('pty-gone', { respawns: 1000, splits: 1000 });
+      await tmux.newSession('ts-gone', { cwd: dir, env: {}, command: 'sleep 60' });
+      const e = await t.respawnPane('ts-gone', NEW).then(() => null, (err: unknown) => err);
+      expect(String((e as { stderr?: string }).stderr)).toContain('fork failed');
+      expect(respawns()).toBe(1);
+      expect(splits()).toBeGreaterThan(1);
+      expect(splits()).toBeLessThan(10);
+      expect(await tmux.hasSession('ts-gone')).toBe(true);
+    });
+
+    it('does not start a new pane when the respawn failed for another reason', async () => {
+      const { t, respawns, splits } = flaky('other-respawn', { respawns: 1 }, 'invalid option');
+      await tmux.newSession('ts-other', { cwd: dir, env: {}, command: 'sleep 60' });
+      await expect(t.respawnPane('ts-other', NEW)).rejects.toThrow();
+      expect([respawns(), splits()]).toEqual([1, 0]);
+    });
+
+    it('does not try the new pane again when it failed for another reason', async () => {
+      const { t, splits } = flaky('other-split', { respawns: 1, splits: 1000 }, PTY_LOST);
+      const other = flaky('other-split-2', { splits: 1000 }, 'invalid option');
+      await tmux.newSession('ts-other-split', { cwd: dir, env: {}, command: 'sleep 60' });
+      await t.respawnPane('ts-other-split', NEW).catch(() => {});
+      expect(splits()).toBeGreaterThan(1);
+      await expect(other.t.respawnPane('ts-other-split', NEW)).rejects.toThrow();
+      expect(other.splits()).toBe(1);
+    });
   });
 
   it('kills a session', async () => {
