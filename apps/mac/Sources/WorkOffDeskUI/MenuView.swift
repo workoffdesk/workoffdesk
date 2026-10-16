@@ -22,7 +22,8 @@ public struct MenuView: View {
         if !status.failed.isEmpty {
           ForEach(status.failed) { CheckView(check: $0, words: w) }
         }
-        if !status.errors.isEmpty { Errors(problems: Array(status.errors.prefix(3)), words: w) }
+        let errors = status.errors(at: Date())
+        if !errors.isEmpty { Errors(problems: Array(errors.prefix(3)), words: w) }
         if let origin = status.origin, showCode, let image = qrImage(origin, side: 180) {
           VStack(spacing: 6) {
             Image(nsImage: image).interpolation(.none).padding(10).background(.white, in: RoundedRectangle(cornerRadius: 10))

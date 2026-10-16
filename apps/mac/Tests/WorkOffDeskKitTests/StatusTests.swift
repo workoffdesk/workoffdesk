@@ -42,8 +42,16 @@ final class StatusTests: XCTestCase {
 
   func testTheErrorsAreTheErrorsAndWorseNewestFirst() throws {
     let s = try Status.decode(Data(sample.utf8))
-    XCTAssertEqual(s.errors.map(\.msg), ["boom"])
-    XCTAssertEqual(s.errors.first?.date?.timeIntervalSince1970 ?? 0, 1_791_357_000.123, accuracy: 0.001)
+    let soon = Date(timeIntervalSince1970: 1_791_357_060)
+    XCTAssertEqual(s.errors(at: soon).map(\.msg), ["boom"])
+    XCTAssertEqual(s.errors(at: soon).first?.date?.timeIntervalSince1970 ?? 0, 1_791_357_000.123, accuracy: 0.001)
+  }
+
+  func testAnErrorStaysInTheMenuForADayAndThenIsLeftToTheLogs() throws {
+    let s = try Status.decode(Data(sample.utf8))
+    let at = 1_791_357_000.123
+    XCTAssertEqual(s.errors(at: Date(timeIntervalSince1970: at + 86_399)).map(\.msg), ["boom"])
+    XCTAssertEqual(s.errors(at: Date(timeIntervalSince1970: at + 86_401)).map(\.msg), [])
   }
 
   func testSaysWhatCouldNotBeReadInsteadOfFailingQuietly() {

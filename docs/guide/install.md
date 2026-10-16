@@ -111,7 +111,7 @@ When your HTTPS address reaches the service, it prints the QR code again.
 
 `apps/mac` in the repository is a menu bar app for the Mac. Its icon shows whether the service runs, has a
 problem, or is stopped, with a bar across it while a session is working. Its menu shows the failed checks with
-their fixes (a click copies one), the newest errors, Start, Stop and Restart, Open in Browser, the address as a
+their fixes (a click copies one), the errors of the last day, Start, Stop and Restart, Open in Browser, the address as a
 QR code, Open Logs Folder and Open at Login.
 With more than one Claude account, it also picks the account sessions run on and moves the open ones to it.
 It reads and does everything with the `workoffdesk` command (`status --json`, `activity --json`,

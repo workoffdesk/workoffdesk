@@ -144,7 +144,7 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   `/opt/homebrew/bin` and `/usr/local/bin`. Its icon shows running, a problem, or stopped; while running, it is
   the app's mark, with a bar across its screen while any session is working or compacting, followed through
   `workoffdesk activity --json` (`docs/design/2026-10-11-menu-bar-working.md`); the menu shows
-  the failed checks with their fixes (copied on a click), the three newest errors, the address as a QR code,
+  the failed checks with their fixes (copied on a click), the three newest errors of the last day, the address as a QR code,
   Open in Browser, Open Logs Folder, Open at Login; with two or more Claude accounts and the service running,
   the accounts (`workoffdesk account --json`), a click picking one, and moving the open sessions to it.
   `apps/mac/scripts/build-app.sh` builds it as

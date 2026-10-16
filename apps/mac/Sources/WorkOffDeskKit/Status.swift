@@ -54,8 +54,11 @@ public struct Status: Decodable, Equatable {
     return failed.isEmpty ? .ok : .problems(failed.count)
   }
 
-  // The log's errors, newest first as the CLI gives them; warnings are left to the This Mac page.
-  public var errors: [Problem] { problems.filter { $0.level == "error" || $0.level == "fatal" } }
+  // The log's errors of the last day, newest first as the CLI gives them: older ones are left to the logs, and
+  // warnings to the This Mac page.
+  public func errors(at now: Date) -> [Problem] {
+    problems.filter { ($0.level == "error" || $0.level == "fatal") && ($0.date.map { now.timeIntervalSince($0) < 86_400 } ?? false) }
+  }
 
   public static func decode(_ data: Data) throws -> Status {
     try JSONDecoder().decode(Status.self, from: data)
