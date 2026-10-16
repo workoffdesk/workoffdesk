@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState, type MouseEvent } from 'react';
 import { imageKey, replyImages } from '@workoffdesk/client/chat/images';
+import { bestVoice } from '@workoffdesk/client/chat/readAloud';
 import { markdownHtml } from '../../markdown';
 import { speechLocale, t } from '@workoffdesk/i18n';
 import { type Opener, Pictures } from './media';
@@ -56,6 +57,9 @@ function ReplyActions({ text }: { text: string }) {
     if (reading) return setReading(false);
     const u = new SpeechSynthesisUtterance(text.replace(/[`*#>_~|-]+/g, ' '));
     u.lang = speechLocale;
+    const voices = speech.getVoices();
+    const best = bestVoice(voices.map((v) => ({ id: v.voiceURI, name: v.name, lang: v.lang })), speechLocale);
+    u.voice = voices.find((v) => v.voiceURI === best) ?? null;
     u.onend = u.onerror = () => {
       if (utterance.current === u) utterance.current = null;
       setReading(false);

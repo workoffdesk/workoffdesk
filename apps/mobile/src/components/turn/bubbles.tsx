@@ -2,6 +2,7 @@ import { UITextView } from '@bsky.app/react-native-uitextview';
 import { clock } from '@workoffdesk/client/model/format';
 import { replyImages, splitMine } from '@workoffdesk/client/chat/images';
 import { linkSpans, renderedText } from '@workoffdesk/client/chat/markdownBlocks';
+import { bestVoice } from '@workoffdesk/client/chat/readAloud';
 import { speechLocale, t } from '@workoffdesk/i18n';
 import * as Speech from 'expo-speech';
 import { useContext, useEffect, useRef, useState } from 'react';
@@ -85,12 +86,31 @@ export function Mine({ sessionId, text, at, onRewind }: { sessionId: string; tex
   );
 }
 
+// The best voice the phone has for reading aloud, looked up once: the phone's own otherwise.
+let voiceFound: Promise<string | undefined> | undefined;
+function useReadingVoice() {
+  const [voice, setVoice] = useState<string>();
+  useEffect(() => {
+    let mounted = true;
+    voiceFound ??= Speech.getAvailableVoicesAsync().then(
+      (voices) => bestVoice(voices.map((v) => ({ id: v.identifier, name: v.name, lang: v.language, enhanced: v.quality === Speech.VoiceQuality.Enhanced })), speechLocale),
+      () => undefined,
+    );
+    void voiceFound.then((v) => mounted && setVoice(v));
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  return voice;
+}
+
 // Under the end of a reply: copy what Claude said, or have the phone read it out. What this reply is
 // reading out stops with it, when the chat it is in goes away.
 function ReplyActions({ text, s }: { text: string; s: S }) {
   const { copied, copy } = useCopy();
   const [reading, setReading] = useState(false);
   const speaking = useRef(false);
+  const voice = useReadingVoice();
   useEffect(
     () => () => {
       if (speaking.current) void Speech.stop();
@@ -106,7 +126,7 @@ function ReplyActions({ text, s }: { text: string; s: S }) {
     };
     speaking.current = true;
     setReading(true);
-    Speech.speak(renderedText(text), { language: speechLocale, onDone: over, onStopped: over, onError: over });
+    Speech.speak(renderedText(text), { language: speechLocale, voice, onDone: over, onStopped: over, onError: over });
   };
   return (
     <View style={s.actions}>
