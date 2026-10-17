@@ -381,6 +381,18 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   signing out leaves it. (`libs/client/src/demo/demoMac.ts`, `libs/client/src/demo/content.ts`,
   `libs/client/src/demo/account.ts`, `apps/mobile/src/client.ts`, `apps/mobile/src/components/LoginForm.tsx`,
   `libs/client/tests/demo/demoMac.test.ts`)
+- The app keeps copies of the chats it shows, so they open at once: each session's journal, in a file per Mac
+  signed in to, and the Mac conversations read before picking them up. When a file opens, a session idle for 30
+  days goes, and so does a Mac conversation not shown for 30 days, or past the 50 shown last. Of a session it keeps
+  only the newest 1501 items of the conversation it shows. Settings → Storage shows how much they take, and
+  **Clear** deletes them for every Mac; signing out deletes those of that Mac. (`apps/mobile/src/journalStore.ts`,
+  `apps/mobile/src/journalFile.ts`, `apps/mobile/src/chatStore.ts`, `libs/client/src/chat/kept.ts`,
+  `apps/mobile/src/keptOnPhone.ts`, `apps/mobile/src/client.ts`, `apps/mobile/tests/journalFile.test.mjs`,
+  `libs/client/tests/chat/kept.test.ts`)
+- A chat opens on its newest turns: a copy more than a page behind the Mac starts over from the newest page,
+  rather than catching up page by page. (`apps/server/src/journal/index.ts`, `apps/server/src/http/sessionSocket.ts`,
+  `apps/server/src/agents/claude/transcript/transcriptFile.ts`, `apps/server/src/http/routes/codex.ts`,
+  `apps/server/tests/unit/journal/index.test.ts`)
 
 ## Logs
 

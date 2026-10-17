@@ -7,25 +7,17 @@ import { useGrouping, useLooks, useSignIns } from '@workoffdesk/react/settings';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Updates from 'expo-updates';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ActionSheetIOS, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { api, auth, groupingChoice, snippets, themeChoice, type Login } from '../client';
+import { useEffect, useMemo, useState } from 'react';
+import { ActionSheetIOS, Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { api, auth, groupingChoice, themeChoice, type Login } from '../client';
 import { useAccounts, useLogin } from '../hooks';
-import { setTextSize, setTheme, tint, useTheme, type Theme } from '../theme';
+import { setTextSize, setTheme, useTheme, type Theme } from '../theme';
 import { PageHeader } from '../components/header';
+import { Kept, Section, settingsStyles, Snippets, type SettingsStyles } from '../components/settingsParts';
 import { Button } from '../components/ui';
 import { carryNotifications, notifyOff, notifyOn, notifyState, type NotifyState } from '../notifications';
 import { reopenHere, useUpdateReady } from '../appUpdate';
 import { languageChoice } from '../language';
-
-function Section({ title, children, s }: { title: string; children: ReactNode; s: ReturnType<typeof styles> }) {
-  return (
-    <View style={s.section}>
-      <Text style={s.h2}>{title}</Text>
-      <View style={s.group}>{children}</View>
-    </View>
-  );
-}
 
 // Starts the app again, saying how to by hand when it does not; done: once it did not.
 function reopenOrSay(done?: () => void): void {
@@ -37,7 +29,7 @@ function reopenOrSay(done?: () => void): void {
 
 // The colours and the app's language, each this device's own and following the phone until chosen: a row
 // that says which, and opens the choices when tapped.
-function Looks({ s, theme }: { s: ReturnType<typeof styles>; theme: Theme }) {
+function Looks({ s, theme }: { s: SettingsStyles; theme: Theme }) {
   const { colours, themes, pickTheme, language, languages, pickLanguage } = useLooks({ themeChoice, setTheme, languageChoice, restart: reopenOrSay });
   const { grouping, groupings, pickGrouping } = useGrouping(groupingChoice);
   return (
@@ -57,7 +49,7 @@ function ChoiceRow<T extends string>(props: {
   names: Record<T, string>;
   value: T;
   onPick: (v: T) => void;
-  s: ReturnType<typeof styles>;
+  s: SettingsStyles;
   theme: Theme;
 }) {
   const { s, names } = props;
@@ -82,7 +74,7 @@ function ChoiceRow<T extends string>(props: {
 }
 
 // What a list shows before it has rows: that it is on its way, or that it failed, with a retry.
-function NotLoaded({ list, retry, s }: { list: Listed<unknown>; retry: () => void; s: ReturnType<typeof styles> }) {
+function NotLoaded({ list, retry, s }: { list: Listed<unknown>; retry: () => void; s: SettingsStyles }) {
   if (list.state === 'loading') return <Text style={[s.row, s.sub]}>{t.loading}</Text>;
   if (list.state === 'loaded') return null;
   return (
@@ -110,7 +102,7 @@ function runningRelease(): string | null {
 
 const NOTIFY_NOTE: Partial<Record<NotifyState, string>> = { unready: t.pushAppUnready, denied: t.pushAppDenied };
 
-function Notify({ s, busy, guard }: { s: ReturnType<typeof styles>; busy: boolean; guard: (fn: () => Promise<void>) => Promise<void> }) {
+function Notify({ s, busy, guard }: { s: SettingsStyles; busy: boolean; guard: (fn: () => Promise<void>) => Promise<void> }) {
   const [state, setState] = useState<NotifyState | null>(null);
   useEffect(() => {
     void notifyState().then(setState, () => setState('unready'));
@@ -141,32 +133,9 @@ function Notify({ s, busy, guard }: { s: ReturnType<typeof styles>; busy: boolea
   );
 }
 
-function Snippets({ s, theme }: { s: ReturnType<typeof styles>; theme: Theme }) {
-  const [text, setText] = useState(snippets.text);
-  return (
-    <Section title={t.snippets} s={s}>
-      <TextInput
-        style={s.snippets}
-        accessibilityLabel={t.snippetsLines}
-        placeholder={t.snippetsPlaceholder}
-        placeholderTextColor={theme.c.muted}
-        multiline
-        value={text}
-        onChangeText={(v) => {
-          setText(v);
-          snippets.set(v);
-        }}
-        autoCorrect={false}
-      />
-      <View style={s.rule} />
-      <Text style={[s.row, s.sub]}>{t.snippetsNote}</Text>
-    </Section>
-  );
-}
-
 export default function Settings() {
   const theme = useTheme();
-  const s = useMemo(() => styles(theme), [theme]);
+  const s = useMemo(() => settingsStyles(theme), [theme]);
   const login = useLogin();
   const accounts = useAccounts();
   const { passkeyList, loginList, passkeys, logins, load, retryPasskeys, retryLogins } = useSignIns(api);
@@ -274,6 +243,8 @@ export default function Settings() {
 
       <Snippets s={s} theme={theme} />
 
+      <Kept s={s} />
+
       <Section title={t.account} s={s}>
         {accounts.map((a) => {
           const current = a.token === login?.token;
@@ -362,28 +333,3 @@ export default function Settings() {
     </View>
   );
 }
-
-const styles = ({ c, fs }: Theme) =>
-  StyleSheet.create({
-    page: { flex: 1, backgroundColor: c.bg },
-    headerTitle: { fontSize: fs(17), fontWeight: '600', color: c.text },
-    content: { padding: 16, paddingBottom: 40, gap: 22 },
-    alert: { color: c.danger, fontSize: fs(15), padding: 12, borderRadius: 10, backgroundColor: tint(c.danger, 12), overflow: 'hidden' },
-    section: { gap: 8 },
-    h2: { fontSize: fs(13), fontWeight: '600', color: c.muted, paddingHorizontal: 4, textTransform: 'uppercase' },
-    group: { borderRadius: 12, backgroundColor: c.surface, overflow: 'hidden' },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 10, paddingHorizontal: 14 },
-    rowMain: { flex: 1, gap: 2 },
-    nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    strong: { fontSize: fs(16), color: c.text },
-    sub: { fontSize: fs(13), color: c.muted },
-    failed: { fontSize: fs(13), color: c.danger },
-    link: { fontSize: fs(16), color: c.accent },
-    chip: { fontSize: fs(11), fontWeight: '600', color: c.idle, backgroundColor: tint(c.idle, 16), paddingVertical: 1, paddingHorizontal: 6, borderRadius: 6, overflow: 'hidden' },
-    stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    size: { minWidth: 48, textAlign: 'center', fontSize: fs(15), color: c.text, fontVariant: ['tabular-nums'] },
-    preview: { fontSize: fs(15), color: c.text, lineHeight: fs(15) * 1.45 },
-    snippets: { minHeight: 120, paddingVertical: 12, paddingHorizontal: 14, fontSize: Math.max(16, fs(16)), color: c.text, textAlignVertical: 'top' },
-    rule: { height: StyleSheet.hairlineWidth, backgroundColor: c.border, marginLeft: 14 },
-    value: { fontSize: fs(16), color: c.muted },
-  });

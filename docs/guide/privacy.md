@@ -12,8 +12,10 @@ you run on your own Mac and the apps that talk to it; what you do in it stays be
 - The address of your Mac and the sign-in it gave the app, in the iPhone keychain.
 - For an app published for others: a key that opens its notifications, in the keychain too.
 - Settings such as the language and text size, messages not sent yet, and the snippets you keep.
+- Copies of the chats you open, so they show at once: those opened in the last 30 days, the newest part of
+  each. Settings → Storage shows how much they take, and clears them; signing out removes those of that Mac.
 
-Removing the app removes the settings, drafts and snippets. iOS may keep keychain items after the app is
+Removing the app removes the settings, drafts, snippets and chat copies. iOS may keep keychain items after the app is
 removed; signing out in the app removes its sign-in.
 
 ## What goes to your Mac

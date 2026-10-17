@@ -1,6 +1,8 @@
 import type { JournalRow, JournalStore } from '@workoffdesk/client/journal/journalRows';
 import { CryptoDigestAlgorithm, digestStringAsync } from 'expo-crypto';
 import { deleteDatabaseAsync, openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
+import { JOURNAL_SCHEMA, journalBounds } from './journalFile';
+import { journalFile } from './keptFiles';
 
 // The phone's copy of each session's journal (journal.ts), in a file of its own for each Mac it is signed in
 // to: session ids and versions are each Mac's own. It is a head start, never the only way: what cannot be
@@ -13,31 +15,20 @@ const READ_WAIT_MS = 500;
 // A session not written to for this long (one that ended long ago) is dropped when the file is opened.
 const KEEP_MS = 30 * 24 * 3600_000;
 
-const SCHEMA = `
-PRAGMA journal_mode = WAL;
-CREATE TABLE IF NOT EXISTS cursor (session TEXT PRIMARY KEY, epoch TEXT, v INTEGER NOT NULL, older INTEGER, at INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS held (
-  session TEXT NOT NULL, t TEXT NOT NULL, key TEXT NOT NULL, v INTEGER NOT NULL,
-  conv TEXT, pos INTEGER, body TEXT NOT NULL,
-  PRIMARY KEY (session, t, key)
-);
-CREATE INDEX IF NOT EXISTS held_item ON held (session, conv, pos) WHERE t = 'item';
-`;
-
 // A row replaces the one held under its key only when it is newer; items never change once written.
 const PUT = `INSERT INTO held (session, t, key, v, conv, pos, body) VALUES (?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT (session, t, key) DO UPDATE SET v = excluded.v, body = excluded.body WHERE excluded.v > held.v`;
 
 type HeldRow = { t: JournalRow['t']; key: string; v: number; body: string };
 
-const fileFor = async (server: string) => `journal-${(await digestStringAsync(CryptoDigestAlgorithm.SHA256, server)).slice(0, 16)}.db`;
+const fileFor = async (server: string) => journalFile((await digestStringAsync(CryptoDigestAlgorithm.SHA256, server)).slice(0, 16));
 
+// Opened, the file drops what would never be read back: of the items, it keeps those read back and one to say
+// there are more.
 async function open(file: string): Promise<SQLiteDatabase> {
   const db = await openDatabaseAsync(file);
-  await db.execAsync(SCHEMA);
-  const old = Date.now() - KEEP_MS;
-  await db.runAsync('DELETE FROM held WHERE session IN (SELECT session FROM cursor WHERE at < ?)', old);
-  await db.runAsync('DELETE FROM cursor WHERE at < ?', old);
+  await db.execAsync(JOURNAL_SCHEMA);
+  for (const [sql, ...params] of journalBounds(Date.now(), KEEP_MS, LOAD_ITEMS + 1)) await db.runAsync(sql, ...params);
   return db;
 }
 

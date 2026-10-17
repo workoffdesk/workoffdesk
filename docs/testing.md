@@ -226,7 +226,8 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/integration/http/routes/journal.test.ts`, `apps/server/tests/unit/http/routes/claude.test.ts`
 - Client: `libs/client/tests/journal/journal.test.ts`, `libs/client/tests/sessions/sessionList.test.ts`,
   `libs/client/tests/journal/pushes.test.ts`, `libs/client/tests/sessions/sessionLink.test.ts`,
-  `libs/client/tests/chat/chatFeed.test.ts`, `libs/client/tests/model/chat.test.ts`,
+  `libs/client/tests/chat/chatFeed.test.ts`, `libs/client/tests/model/chat.test.ts`, `libs/client/tests/chat/kept.test.ts`,
+  `apps/mobile/tests/journalFile.test.mjs`, `apps/mobile/tests/keptFiles.test.mjs`,
   `libs/client/tests/sessions/macRecent.test.ts`, `libs/client/tests/base/release.test.ts`,
   `libs/client/tests/base/platform.test.ts`, `libs/client/tests/base/retry.test.ts`,
   `libs/client/tests/base/api.test.ts`, `libs/client/tests/sessions/peer.test.ts`,

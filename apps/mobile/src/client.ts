@@ -28,6 +28,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { AppState, Platform } from 'react-native';
 import { chatStore, forgetChats } from './chatStore';
 import { createJournalStore } from './journalStore';
+import { deleteKeptFiles } from './keptOnPhone';
 import { createPictures } from './pictures';
 
 // What the shared client needs from the phone: where the server is and the token that signs in to it (in
@@ -227,10 +228,19 @@ function changeAccount(to: Login | null, list: Login[]) {
   if (to) sessionList.reopen();
 }
 
+// Empties the phone's copies of chats, those of every Mac signed in to: each chat is read from its Mac again
+// when opened. What is held in memory goes too, or it would be written back on top of an empty file as a copy
+// that is up to date with turns missing.
+export async function clearKept(): Promise<void> {
+  chatFeeds.forget();
+  await Promise.all([forgetChats(), journals.forget()]);
+  deleteKeptFiles();
+}
+
 function forgetAccount() {
   sessionList.forget();
   chatFeeds.forget();
-  forgetChats();
+  void forgetChats();
   void journals.forget();
   try {
     storage.removeItem(MAC_KEY);
