@@ -89,9 +89,10 @@ export const register: RouteModule = (app, ctx) => {
     const items = (await machine.codexChat(id)).map((e) => e.item);
     const end = items.length;
     const page = (start: number, stop: number) => ({ sid: id, items: items.slice(start, stop), from: start, next: stop, skipped: false });
-    if (req.query.sid !== id || from > end) return page(Math.max(0, end - PAGE), end);
+    const latest = page(Math.max(0, end - PAGE), end);
+    if (req.query.sid !== id || from > end) return latest;
     if (before !== null) return page(Math.max(0, Math.min(before, end) - PAGE), Math.min(before, end));
-    return page(from, end);
+    return end - from > PAGE ? latest : page(from, end);
   });
 
   // Stops waiting to take a thread over from the Mac.

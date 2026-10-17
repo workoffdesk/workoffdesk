@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WebSocket } from 'ws';
-import { Journal, type Row } from '../../../src/journal/index.js';
+import { Journal, type Row, type Sync } from '../../../src/journal/index.js';
 import type { Machine } from '../../../src/sessions/machine.js';
 import { serveSession, type JournalSource } from '../../../src/http/sessionSocket.js';
 
@@ -180,23 +180,35 @@ describe('serveSession', () => {
   describe("with the page's copy of the journal", () => {
     const rows = (line: Line) => line.of('journal').flatMap((m) => (m.rows as Row[]).map((r) => r.v));
 
-    it('catches the copy up a page at a time from where it says it is, after what the transcript added, then tells it each change', async () => {
+    it('catches the copy up in one answer from where it says it is, after what the transcript added, then tells it each change', async () => {
       const { line, m, journal, served } = await serve();
       await served;
       journal.onMac(ID, 1);
-      journal.putAgentItems(ID, CONV, Array.from({ length: 1200 }, (_, i) => ({ id: `a${i}`, item: { k: 'text' as const, text: `${i}` } })));
+      journal.putAgentItems(ID, CONV, Array.from({ length: 300 }, (_, i) => ({ id: `a${i}`, item: { k: 'text' as const, text: `${i}` } })));
       line.say({ type: 'journal', epoch: journal.epoch, v: 1 });
-      await vi.waitFor(() => expect(line.of('journal').at(-1)?.more).toBe(false));
+      await vi.waitFor(() => expect(line.of('journal')).toHaveLength(1));
       expect(m.ingested).toBe(1);
-      expect(line.of('journal').map((x) => [x.from, x.v, (x.rows as Row[]).length, x.more])).toEqual([
-        [1, 501, 500, true],
-        [501, 1001, 500, true],
-        [1001, 1202, 201, false],
-      ]);
+      expect(line.of('journal').map((x) => [x.from, x.v, (x.rows as Row[]).length, x.more, x.reset])).toEqual([[1, 302, 301, false, undefined]]);
       journal.onMac(ID, 2);
-      expect(line.of('journal').at(-1)).toEqual({ type: 'journal', from: 1202, v: 1203, rows: [{ t: 'state', key: 'onMac', v: 1203, body: 2 }] });
-      const all = rows(line);
-      expect(all).toEqual(Array.from({ length: 1202 }, (_, i) => i + 2));
+      expect(line.of('journal').at(-1)).toEqual({ type: 'journal', from: 302, v: 303, rows: [{ t: 'state', key: 'onMac', v: 303, body: 2 }] });
+      expect(rows(line)).toEqual(Array.from({ length: 302 }, (_, i) => i + 2));
+    });
+
+    it('starts over a copy more than a page behind, and one that more than a page is written to at once, with the newest items', async () => {
+      const { line, journal, served } = await serve();
+      await served;
+      const texts = (n: number, from: number) => Array.from({ length: n }, (_, i) => ({ id: `a${from + i}`, item: { k: 'text' as const, text: `${from + i}` } }));
+      journal.onMac(ID, 1);
+      journal.putAgentItems(ID, CONV, texts(1200, 0));
+      line.say({ type: 'journal', epoch: journal.epoch, v: 1 });
+      await vi.waitFor(() => expect(line.of('journal')).toHaveLength(1));
+      const items = (x: Record<string, unknown>) => (x.rows as Row[]).filter((r) => r.t === 'item').length;
+      expect(line.of('journal').map((x) => [x.from, x.v, items(x), x.reset, x.older])).toEqual([[1, 1202, 100, true, 1100]]);
+      journal.putAgentItems(ID, CONV, texts(600, 1200));
+      expect(line.of('journal').map((x) => [x.from, x.v, items(x), x.reset, x.older])).toEqual([
+        [1, 1202, 100, true, 1100],
+        [1202, 1802, 100, true, 1700],
+      ]);
     });
 
     it('starts over a copy of another journal, and puts in it once what was written while it was caught up', async () => {
@@ -253,13 +265,15 @@ describe('serveSession', () => {
 
     it('sends only what it does not have of a change, and nothing of one it is behind', async () => {
       let told: (from: number, to: number, rows: Row[]) => void = () => {};
+      let tell: (from: number, c: Sync) => void = () => {};
       let listening = false;
       const row = (v: number): Row => ({ t: 'state', key: `s${v}`, v, body: v });
       const { line, served } = await serve({
-        source: { ingest: async () => {}, sync: () => ({ epoch: 'e', v: 6, rows: [], more: false }), onRows: (_id, cb) => ((told = cb), (listening = true), () => (listening = false)) },
+        source: { ingest: async () => {}, sync: () => ({ epoch: 'e', v: 6, rows: [], more: false }), onRows: (_id, cb) => ((tell = cb), (listening = true), () => (listening = false)) },
       });
       await served;
       line.say({ type: 'journal', epoch: 'e', v: 6 });
+      told = (from, to, rows) => tell(from, { epoch: 'e', v: to, rows, more: false });
       await vi.waitFor(() => expect(line.of('journal')).toHaveLength(1));
       told(5, 8, [row(6), row(7), row(8)]);
       expect(line.of('journal').at(-1)).toEqual({ type: 'journal', from: 6, v: 8, rows: [row(7), row(8)] });

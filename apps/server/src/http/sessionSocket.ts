@@ -1,5 +1,5 @@
 import type { WebSocket } from 'ws';
-import type { Row, Sync } from '../journal/index.js';
+import type { Sync } from '../journal/index.js';
 import type { Machine } from '../sessions/machine.js';
 
 export type VisibilityHook = (sessionId: string, connId: string, visible: boolean) => void;
@@ -7,7 +7,7 @@ export type VisibilityHook = (sessionId: string, connId: string, visible: boolea
 export type JournalSource = {
   ingest: (sessionId: string) => Promise<void>;
   sync: (sessionId: string, epoch: string | undefined, v: number) => Sync;
-  onRows: (sessionId: string, cb: (from: number, to: number, rows: Row[]) => void) => () => void;
+  onRows: (sessionId: string, cb: (from: number, change: Sync) => void) => () => void;
 };
 
 // How often the screen is read while the page is looked at; what changed on it is sent at once.
@@ -77,25 +77,21 @@ export async function serveSession(
   // is sent nothing until it says where it is again.
   let journalAt: number | null = null;
   const unwatchJournal =
-    journal?.onRows(id, (from, to, rows) => {
-      if (journalAt === null || journalAt < from || journalAt >= to) return;
+    journal?.onRows(id, (from, change) => {
+      if (journalAt === null) return;
       const at = journalAt;
-      send({ type: 'journal', from: at, v: to, rows: rows.filter((r) => r.v > at) });
-      journalAt = to;
+      if (change.reset) send({ type: 'journal', from: at, ...change });
+      else if (at >= from && at < change.v) send({ type: 'journal', from: at, v: change.v, rows: change.rows.filter((r) => r.v > at) });
+      else return;
+      journalAt = change.v;
     }) ?? (() => {});
   const catchUp = async (epoch: string | undefined, v: number) => {
     if (!journal) return;
     journalAt = null;
     await journal.ingest(id).catch(() => {});
     if (closed) return;
-    let from = v;
-    let sync = journal.sync(id, epoch, v);
-    send({ type: 'journal', from, ...sync });
-    while (sync.more) {
-      from = sync.v;
-      sync = journal.sync(id, sync.epoch, from);
-      send({ type: 'journal', from, ...sync });
-    }
+    const sync = journal.sync(id, epoch, v);
+    send({ type: 'journal', from: v, ...sync });
     journalAt = sync.v;
   };
 

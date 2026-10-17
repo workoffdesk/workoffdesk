@@ -192,8 +192,8 @@ describe('GET /api/codex/threads/:id/chat', () => {
 
   it('reads the whole thread from the app server, a page at a time', async () => {
     const s = await start({ items: 450 });
-    const got = await page(s, `?sid=${NEW}`);
-    expect(got.texts).toEqual(Array.from({ length: 450 }, (_, i) => `m${i}`));
+    const got = await page(s, `?sid=${NEW}&before=450`);
+    expect(got.texts).toEqual(Array.from({ length: 400 }, (_, i) => `m${50 + i}`));
     expect(s.server.calls.filter((c) => c.method === 'thread/items/list').map((c) => c.params.cursor)).toEqual([undefined, '200', '400']);
   });
 
@@ -202,6 +202,8 @@ describe('GET /api/codex/threads/:id/chat', () => {
     ['the latest page when asked for another thread', `?sid=${OLD}&from=440`, { from: 50, next: 450 }],
     ['the latest page when asked from past its end', `?sid=${NEW}&from=451`, { from: 50, next: 450 }],
     ['what came since a place in it', `?sid=${NEW}&from=440`, { from: 440, next: 450 }],
+    ['a page of what came since a place in it', `?sid=${NEW}&from=50`, { from: 50, next: 450 }],
+    ['the latest page when more than a page came since a place in it', `?sid=${NEW}&from=49`, { from: 50, next: 450 }],
     ['nothing new when asked from its end', `?sid=${NEW}&from=450`, { from: 450, next: 450 }],
     ['the page before a place in it', `?sid=${NEW}&before=100`, { from: 0, next: 100 }],
     ['the page before its end when asked before a place past it', `?sid=${NEW}&before=9999`, { from: 50, next: 450 }],

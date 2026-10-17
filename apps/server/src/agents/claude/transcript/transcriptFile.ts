@@ -65,18 +65,19 @@ export async function linesFrom(path: string, from: number, maxRead = MAX_READ):
 
 // The items added to the transcript since byte `from`, where reading really started (not `from` when it
 // started over: what was read before is void), and where the next read starts. Only whole lines are
-// taken; one still being written is read next time. A first read opens on the last turns (skipped: older
-// ones were left out); a long addition comes in pieces, each ending on a line.
+// taken; one still being written is read next time. A first read, and one further behind than a read takes,
+// opens on the last turns (skipped: older ones were left out).
 export async function readChat(
   path: string,
   from: number,
   o: { maxRead?: number; turns?: number; sidechain?: boolean } = {},
 ): Promise<{ items: ChatItem[]; from: number; next: number; skipped: boolean }> {
   const size = (await stat(path)).size;
-  if (from === 0 || from > size) return readChatBefore(path, size, { turns: o.turns, sidechain: o.sidechain });
+  const maxRead = o.maxRead ?? MAX_READ;
+  if (from === 0 || from > size || size - from > maxRead) return readChatBefore(path, size, { turns: o.turns, sidechain: o.sidechain });
   const fh = await open(path, 'r');
   try {
-    const buf = Buffer.alloc(Math.min(size - from, o.maxRead ?? MAX_READ));
+    const buf = Buffer.alloc(size - from);
     await fh.read(buf, 0, buf.length, from);
     const end = buf.lastIndexOf(0x0a) + 1;
     const items = buf

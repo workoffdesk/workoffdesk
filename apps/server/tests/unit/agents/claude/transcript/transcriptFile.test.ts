@@ -37,19 +37,21 @@ describe('readChat', () => {
     expect((await readChat(f, 0)).items).toEqual([{ k: 'user', text: '好', at }]);
   });
 
-  it('reads a big addition in pieces that end on whole lines, without breaking Chinese characters', async () => {
+  it.each([
+    ['one read', 1000, false],
+    ['more than one read', 200, true],
+  ])('given an addition of %s since the last read, reads on from there, or opens on the last turns: %s', async (_, maxRead, over) => {
     const f = join(scratch(), 's.jsonl');
     const lines = Array.from({ length: 40 }, (_, i) => line(user(`第${i}句：中文内容中文内容`)));
     writeFileSync(f, lines.join(''));
-    const seen: string[] = [];
-    let from = 0;
-    for (let n = 0; n < 100 && from < statSync(f).size; n++) {
-      const r = await readChat(f, from, { maxRead: 300 });
-      expect(r.next).toBeGreaterThan(from);
-      seen.push(...r.items.map((i) => (i.k === 'user' ? i.text : '')));
-      from = r.next;
-    }
-    expect(seen).toEqual(lines.map((_, i) => `第${i}句：中文内容中文内容`));
+    const from = Buffer.byteLength(lines.slice(0, 35).join(''));
+    expect(statSync(f).size - from).toBeGreaterThan(200);
+    expect(statSync(f).size - from).toBeLessThanOrEqual(1000);
+    const r = await readChat(f, from, { maxRead, turns: 2 });
+    expect(r.next).toBe(statSync(f).size);
+    const said = r.items.map((i) => (i.k === 'user' ? i.text : ''));
+    expect(said).toEqual(over ? ['第38句：中文内容中文内容', '第39句：中文内容中文内容'] : Array.from({ length: 5 }, (_, i) => `第${35 + i}句：中文内容中文内容`));
+    expect(r.from === from).toBe(!over);
   });
 
   it('opens a long conversation on its last turns, from the start of a line, and says older turns were left out', async () => {

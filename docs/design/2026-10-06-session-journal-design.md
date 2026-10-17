@@ -149,7 +149,7 @@ same rows and duplicates nothing.
 
 - `GET /api/m/:machine/sessions/:id/journal?epoch=&v=` → `{ epoch, v, rows, more }`. `rows` are
   `{ t: 'item' | 'message' | 'state', key, v, body }` with `v` above the asked one, oldest first, at most
-  500 (`more` when cut). A copy from another epoch, or `v` 0, gets every `message` and `state` row and
+  500. A copy from another epoch, `v` 0, or more than 500 rows behind (2026-10-17, newest-first design) gets every `message` and `state` row and
   the newest 100 items of the current conversation, with `reset: true`; items older than those come by
   page and are not part of `v`.
 - `GET /api/m/:machine/sessions/:id/journal/items?conv=&before=<pos>` → the 100 items before `pos`.

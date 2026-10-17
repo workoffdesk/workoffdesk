@@ -13,7 +13,7 @@ const NOT_LANDED: ReadonlySet<MessageState> = new Set(['delivering', 'delivered'
 
 export type Sync ={ epoch: string; v: number; rows: Row[]; more: boolean; reset?: true; older?: number | null };
 
-// As many rows as one answer carries; a copy further behind asks again.
+// As many rows as one answer carries; a copy further behind starts over.
 const PAGE_ROWS = 500;
 // The items a copy starting over is given, and a page of older ones.
 const PAGE_ITEMS = 100;
@@ -24,7 +24,7 @@ export class Journal {
   private readonly db: JournalDb;
   private readonly root: string | undefined;
   private readonly log: JournalLog;
-  private readonly listeners = new Map<string, Set<(from: number, to: number, rows: Row[]) => void>>();
+  private readonly listeners = new Map<string, Set<(from: number, change: Sync) => void>>();
   // Per session listened to, the version its listeners were last told up to.
   private readonly told = new Map<string, number>();
   private readonly headListeners = new Set<() => void>();
@@ -151,22 +151,28 @@ export class Journal {
     return next.p;
   }
 
+  // What a copy at version v is missing: the rows after it, or, for a copy of another journal, with nothing yet,
+  // ahead, or more than a page behind, a start over.
   sync(id: string, epoch: string | undefined, v: number): Sync {
     const now = this.db.session(id)?.v ?? 0;
-    if (epoch !== this.epoch || v === 0 || v > now) {
-      const first = this.db.firstRows(id, PAGE_ITEMS);
-      return { epoch: this.epoch, v: now, rows: first.rows, more: false, reset: true, older: first.older };
-    }
+    if (epoch !== this.epoch || v === 0 || v > now) return this.startOver(id, now);
     const { rows, more } = this.db.rowsAfter(id, v, PAGE_ROWS);
-    return { epoch: this.epoch, v: more ? rows[rows.length - 1].v : now, rows, more };
+    return more ? this.startOver(id, now) : { epoch: this.epoch, v: now, rows, more: false };
+  }
+
+  // Every message and state, and the newest items of the conversation shown now.
+  private startOver(id: string, now: number): Sync {
+    const first = this.db.firstRows(id, PAGE_ITEMS);
+    return { epoch: this.epoch, v: now, rows: first.rows, more: false, reset: true, older: first.older };
   }
 
   older(id: string, conv: string, before: number): { rows: Row[]; older: number | null } {
     return this.db.itemsBefore(id, conv, before, PAGE_ITEMS);
   }
 
-  // Calls cb with each change's rows: from is the version the last call ended at, to the one this ends at.
-  onRows(id: string, cb: (from: number, to: number, rows: Row[]) => void): () => void {
+  // Calls cb with each change: from is the version the last call ended at, and the change what a copy there is
+  // missing, as sync gives it.
+  onRows(id: string, cb: (from: number, change: Sync) => void): () => void {
     let set = this.listeners.get(id);
     if (!set) {
       set = new Set();
@@ -254,15 +260,12 @@ export class Journal {
     for (const l of this.headListeners) l();
     const set = this.listeners.get(id);
     if (!set?.size) return;
-    let from = this.told.get(id) ?? 0;
-    for (;;) {
-      const { rows, more } = this.db.rowsAfter(id, from, PAGE_ROWS);
-      if (!rows.length) return;
-      const to = more ? rows[rows.length - 1].v : (this.db.session(id)?.v ?? from);
-      this.told.set(id, to);
-      for (const cb of set) cb(from, to, rows);
-      from = to;
-      if (!more) return;
-    }
+    const from = this.told.get(id) ?? 0;
+    const { rows, more } = this.db.rowsAfter(id, from, PAGE_ROWS);
+    if (!rows.length) return;
+    const now = this.db.session(id)?.v ?? from;
+    const change: Sync = more ? this.startOver(id, now) : { epoch: this.epoch, v: now, rows, more: false };
+    this.told.set(id, now);
+    for (const cb of set) cb(from, change);
   }
 }

@@ -87,28 +87,33 @@ describe('Journal', () => {
       expect(r.rows).toHaveLength(2);
     });
 
-    it('catches up one far behind a page at a time, every row once and in order', () => {
+    it.each([
+      [500, false],
+      [501, true],
+    ])('given a copy %i rows behind, starts it over: %s', (behind, over) => {
+      const { j } = open();
+      j.status(S, 'idle');
+      const from = head(j);
+      for (let i = 0; i < behind; i++) j.putMessage(S, message(`q${i}`, `m${i}`, 'queued'));
+      const r = j.sync(S, j.epoch, from);
+      expect(r).toMatchObject({ v: head(j), more: false });
+      expect(r.reset).toBe(over ? true : undefined);
+    });
+
+    it('starts over a copy more than a page behind: every message and state, and the newest items of the conversation', () => {
       const { j } = open();
       j.status(S, 'idle');
       const from = head(j);
       for (let i = 0; i < 400; i++) j.putMessage(S, message(`q${i}`, `m${i}`, 'queued'));
       j.putAgentItems(S, CONV, texts(500));
       for (let i = 0; i < 300; i++) j.onMac(S, i + 1);
-      const pages: Row[][] = [];
-      for (let v = from, more = true; more; ) {
-        const r = j.sync(S, j.epoch, v);
-        expect(r.reset).toBeUndefined();
-        pages.push(r.rows);
-        more = r.more;
-        v = r.v;
-      }
-      expect(pages.map((p) => p.length)).toEqual([500, 402]);
-      const versions = pages.flat().map((r) => r.v);
-      // A state written again is one row at its last version; what it was before is gone.
-      expect(versions).toEqual([...versions].sort((a, b) => a - b));
-      expect(new Set(versions).size).toBe(versions.length);
-      expect(pages.flat().filter((r) => r.t === 'state').map((r) => [r.key, r.body])).toEqual([['conv', { conv: CONV }], ['onMac', 300]]);
-      expect(new Set(pages.flat().filter((r) => r.t !== 'state').map((r) => `${r.t}:${r.key}`)).size).toBe(900);
+      const r = j.sync(S, j.epoch, from);
+      expect(r).toMatchObject({ epoch: j.epoch, v: head(j), more: false, reset: true, older: 400 });
+      expect(r.rows.filter((x) => x.t === 'message')).toHaveLength(400);
+      expect(r.rows.filter((x) => x.t === 'item').map((x) => (x.body as { pos: number }).pos)).toEqual(Array.from({ length: 100 }, (_, i) => 400 + i));
+      expect(r.rows.filter((x) => x.t === 'state').map((x) => [x.key, x.body])).toEqual(
+        expect.arrayContaining([['conv', { conv: CONV }], ['onMac', 300], ['status', 'idle']]),
+      );
     });
 
     it('gives one starting over the newest items, and pages of older ones back to the first', () => {
@@ -149,19 +154,22 @@ describe('Journal', () => {
       expect(head(j)).toBe(v + 1);
     });
 
-    it('tells who listens to the session, in pages, each from where the last ended', () => {
+    it('tells who listens to the session each change from where the last ended, and one more than a page long as a start over', () => {
       const { j } = open();
       j.status(S, 'idle');
-      const calls: { from: number; to: number; rows: number }[] = [];
-      const stop = j.onRows(S, (from, to, rows) => calls.push({ from, to, rows: rows.length }));
+      const calls: { from: number; to: number; rows: number; reset?: true; older?: number | null }[] = [];
+      const stop = j.onRows(S, (from, c) => calls.push({ from, to: c.v, rows: c.rows.length, reset: c.reset, older: c.older }));
       const other: number[] = [];
-      j.onRows('session-2', (from, to) => other.push(to));
+      j.onRows('session-2', (_from, c) => other.push(c.v));
       const start = head(j);
-      j.putAgentItems(S, CONV, texts(1200));
-      expect(calls.map((c) => c.rows)).toEqual([500, 500, 201]);
-      expect(calls[0].from).toBe(start);
-      for (let i = 1; i < calls.length; i++) expect(calls[i].from).toBe(calls[i - 1].to);
-      expect(calls.at(-1)?.to).toBe(head(j));
+      j.putAgentItems(S, CONV, texts(400));
+      j.onMac(S, 1);
+      j.putAgentItems(S, CONV, texts(1200, 400));
+      expect(calls).toEqual([
+        { from: start, to: start + 401, rows: 401, reset: undefined, older: undefined },
+        { from: start + 401, to: start + 402, rows: 1, reset: undefined, older: undefined },
+        { from: start + 402, to: head(j), rows: 100 + 4, reset: true, older: 1500 },
+      ]);
       expect(other).toEqual([]);
       stop();
       j.onMac(S, 2);
@@ -174,7 +182,7 @@ describe('Journal', () => {
       j.onMac(S, 1);
       j.onMac(S, 2);
       const told: [number, number][] = [];
-      j.onRows(S, (from, _to, rows) => told.push([from, rows.length]));
+      j.onRows(S, (from, c) => told.push([from, c.rows.length]));
       j.onMac(S, 3);
       expect(told).toEqual([[2, 1]]);
     });
