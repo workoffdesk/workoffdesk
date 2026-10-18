@@ -57,7 +57,7 @@ export const chat: typeof en = {
   foregroundRuns: (who) => `${who} 在前台跑一条命令`,
   foregroundSub: '新消息要等它跑完才会被读到，转到后台就不用等',
   backgroundRunning: (n) => `${n} 个运行中`,
-  backgroundOpen: '查看 / 停止（打开 /tasks）',
+  manageBackground: '管理',
   queuedMessages: '排队的消息',
   queued: (n) => `排队 ${n} 条`,
   sendNow: '立即发送',

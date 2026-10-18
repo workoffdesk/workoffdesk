@@ -310,8 +310,8 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
 - The interface is English or Chinese, following the phone. (`libs/i18n`)
 - Stop, shown in place of send while Claude works and the composer is empty, sends Esc.
   (`apps/web/src/pages/Session.tsx` `onStop`)
-- A bar shows Claude's task list progress; another lists the commands and agents Claude runs in the background
-  and opens `/tasks`; Read aloud
+- A bar shows Claude's task list progress; another lists the commands and agents Claude runs in the background,
+  with Manage beside it, which opens `/tasks`; Read aloud
   uses the browser's `speechSynthesis`; Rewind under the last message sent opens Claude Code's own list of points
   to go back to; Screen shows the Mac's screen as text. (`apps/web/src/components/TaskBar.tsx`,
   `BackgroundBar.tsx`, `turn/Reply.tsx`, `turn/bubbles.tsx`, `libs/i18n` `showScreen`)

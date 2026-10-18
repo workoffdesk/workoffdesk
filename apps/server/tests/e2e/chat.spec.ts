@@ -83,6 +83,31 @@ test.describe('the chat', () => {
     await chat.getByRole('button', { name: '停止' }).click();
   });
 
+  test('names what runs in the background, and 管理 beside it opens /tasks without unfolding the list', async ({ page }) => {
+    await login(page);
+    await clearSessions(page);
+    await page.reload();
+    const { transcript } = await newSession(page);
+    writeFileSync(
+      transcript,
+      jsonl(
+        rec.user('跑一下开发服务器'),
+        rec.claude({ type: 'tool_use', id: 'r1', name: 'Bash', input: { command: 'pnpm dev', description: '起开发服务器', run_in_background: true } }),
+        { ...rec.user([{ type: 'tool_result', tool_use_id: 'r1', content: 'Command running in background with ID: bdev1' }]), toolUseResult: { backgroundTaskId: 'bdev1' } },
+      ),
+    );
+    const bar = page.getByTestId('chat').locator('.chat-bg');
+    await expect(bar).toContainText('1 个运行中');
+    await expect(bar).not.toContainText('/tasks');
+    const manage = bar.getByRole('button', { name: '管理' });
+    await expect(manage).toBeVisible();
+    await manage.click();
+    await expect(bar.locator('details')).not.toHaveAttribute('open', '');
+    await expect.poll(() => termText(page)).toContain('/tasks');
+    await bar.locator('summary').click();
+    await expect(bar.locator('li')).toContainText('起开发服务器');
+  });
+
   test('reads a claude session as a chat, which follows the transcript', async ({ page }) => {
     await login(page);
     await clearSessions(page);

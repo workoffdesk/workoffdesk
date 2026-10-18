@@ -58,7 +58,7 @@ export const chat = {
   foregroundRuns: (who: string) => `${who} is running a command in the foreground`,
   foregroundSub: 'New messages wait until it is over, or until it runs in the background',
   backgroundRunning: (n: number) => `${n} running`,
-  backgroundOpen: 'View / stop (opens /tasks)',
+  manageBackground: 'Manage',
   queuedMessages: 'Queued messages',
   queued: (n: number) => `${n} queued`,
   sendNow: 'Send now',

@@ -32,6 +32,8 @@ export const styles = ({ c, fs }: Theme) =>
     workingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     working: { fontSize: fs(13), color: c.muted, fontVariant: ['tabular-nums'] },
     bg: { gap: 6, padding: 10, borderRadius: 12, backgroundColor: c.surface2 },
+    bgRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    bgToggle: { flex: 1, paddingVertical: 6 },
     bgHead: { fontSize: fs(13), color: c.muted },
     bgItem: { fontSize: fs(13), color: c.text },
     overlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: tint(c.bg, 92) },
