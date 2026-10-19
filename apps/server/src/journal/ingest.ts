@@ -20,8 +20,9 @@ export type IngestOptions = {
 // The transcript records a prompt when Claude Code takes it, after it was pasted.
 const LANDS_AFTER_MS = -2000;
 const DERIVED: ReadonlySet<ChatItem['k']> = new Set(['task', 'todos', 'bg']);
-// What a paste keeps of a message (Machine.paste): no control characters but line breaks and tabs.
-const pasted = (text: string) => text.replace(/(?![\n\t])\p{Cc}/gu, '').trim();
+// The words of a message or a prompt, to tell one from the other: a paste keeps no control characters but line
+// breaks and tabs (Machine.paste), and Claude Code may write those as spaces.
+const words = (text: string) => text.replace(/(?![\n\t])\p{Cc}/gu, '').replace(/\s+/g, ' ').trim();
 
 const ON_THEIR_WAY: ReadonlySet<MessageRow['state']> = new Set(['delivering', 'delivered', 'enqueued']);
 
@@ -133,13 +134,13 @@ export function landFound(db: JournalDb, id: string, log: IngestOptions['log']):
 // lands, or is not found when the turn is over. One whose words were pulled back into the prompt at the Mac
 // after it was sent, and are not held again, is taken back. True when any changed.
 function inClaudesQueue(db: JournalDb, id: string, queue: ReturnType<typeof queueInTranscript>, log: IngestOptions['log']): boolean {
-  const left = queue.held.map((t) => t.trim());
-  const pulled = queue.pulled.map((p) => ({ text: p.text.trim(), at: p.at }));
+  const left = queue.held.map(words);
+  const pulled = queue.pulled.map((p) => ({ text: words(p.text), at: p.at }));
   let changed = false;
   for (const m of onTheirWay(db, id)) {
-    const i = left.indexOf(pasted(m.text));
+    const i = left.indexOf(words(m.text));
     if (i < 0) {
-      const p = pulled.findIndex((x) => x.text === pasted(m.text) && !(x.at - m.sentAt < LANDS_AFTER_MS));
+      const p = pulled.findIndex((x) => x.text === words(m.text) && !(x.at - m.sentAt < LANDS_AFTER_MS));
       if (p < 0) continue;
       pulled.splice(p, 1);
       db.putMessage(id, { ...m, state: 'taken', ord: null });
@@ -157,11 +158,11 @@ function inClaudesQueue(db: JournalDb, id: string, queue: ReturnType<typeof queu
 
 // The oldest message not known to be taken in whose words are the prompt's (or the command's) is it: it landed.
 function land(db: JournalDb, id: string, waiting: MessageRow[], item: ChatItem, itemId: string, log: IngestOptions['log']): void {
-  const words = sentWords(item);
-  if (words === null) return;
+  const said = sentWords(item);
+  if (said === null) return;
   const at = 'at' in item && item.at ? Date.parse(item.at) : NaN;
-  const text = words.trim();
-  const n = waiting.findIndex((m) => pasted(m.text) === text && !(at - m.sentAt < LANDS_AFTER_MS));
+  const text = words(said);
+  const n = waiting.findIndex((m) => words(m.text) === text && !(at - m.sentAt < LANDS_AFTER_MS));
   if (n < 0) return;
   const [m] = waiting.splice(n, 1);
   db.putMessage(id, { ...m, state: 'landed', item: itemId });

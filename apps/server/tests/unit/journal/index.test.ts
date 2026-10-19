@@ -481,6 +481,21 @@ describe('Journal', () => {
         expect(j.messages(S)[0]).toMatchObject({ state: 'landed', item: `${CONV.slice(-4)}-1:0` });
       });
 
+      it.each([
+        ['a tab turned into four spaces', '.\tfix it', '.    fix it'],
+        ['a tab turned into two spaces', 'fix\tit', 'fix  it'],
+        ['Windows line breaks made plain', 'fix it\r\nand the tests', 'fix it\nand the tests'],
+        ['spaces kept where the prompt has a tab', 'fix    it', 'fix\tit'],
+      ])('lands it at the prompt with its words however Claude Code spaced them: %s', async (_, text, prompt) => {
+        const { j } = await sent([[prompt, T0 + 1000]], [message('q1', text, 'delivered')]);
+        expect(j.messages(S)[0]).toMatchObject({ state: 'landed', item: `${CONV.slice(-4)}-1:0` });
+      });
+
+      it('does not land it at a prompt whose words differ only where a space was left out', async () => {
+        const { j } = await sent([['fixit', T0 + 1000]], [message('q1', 'fix it', 'delivered')]);
+        expect(j.messages(S)[0].state).toBe('delivered');
+      });
+
       it.each<[string, number, MessageState]>([
         ['a moment before it was sent, by a clock a little off', T0 - 1000, 'landed'],
         ['well before it was sent: an earlier prompt with the same words', T0 - 3000, 'delivered'],
@@ -536,6 +551,20 @@ describe('Journal', () => {
         t.add({ type: 'queue-operation', operation: 'enqueue', timestamp: iso(T0 + 1000), content: 'and the tests' });
         await j.ingest(S, CONV);
         expect(Object.fromEntries(j.messages(S).map((m) => [m.id, m.state]))).toEqual({ q1: 'enqueued', q2: 'delivered' });
+      });
+
+      it('enqueues it, and takes it back, when Claude holds its words spaced its own way', async () => {
+        const t = transcript();
+        const { j } = open({ root: t.root });
+        j.putMessage(S, message('q1', '.\tand the tests', 'delivered'));
+        t.prompt('fix it', T0 - 60_000);
+        const op = (operation: string, at: number) => ({ type: 'queue-operation', operation, timestamp: iso(at), content: '.    and the tests' });
+        t.add(op('enqueue', T0 + 1000));
+        await j.ingest(S, CONV);
+        expect(j.messages(S)[0].state).toBe('enqueued');
+        t.add(op('popAll', T0 + 2000));
+        await j.ingest(S, CONV);
+        expect(j.messages(S)[0].state).toBe('taken');
       });
 
       describe('pulled back out of Claude\'s queue into the prompt at the Mac (popAll)', () => {

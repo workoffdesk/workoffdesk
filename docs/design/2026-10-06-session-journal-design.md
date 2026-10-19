@@ -129,8 +129,8 @@ Each write takes the next `v` and is one transaction with whatever must arrive w
 
 **A message landing.** When ingest takes in a prompt typed by a person (a `user` item from a `human`
 record, or the `queued_command` attachment Claude Code writes for one taken mid-turn), it looks for the
-oldest message of that session in `delivering` or `delivered` whose trimmed text equals the prompt's, and
-in the same transaction sets it `landed` with `item` = the item's id. No match: someone typed it at the
+oldest message of that session in `delivering` or `delivered` whose words equal the prompt's, however they
+are spaced (Claude Code may write a tab or a line break of a paste as spaces), and in the same transaction sets it `landed` with `item` = the item's id. No match: someone typed it at the
 Mac, and it is only an item. Two messages with the same words land in the order they were pasted.
 A message still `delivered` when the session next goes idle is `unconfirmed`: shown once, where it was sent, and logged (`message not found in the transcript`) so a
 case of Claude Code changing what it was given is seen rather than guessed at.
