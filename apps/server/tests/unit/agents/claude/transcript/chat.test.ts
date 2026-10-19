@@ -292,6 +292,25 @@ describe('chatItems', () => {
       ]);
     });
 
+    // Claude Code 2.1.303, after a restart: one notification for the shells that did not finish, with a marker
+    // of its own among their ids.
+    it('ends every task a notification names, leaving out its markers', () => {
+      const several =
+        '<task-notification>\n<task-id>btw5rbmns</task-id>\n<task-id>b1q29gjjp</task-id>\n<task-id>__orphan_summary__:shell</task-id>\n<status>stopped</status>\n<summary>2 background shell command tasks didn\'t finish before the previous session ended. Task ids: btw5rbmns, b1q29gjjp.</summary>\n</task-notification>';
+      expect(chatItems(user(several, fromTask)).filter((i) => i.k === 'bg')).toEqual([
+        { k: 'bg', id: 'btw5rbmns', status: 'stopped' },
+        { k: 'bg', id: 'b1q29gjjp', status: 'stopped' },
+      ]);
+    });
+
+    // A task stopped in /tasks while Claude is at its prompt is told only to its queue (Claude Code 2.1.303).
+    it.each([
+      ['put in Claude\'s queue', 'enqueue', [{ k: 'bg', id: 'bdfoi2os0', status: 'completed' }]],
+      ['pulled back out of it', 'popAll', []],
+    ])('ends a background task when its notification is %s, or not', (_, operation, items) => {
+      expect(chatItems({ type: 'queue-operation', operation, timestamp: at, content: notification })).toEqual(items);
+    });
+
     it('shows a message from another session by who sent it, with the message to open', () => {
       expect(chatItems(user(`Another Claude session sent a message:\n<cross-session-message from="x">…`, fromPeer))).toEqual([
         { k: 'note', event: { e: 'peer', from: 'random-ca', pid: 73750 }, detail: '设计稿看完了。\n五条意见。' },

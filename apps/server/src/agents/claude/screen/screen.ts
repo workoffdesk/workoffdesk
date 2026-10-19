@@ -50,8 +50,8 @@ export class ClaudeScreen {
       working ? this.tmux.screenJoined(name).catch(() => '') : Promise.resolve(''),
       working ? this.tmux.windowSize(name).then((s) => s.cols, () => this.cols) : Promise.resolve(this.cols),
     ]);
-    const choices = withPlan(parseChoices(screen));
     const panel = parsePanel(screen, above);
+    const choices = panel?.tasks ? null : withPlan(parseChoices(screen));
     const free = working && !choices && !panel;
     const live = free ? liveText(joined, cols) : null;
     const background = free && canBackground(joined);

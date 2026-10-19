@@ -8,6 +8,7 @@ import { parseChoices } from './choices.js';
 // null for a line the screen does not reach.
 // effort: on /effort, the levels its slider has, left to right, and the one it is at.
 // btw: on a /btw answer, the question it answers; the body is the answer, as much of it as is on the screen.
+// tasks: on /tasks, its rows and the one selected (-1 for none); task: one of them opened, what it is and its output.
 export type Panel = {
   title: string;
   body: string;
@@ -15,6 +16,8 @@ export type Panel = {
   usage?: { session: number | null; week: number | null };
   effort?: { levels: string[]; at: number };
   btw?: { question: string };
+  tasks?: { rows: { label: string; status: string }[]; at: number };
+  task?: { fields: { name: string; value: string }[]; output: string };
 };
 
 const RULE = /^─{10,}$/;
@@ -26,11 +29,15 @@ const EDGE = '▔';
 const SETTINGS_TABS = /^Settings\s{2,}Status\s{2,}Config\b/;
 const TABS_WRAPPED = /^\s*(Status|Config|Usage|Stats)(\s{2,}(Status|Config|Usage|Stats))*\s*$/;
 const SEARCH_BOX = /^[╭│╰]/;
-const HINT = /\bEsc to \w+|\bEnter to \w+/;
+const HINT = /\bEsc to \w+|\bEnter to \w+|\bto close\b/;
 const TITLE_MAX = 40;
 // The dialogs known by name. The settings dialog says which tab is up only by what it holds.
 const HEADINGS: Record<string, string> = { 'Select model': 'Model', Effort: 'Effort' };
 const USAGE_TAB = /^\s*Total cost:/m;
+// /tasks: its list, and one of its tasks opened.
+const TASK_LIST = /\bEnter to view\b/;
+const TASK_OPEN = /\bto go back\b/;
+const TASKS_HINT = new RegExp(`${TASK_LIST.source}|${TASK_OPEN.source}`);
 const CONFIG_TAB = /to search\b|Esc to clear/;
 
 export function parsePanel(screen: string, above = ''): Panel | null {
@@ -45,8 +52,9 @@ export function parsePanel(screen: string, above = ''): Panel | null {
   }
   const btw = btwOf(shown);
   if (btw) return btw;
-  // A question Claude asks is for the choices; a dialog with options in it, whose edge is ▔, is not.
-  if (!shown.some((l) => l.endsWith(EDGE)) && parseChoices(screen)) return null;
+  // A question Claude asks is for the choices; a dialog with options in it, whose edge is ▔ or whose key hint
+  // is /tasks', is not.
+  if (!shown.some((l) => l.endsWith(EDGE)) && !TASKS_HINT.test(lastBlock(shown)) && parseChoices(screen)) return null;
 
   const lines = above ? [...above.split('\n').map((l) => l.trimEnd()), ...shown] : shown;
   let top = -1;
@@ -77,10 +85,44 @@ export function parsePanel(screen: string, above = ''): Panel | null {
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+  if (TASK_LIST.test(hint)) return { title: 'Tasks', body, hint, tasks: taskRows(body) };
+  if (TASK_OPEN.test(hint)) return { title: 'Tasks', body, hint, task: taskOpen(body) };
   if (SETTINGS_TABS.test(heading)) return usageOr({ title: CONFIG_TAB.test(hint) ? 'Settings' : '', body, hint });
   const title = heading ? (HEADINGS[heading] ?? heading.slice(0, TITLE_MAX)) : '';
   const effort = heading === 'Effort' ? effortOf(rest.slice(from)) : null;
   return effort ? { title, body, hint, effort } : usageOr({ title, body, hint });
+}
+
+// The last block of lines on the screen, wrapped across them.
+function lastBlock(shown: string[]): string {
+  const lines = [...shown];
+  while (lines.length && !lines[lines.length - 1]) lines.pop();
+  return lines.slice(lines.lastIndexOf('') + 1).join(' ');
+}
+
+// A row of /tasks: its marker (❯ on the one selected), what it runs, and what it is at.
+const TASK_ROW = /^(❯\s+)?⏺\s+(.*?)(?:\s{2,}(\S.*))?$/;
+function taskRows(body: string): NonNullable<Panel['tasks']> {
+  const rows = body.split('\n').flatMap((l) => {
+    const m = TASK_ROW.exec(l.trim());
+    return m ? [{ selected: !!m[1], label: m[2], status: m[3] ?? '' }] : [];
+  });
+  return { rows: rows.map(({ label, status }) => ({ label, status })), at: rows.findIndex((r) => r.selected) };
+}
+
+// A task /tasks opened: a line for each of what it is (a long one runs on, indented), then its output.
+const TASK_FIELD = /^(\w[\w ]*):\s+(.*)$/;
+function taskOpen(body: string): NonNullable<Panel['task']> {
+  const lines = body.split('\n');
+  const out = lines.findIndex((l) => l.trim() === 'Output:');
+  const fields: { name: string; value: string }[] = [];
+  for (const l of out < 0 ? lines : lines.slice(0, out)) {
+    const m = TASK_FIELD.exec(l);
+    if (m) fields.push({ name: m[1], value: m[2].trim() });
+    else if (l.trim() && fields.length) fields[fields.length - 1].value += ` ${l.trim()}`;
+  }
+  const output = out < 0 ? '' : lines.slice(out + 1).map((l) => l.trim()).join('\n').trim();
+  return { fields, output };
 }
 
 // A /btw answer has no edge: the questions asked so far, each a line of `/btw …`, then the answer to the

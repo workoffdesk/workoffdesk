@@ -1,6 +1,6 @@
 export const screen = {
   // Panels
-  panelTitles: { Model: 'Model', Effort: 'Effort', Settings: 'Settings', Usage: 'Usage', Btw: 'Side question' } as Record<string, string>,
+  panelTitles: { Model: 'Model', Effort: 'Effort', Settings: 'Settings', Usage: 'Usage', Btw: 'Side question', Tasks: 'Background tasks' } as Record<string, string>,
   panelNamed: (title: string) => `the “${title}” panel`,
   aPanel: 'a panel',
   agentOpened: (who: string, panel: string) => `${who} opened ${panel}`,
@@ -16,6 +16,11 @@ export const screen = {
   // What a dialog of Claude Code's is for, in a line under its title; one not here says it in its own words.
   dialogAbout: { Model: 'Your pick becomes the default for new sessions' } as Record<string, string>,
   closeEsc: 'Close (Esc)',
+  taskOutput: 'Output',
+  taskBack: '‹ Back to the list',
+  tasksNone: 'Nothing is running in the background',
+  taskStatus: { running: 'running', completed: 'done', failed: 'failed', killed: 'stopped', stopped: 'stopped' } as Record<string, string>,
+  taskFields: { Status: 'Status', Runtime: 'Running for', Command: 'Command' } as Record<string, string>,
   otherModels: 'Other models…',
   btwAsked: 'Side question (/btw)',
   showKeys: 'Show keys',

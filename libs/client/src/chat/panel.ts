@@ -18,3 +18,13 @@ export function effortKeys(effort: NonNullable<Panel['effort']>, to: number): st
 export const scrollsInParts = (panel: Panel) => !!panel.btw && panel.body.split('\n').length >= BTW_SCROLLS;
 export const SCROLL_UP = UP.repeat(BTW_STEP);
 export const SCROLL_DOWN = DOWN.repeat(BTW_STEP);
+
+// What a /tasks card types: the arrows to a row from the one selected, then Enter to open it or x to stop it.
+export const TASK_STOP = 'x';
+export const TASK_BACK = LEFT;
+export function taskKeys(tasks: NonNullable<Panel['tasks']>, to: number, act: 'view' | 'stop'): string {
+  if (to < 0 || to >= tasks.rows.length) return '';
+  const from = Math.max(tasks.at, 0);
+  const moves = (to > from ? DOWN : UP).repeat(Math.abs(to - from));
+  return moves + (act === 'view' ? '\r' : TASK_STOP);
+}

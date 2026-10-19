@@ -169,10 +169,12 @@ function taskNote(text: string): ChatItem[] {
   const summary = tagText(text, 'summary');
   const what = /^Background command "([\s\S]*)" (?:completed|failed|was stopped)/.exec(summary)?.[1] ?? summary;
   const status = tagText(text, 'status');
-  const id = tagText(text, 'task-id');
   const note: ChatItem = { k: 'note', event: { e: 'task', status, what }, detail: summary };
-  return id && status ? [note, { k: 'bg', id, status }] : [note];
+  return status ? [note, ...taskIds(text).map((id): ChatItem => ({ k: 'bg', id, status }))] : [note];
 }
+
+// The tasks a notification is about; one may name several, beside markers of Claude Code's own.
+const taskIds = (text: string) => [...text.matchAll(/<task-id>([^<]+)<\/task-id>/g)].map((m) => m[1].trim()).filter((id) => id && !id.startsWith('__'));
 
 // The plan Claude asks to go ahead with, shown whole rather than as a line: written into Claude Code's
 // plans folder in plan mode, or given to ExitPlanMode itself by older versions.
@@ -211,6 +213,9 @@ function eventItems(e: ClaudeEvent): ChatItem[] {
     // How a background command ended, taken in mid-turn: only the end is kept, the note comes as its own prompt.
     case 'claude:midTurnTaskEnd':
       return taskNote(e.text).filter((i) => i.k === 'bg');
+    // How one ended, told to Claude's queue only while Claude waits at its prompt.
+    case 'claude:queue':
+      return e.op === 'enqueue' && e.text?.startsWith('<task-notification>') ? taskNote(e.text).filter((i) => i.k === 'bg') : [];
     case 'claude:command':
       return e.local || e.name === '/compact' ? [] : [{ k: 'note', text: [e.name, e.args].filter(Boolean).join(' '), command: true, at }];
     case 'claude:commandOutput': {
@@ -245,7 +250,6 @@ function eventItems(e: ClaudeEvent): ChatItem[] {
     case 'claude:noted':
     case 'claude:compactBoundary':
     case 'claude:turnOver':
-    case 'claude:queue':
     case 'claude:title':
     case 'claude:lastPrompt':
     case 'claude:sidechain':

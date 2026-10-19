@@ -3,11 +3,12 @@ import { effortName, panelName, type Panel } from '@workoffdesk/client/model/cha
 import { press } from '../KeyBar';
 import { t } from '@workoffdesk/i18n';
 import { useAgentName } from '@workoffdesk/react/agentName';
+import { TasksPanel } from './TasksPanel';
 
 // Typing goes into a panel while it is open, so the chat shows it and closes it instead, with the key bar's Esc.
 export function PanelCard(props: { panel: Panel; onKey: (data: string) => boolean; onScreen: () => void; onDone: () => void }) {
   const who = useAgentName();
-  const { usage, effort, btw, body } = props.panel;
+  const { usage, effort, btw, tasks, task, body } = props.panel;
   const name = btw ? t.btwAsked : t.agentOpened(who, panelName(props.panel));
   const send = (keys: string) => props.onKey(keys) && props.onDone();
   const setEffort = (to: number) => effort && send(effortKeys(effort, to));
@@ -34,6 +35,8 @@ export function PanelCard(props: { panel: Panel; onKey: (data: string) => boolea
           <div className="btw-question">{btw.question}</div>
           {body && <div className="btw-answer">{body}</div>}
         </>
+      ) : tasks || task ? (
+        <TasksPanel panel={props.panel} send={send} />
       ) : (
         body && <pre className="panel-body">{body}</pre>
       )}

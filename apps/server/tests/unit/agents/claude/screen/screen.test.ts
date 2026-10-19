@@ -193,6 +193,12 @@ describe('ClaudeScreen', () => {
       expect(screen.live).toBeNull();
     });
 
+    it('returns the /tasks dialog as a panel, not as a choice asked for', async () => {
+      const { screen } = await claude(tmux({ screen: screenOf('tasks-list') })).read('s1', false);
+      expect(screen.choices).toBeNull();
+      expect(screen.panel?.tasks?.rows).toHaveLength(2);
+    });
+
     it('returns no live text while a dialog is open over the prompt, even as Claude works', async () => {
       const { screen } = await claude(tmux({ screen: screenOf('settings-usage'), joined: WRITING })).read('s1', true);
       expect([screen.choices, screen.panel === null, screen.live]).toEqual([null, false, null]);

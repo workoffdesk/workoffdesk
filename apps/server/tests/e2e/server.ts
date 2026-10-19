@@ -40,8 +40,8 @@ account(join(accountsHome, '.claude-work'), join(accountsHome, '.claude-work', '
 
 const fakeClaude = join(home, 'claude');
 // Like Claude Code, once at its prompt it runs the SessionStart hook of the settings it is given; while the
-// test asks for it with a file `claude-stays`, it then stays at its prompt. The Claudes open in terminals on the
-// Mac are what a test writes in `mac-agents.json`.
+// test asks for it with a file `claude-stays`, it then stays at its prompt, or with `claude-shell`, becomes a shell
+// that runs what is sent to it. The Claudes open in terminals on the Mac are what a test writes in `mac-agents.json`.
 writeFileSync(
   fakeClaude,
   [
@@ -54,6 +54,7 @@ writeFileSync(
     'done',
     `[ -n "$hook" ] && echo '{"hook_event_name":"SessionStart"}' | sh -c "$hook"`,
     `[ -f ${JSON.stringify(join(home, 'claude-stays'))} ] && exec sleep 600`,
+    `[ -f ${JSON.stringify(join(home, 'claude-shell'))} ] && exec sh`,
     '',
   ].join('\n'),
 );

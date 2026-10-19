@@ -8,6 +8,7 @@ import { useAgentName } from '@workoffdesk/react/agentName';
 import { effortKeys, scrollsInParts, SCROLL_DOWN, SCROLL_UP } from '@workoffdesk/client/chat/panel';
 import { useStyles } from './styles';
 import { DialogHead, useFrame } from './common';
+import { TasksPanel } from './TasksPanel';
 
 // Typing goes into a panel while it is open, so the chat shows it and closes it instead, with Esc. In a
 // Popup it is headed as the app's own menus are; in the chat, by what Claude opened.
@@ -15,7 +16,7 @@ export function PanelCard(props: { panel: Panel; onKey: (data: string) => boolea
   const s = useStyles();
   const frame = useFrame();
   const popped = useContext(InPopup);
-  const { usage, effort, btw, body } = props.panel;
+  const { usage, effort, btw, tasks, task, body } = props.panel;
   const who = useAgentName();
   const name = btw ? t.btwAsked : t.agentOpened(who, panelName(props.panel));
   const title = btw ? t.panelTitles.Btw : props.panel.title ? (t.panelTitles[props.panel.title] ?? props.panel.title.replace(/\s+/g, ' ')) : name;
@@ -52,6 +53,8 @@ export function PanelCard(props: { panel: Panel; onKey: (data: string) => boolea
               </Text>
             )}
           </>
+        ) : tasks || task ? (
+          <TasksPanel panel={props.panel} press={press} />
         ) : (
           // In a Popup, /usage is its two figures; the rest of its screen is a tap on 看屏幕 away.
           !!body &&

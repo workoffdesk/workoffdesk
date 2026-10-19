@@ -177,7 +177,7 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/integration/sessions/control.test.ts`, `apps/server/tests/integration/sessions/machine.sending.test.ts`,
   `apps/server/tests/integration/sessions/machine.naming.test.ts`, `apps/server/tests/unit/agents/claude/screen/prompt.test.ts`
 - Client: `libs/client/tests/composer/modes.test.ts`, `libs/client/tests/sessions/session.test.ts`,
-  `libs/client/tests/composer/hold.test.ts`, `libs/client/tests/composer/keys.test.ts`
+  `libs/client/tests/composer/hold.test.ts`, `libs/client/tests/composer/keys.test.ts`, `libs/client/tests/chat/panel.test.ts`
 - End to end: `apps/server/tests/e2e/composer.spec.ts`, `apps/server/tests/e2e/chat.spec.ts`
 
 ### Reading Claude Code and Codex right

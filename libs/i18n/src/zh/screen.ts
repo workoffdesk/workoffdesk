@@ -1,7 +1,7 @@
 import type { screen as en } from '../en/screen';
 
 export const screen: typeof en = {
-  panelTitles: { Model: '模型', Effort: '思考强度', Settings: '设置', Usage: '用量', Btw: '顺带一问' },
+  panelTitles: { Model: '模型', Effort: '思考强度', Settings: '设置', Usage: '用量', Btw: '顺带一问', Tasks: '后台任务' },
   panelNamed: (title) => `「${title}」面板`,
   aPanel: '一个面板',
   agentOpened: (who, panel) => `${who} 打开了${panel}`,
@@ -15,6 +15,11 @@ export const screen: typeof en = {
   effortLevels: { low: '低', medium: '中', high: '高', xhigh: '超高', max: '最高' },
   dialogAbout: { Model: '选中的会成为新会话的默认模型' },
   closeEsc: '关闭 (Esc)',
+  taskOutput: '看输出',
+  taskBack: '‹ 返回列表',
+  tasksNone: '现在没有在后台跑的任务',
+  taskStatus: { running: '运行中', completed: '已完成', failed: '失败了', killed: '已停止', stopped: '已停止' },
+  taskFields: { Status: '状态', Runtime: '已运行', Command: '命令' },
   otherModels: '其他模型…',
   btwAsked: '顺带一问 (/btw)',
   showKeys: '显示按键',

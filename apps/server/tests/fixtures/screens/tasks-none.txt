@@ -1,0 +1,20 @@
+ ▐▛███▛█   Claude Code v2.1.303
+▝▜██████▀  Opus 5.5 with medium effort · Claude Team
+ ▝▝   ▝▝   /tmp/project
+
+! pnpm dev
+  ⎿  Command was manually backgrounded by user with ID: bzlkykk04. Output is being written to:
+     /tmp/claude/tasks/bzlkykk04.output.
+
+! sleep 901
+  ⎿  Command was manually backgrounded by user with ID: b16i8qk0j. Output is being written to:
+     /tmp/claude/tasks/b16i8qk0j.output.
+
+❯ /tasks
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  Background
+
+  No tasks currently running
+
+  ↑/↓ to select · Enter to view · Esc to close

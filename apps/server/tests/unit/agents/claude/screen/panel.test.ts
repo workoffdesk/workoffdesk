@@ -110,6 +110,41 @@ describe('parsePanel', () => {
   });
 
   // Captured from Claude Code v2.1.289, 60 columns by 40 (100 for effort-wide). What a test changes in one is said there.
+  // Claude Code 2.1.303's /tasks: its rows are drawn as a question's options are, and it is not one.
+  describe('with the /tasks dialog', () => {
+    it('reads its list: each task, what it is at, and the one selected', () => {
+      expect(parsePanel(screen('tasks-list'))).toMatchObject({
+        title: 'Tasks',
+        hint: '↑/↓ to select · Enter to view · x to stop · Esc to close',
+        tasks: { rows: [{ label: 'sleep 901', status: 'running' }, { label: 'pnpm dev', status: 'running' }], at: 0 },
+      });
+      const second = screen('tasks-list').replace('  ❯ ⏺ sleep 901', '    ⏺ sleep 901').replace('    ⏺ pnpm dev', '  ❯ ⏺ pnpm dev');
+      expect(parsePanel(second)?.tasks?.at).toBe(1);
+    });
+
+    it('reads its list with nothing in it', () => {
+      expect(parsePanel(screen('tasks-none'))).toMatchObject({ title: 'Tasks', tasks: { rows: [], at: -1 } });
+    });
+
+    it('reads a task opened from it: what it is, and its output', () => {
+      expect(parsePanel(screen('tasks-detail'))).toMatchObject({
+        title: 'Tasks',
+        hint: '← to go back · Esc/Enter/Space to close · x to stop',
+        task: { fields: [{ name: 'Status', value: 'running' }, { name: 'Runtime', value: '46s' }, { name: 'Command', value: 'sleep 901' }], output: 'No output available' },
+      });
+    });
+
+    it('reads a command too long for its line whole, and output of many lines', () => {
+      const long = screen('tasks-detail')
+        .replace('  Command:  sleep 901', '  Command:  cd /tmp/project && pnpm install &&\n            pnpm dev')
+        .replace('  No output available', '  ready in 300 ms\n  listening on :3000');
+      expect(parsePanel(long)?.task).toEqual({
+        fields: [{ name: 'Status', value: 'running' }, { name: 'Runtime', value: '46s' }, { name: 'Command', value: 'cd /tmp/project && pnpm install && pnpm dev' }],
+        output: 'ready in 300 ms\nlistening on :3000',
+      });
+    });
+  });
+
   describe('with a /btw answer', () => {
     it('reads the answer to the question asked, with the key hint under it', () => {
       expect(parsePanel(screen('btw-answer'))).toEqual({

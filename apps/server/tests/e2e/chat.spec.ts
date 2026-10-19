@@ -468,6 +468,48 @@ test.describe('the chat', () => {
   });
 
   test.describe('a panel Claude opens', () => {
+    // The fixture that draws the panel is run by the session, so its Claude stays a shell.
+    const shell = join(E2E_HOME, 'claude-shell');
+    test.beforeEach(() => writeFileSync(shell, ''));
+    test.afterEach(() => rmSync(shell, { force: true }));
+
+    test('/tasks is a list of what runs in the background, each with Output and Stop, not a question', async ({ page }) => {
+      await login(page);
+      await clearSessions(page);
+      await page.reload();
+      await newSession(page);
+      const log = join(tmpdir(), `tasks-keys-${process.pid}-${Date.now()}`);
+      writeFileSync(log, '');
+      const keys = () => readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as string);
+      const tasks = fileURLToPath(new URL('../fixtures/tasks.mjs', import.meta.url));
+      const composer = page.getByLabel('输入');
+      await composer.fill(`${process.execPath} ${tasks} ${log}`);
+      await composer.press('Enter');
+
+      const card = page.getByRole('group', { name: 'Claude 打开了「后台任务」面板' });
+      await expect(card.locator('.task-row')).toHaveCount(2);
+      await expect(page.getByRole('button', { name: '提交' })).toHaveCount(0);
+      await expect(card.locator('.task-row').nth(1)).toContainText('pnpm dev');
+      await expect(card.locator('.task-row').nth(1)).toContainText('运行中');
+      await shot(page, '42-chat-tasks');
+
+      // Stop on the second row: down to it, then x; the list is what the screen shows next.
+      await card.locator('.task-row').nth(1).getByRole('button', { name: '停止' }).click();
+      await expect.poll(keys).toEqual(['\x1b[B', 'x']);
+      await expect(card.locator('.task-row')).toHaveCount(1);
+
+      // Output opens the row; back to the list is ←, and the row is still there.
+      await card.getByRole('button', { name: '看输出' }).click();
+      await expect(card).toContainText('命令');
+      await expect(card.locator('.panel-body')).toContainText('ready in 300 ms');
+      await card.getByRole('button', { name: '‹ 返回列表' }).click();
+      await expect(card.locator('.task-row')).toHaveCount(1);
+      expect(keys().slice(2)).toEqual(['\r', '\x1b[D']);
+
+      await card.getByRole('button', { name: '关闭 (Esc)' }).click();
+      await expect(card).toHaveCount(0);
+    });
+
     test('shows in the chat, holds back what is sent into it, and closes from there', async ({ page }) => {
       await login(page);
       await newClaude(page);

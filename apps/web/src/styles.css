@@ -766,6 +766,16 @@ input, textarea { font: inherit; color: inherit; }
   margin: 0; max-height: 40vh; overflow: auto; padding: 8px 10px; border-radius: 10px; background: var(--surface-2);
   font: calc(12px * var(--text-scale))/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; color: var(--text);
 }
+.task-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.task-row { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }
+.task-label { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: calc(13px * var(--text-scale)); overflow-wrap: anywhere; }
+.task-row small { color: var(--muted); }
+.task-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.task-open dl { margin: 0 0 8px; display: grid; gap: 4px; }
+.task-open dl > div { display: grid; grid-template-columns: 5.5em 1fr; gap: 8px; }
+.task-open dt { color: var(--muted); }
+.task-open dd { margin: 0; overflow-wrap: anywhere; }
+.task-open dd.mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: calc(13px * var(--text-scale)); }
 
 /* Pictures sent from the phone, on the right like the words that went with them. */
 .chat-pictures {

@@ -54,6 +54,8 @@ export type Panel = {
   usage?: { session: number | null; week: number | null };
   effort?: { levels: string[]; at: number };
   btw?: { question: string };
+  tasks?: { rows: { label: string; status: string }[]; at: number };
+  task?: { fields: { name: string; value: string }[]; output: string };
 };
 // How the chat names a panel; one it cannot tell is not given a name that may be wrong.
 // Its title as the dialog spaces it out on screen ("Status   Config") reads as words, as a browser shows it.
