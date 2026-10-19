@@ -22,6 +22,13 @@ export function plainLine(said: string): string {
   return chars.length > SAID_MAX ? `${chars.slice(0, SAID_MAX - 1).join('')}…` : text;
 }
 
+const TITLE_MAX = 80;
+
+// An announcement's title as one short line, so no push service refuses it for its size.
+export function plainTitle(title: string): string {
+  return Array.from(title.replace(/[\s\p{Cc}]+/gu, ' ').trim()).slice(0, TITLE_MAX).join('').trimEnd();
+}
+
 type Send = (sub: PushSub, payload: string, opts: object) => Promise<unknown>;
 // Posts to an App Store app's relay; resolves to the status it answered.
 export type RelayPost = (url: string, body: string) => Promise<number>;
@@ -96,11 +103,12 @@ export class Pusher {
     const browsers = vapid ? pushSubs : [];
     const phones = apnsDevices.filter((d) => (this.relayed(d) ? true : !!this.apns));
     const said = plainLine(body);
+    const headline = plainTitle(title);
     await Promise.all([
-      this.toBrowsers(browsers, { title, said, url: '/', tag: ANNOUNCE }),
+      this.toBrowsers(browsers, { title: headline, body: said, said, url: '/', tag: ANNOUNCE }),
       this.toApp(phones, {
         thread: ANNOUNCE,
-        alert: () => ({ title, body: said }),
+        alert: () => ({ title: headline, body: said }),
         payload: (alert) => ({ aps: { alert, sound: 'default', 'thread-id': ANNOUNCE } }),
       }),
     ]);

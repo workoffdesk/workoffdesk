@@ -68,11 +68,27 @@ describe('POST /push and askPush', () => {
     expect(s.pushed).toEqual([['Heads up', 'Lunch']]);
   });
 
+  it('answers 204 with no body', async () => {
+    const s = await start();
+    const r = await new Promise<{ status: number; text: string }>((done, fail) => {
+      const req = request({ socketPath: s.sock, method: 'POST', path: '/push' }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => done({ status: res.statusCode!, text: Buffer.concat(chunks).toString('utf8') }));
+      });
+      req.on('error', fail);
+      req.end(JSON.stringify({ title: 'Heads up', body: 'Lunch' }));
+    });
+    expect(r).toEqual({ status: 204, text: '' });
+  });
+
   it.each([
     ['no body', { title: 'Heads up' }],
     ['no title', { body: 'Lunch' }],
     ['an empty title', { title: '', body: 'Lunch' }],
     ['a body that is not text', { title: 'Heads up', body: 5 }],
+    ['a body that is only markup', { title: 'Heads up', body: '```' }],
+    ['a title that is only blanks', { title: ' \n ', body: 'Lunch' }],
     ['nothing', undefined],
   ])('answers 400 and pushes nothing for %s', async (_name, payload) => {
     const s = await start();

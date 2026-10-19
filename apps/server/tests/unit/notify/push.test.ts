@@ -71,6 +71,14 @@ describe('Pusher', () => {
       ]);
     });
 
+    it('keeps a title to one short line for Apple', async () => {
+      const { post, pusher } = setup(() => ({ status: 200 }));
+      await pusher.announce(`Heads\n up ${'x'.repeat(200)}`, 'Lunch');
+      const title = JSON.parse(post.mock.calls[0][3]).aps.alert.title as string;
+      expect(title).toMatch(/^Heads up x+$/);
+      expect([...title]).toHaveLength(80);
+    });
+
     it('announces again at once, whatever was sent or is on a screen', async () => {
       const { post, pusher } = setup(() => ({ status: 200 }));
       pusher.setVisible('announce', 'c1', true);
@@ -188,7 +196,21 @@ describe('Pusher', () => {
       await pusher.announce('Heads up', '# Lunch');
       await pusher.announce('Heads up', '# Lunch');
       expect(send).toHaveBeenCalledTimes(4);
-      expect(JSON.parse(send.mock.calls[0][1])).toEqual({ title: 'Heads up', said: 'Lunch', url: '/', tag: 'announce' });
+      expect(JSON.parse(send.mock.calls[0][1])).toEqual({ title: 'Heads up', body: 'Lunch', said: 'Lunch', url: '/', tag: 'announce' });
+    });
+
+    it('puts the announcement in body, which is the field the service worker shows', async () => {
+      const { send, pusher } = setup();
+      await pusher.announce('Heads up', 'Lunch');
+      expect(JSON.parse(send.mock.calls[0][1]).body).toBe('Lunch');
+    });
+
+    it('keeps a title to one short line, in every payload', async () => {
+      const { send, pusher } = setup();
+      await pusher.announce(`Heads\n up ${'x'.repeat(200)}`, 'Lunch');
+      const title = JSON.parse(send.mock.calls[0][1]).title as string;
+      expect(title).toMatch(/^Heads up x+$/);
+      expect([...title]).toHaveLength(80);
     });
 
     it('announces to no one, and says nothing, when nothing is registered', async () => {

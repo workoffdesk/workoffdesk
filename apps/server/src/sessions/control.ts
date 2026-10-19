@@ -1,6 +1,7 @@
 import { request, createServer, type Server, type ServerResponse } from 'node:http';
 import type { AccountsView } from '../agents/claude/accounts.js';
 import { listenOwnerOnly } from '../agents/claude/hooks/hooks.js';
+import { plainLine, plainTitle } from '../notify/push.js';
 import { errorReply } from '../system/errors.js';
 
 // What a terminal on this Mac asks the running server for: a Claude or Codex session opened here, which the
@@ -45,7 +46,7 @@ function openSession(open: (r: OpenRequest) => Promise<string>, body: unknown): 
 
 function announce(push: (title: string, body: string) => Promise<void>, body: unknown): Reply | Promise<Reply> {
   const { title, body: text } = (body ?? {}) as { title?: unknown; body?: unknown };
-  if (typeof title !== 'string' || !title || typeof text !== 'string' || !text) return bad('title and body required');
+  if (typeof title !== 'string' || typeof text !== 'string' || !plainTitle(title) || !plainLine(text)) return bad('title and body required');
   return push(title, text).then(
     () => ({ status: 204, body: {} }),
     (e: unknown) => errorReply(e),
@@ -104,6 +105,7 @@ export function startControlServer(
     });
     req.on('end', () => {
       const reply = ({ status, body }: Reply) => {
+        if (status === 204) return res.writeHead(204).end();
         res.writeHead(status, { 'content-type': 'application/json' });
         res.end(JSON.stringify(body));
       };
