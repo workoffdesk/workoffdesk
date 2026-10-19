@@ -249,7 +249,7 @@ Every test file is listed under the risks it guards; one that guards several is 
 
 ### Installed, run, updated, rolled back
 
-- Installing and running: `apps/server/tests/unit/commands/install.test.ts`, `apps/server/tests/unit/commands/account.test.ts`, `apps/server/tests/unit/system/node.test.ts`,
+- Installing and running: `apps/server/tests/unit/commands/install.test.ts`, `apps/server/tests/unit/commands/account.test.ts`, `apps/server/tests/unit/commands/push.test.ts`, `apps/server/tests/unit/system/node.test.ts`,
   `apps/server/tests/integration/install.sh.test.ts`, `apps/server/tests/unit/cli.test.ts`,
   `apps/server/tests/unit/http/serve.test.ts`, `apps/server/tests/unit/ops/service.test.ts`,
   `apps/server/tests/unit/system/config.test.ts`, `apps/server/tests/unit/ops/doctor.test.ts`,

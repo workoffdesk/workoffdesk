@@ -20,6 +20,7 @@ const serve = async (working: () => number) => {
     open: async () => 'x',
     accounts: { view: async () => ({}) as never, pick: async () => ({}) as never, move: async () => ({}) as never },
     activity: { working, onChange: () => () => {} },
+    push: async () => {},
   });
   servers.push(server);
   return { sock, server };

@@ -150,6 +150,7 @@ Each is run as `workoffdesk <command>`.
 | `doctor` | Runs every check, prints the fix for each failure, and exits 1 while anything fails. |
 | `status --json` | The checks, the version, the releases, the address, whether the service runs, and its newest 20 warnings and errors. |
 | `activity --json` | How many sessions are working: a line now and one at each change, until the service stops. The menu bar app reads it. |
+| `push <title> <body>` | Sends a plain message to every phone and browser registered with the service. Exits 1 when the service is not running. |
 | `claude [--resume <session id>]` | Starts Claude in this folder as a session and joins it; with `--resume`, going on with that conversation. |
 | `codex [--resume <thread id>]` | The same for Codex. |
 | `attach [id]` | Joins a session from this terminal; without an id, lists them to pick one. |

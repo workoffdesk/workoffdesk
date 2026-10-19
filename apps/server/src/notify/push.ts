@@ -26,6 +26,13 @@ type Send = (sub: PushSub, payload: string, opts: object) => Promise<unknown>;
 // Posts to an App Store app's relay; resolves to the status it answered.
 export type RelayPost = (url: string, body: string) => Promise<number>;
 
+// The thread, tag and collapse id an announcement goes under, which no session has.
+const ANNOUNCE = 'announce';
+
+// What goes to one App device: the alert it is shown, the thread it is grouped under, and the payload for Apple.
+// sessionId is what the phone opens when it is tapped.
+type AppMessage = { thread: string; sessionId?: string; alert: (d: ApnsDeviceRecord) => object; payload: (alert: object) => object };
+
 const RELAY_WAIT_MS = 10_000;
 const relayFetch: RelayPost = (url, body) =>
   fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(RELAY_WAIT_MS) }).then((r) => r.status);
@@ -72,13 +79,37 @@ export class Pusher {
     if (t - (this.lastSent.get(sessionId) ?? -Infinity) < COOLDOWN) return;
     this.lastSent.set(sessionId, t);
     const line = plainLine(said);
-    await Promise.all([this.toBrowsers(browsers, sessionId, title, event, line), this.toApp(phones, sessionId, title, event, line)]);
+    await Promise.all([
+      this.toBrowsers(browsers, { title, event, said: line, url: `/m/local/s/${sessionId}`, tag: sessionId }),
+      this.toApp(phones, {
+        thread: sessionId,
+        sessionId,
+        alert: (d) => alertOf(title, d.words[event], event, line),
+        payload: (alert) => ({ aps: { alert, sound: 'default', 'thread-id': sessionId }, body: { sessionId } }),
+      }),
+    ]);
   }
 
-  private async toBrowsers(subs: PushSub[], sessionId: string, title: string, event: PushEvent, said: string): Promise<void> {
+  // A plain message to every registered device: no session, no cooldown, and not held back by a screen showing one.
+  async announce(title: string, body: string): Promise<void> {
+    const { vapid, pushSubs, apnsDevices } = this.store.get();
+    const browsers = vapid ? pushSubs : [];
+    const phones = apnsDevices.filter((d) => (this.relayed(d) ? true : !!this.apns));
+    const said = plainLine(body);
+    await Promise.all([
+      this.toBrowsers(browsers, { title, said, url: '/', tag: ANNOUNCE }),
+      this.toApp(phones, {
+        thread: ANNOUNCE,
+        alert: () => ({ title, body: said }),
+        payload: (alert) => ({ aps: { alert, sound: 'default', 'thread-id': ANNOUNCE } }),
+      }),
+    ]);
+  }
+
+  private async toBrowsers(subs: PushSub[], message: object): Promise<void> {
     const vapid = this.store.get().vapid;
     if (!subs.length || !vapid) return;
-    const payload = JSON.stringify({ title, event, said, url: `/m/local/s/${sessionId}`, tag: sessionId });
+    const payload = JSON.stringify(message);
     const opts = {
       vapidDetails: { subject: this.subject, publicKey: vapid.publicKey, privateKey: vapid.privateKey },
       TTL: 300,
@@ -108,13 +139,13 @@ export class Pusher {
     return !!d.relay && this.apns?.relayTopic !== d.topic;
   }
 
-  private async toApp(devices: ApnsDeviceRecord[], sessionId: string, title: string, event: PushEvent, said: string): Promise<void> {
+  private async toApp(devices: ApnsDeviceRecord[], msg: AppMessage): Promise<void> {
     if (!devices.length) return;
     const results = await Promise.all(
       devices.map(async (d): Promise<{ token: string; host?: ApnsDeviceRecord['host']; gone: boolean }> => {
-        const alert = alertOf(title, d.words[event], event, said);
-        if (this.relayed(d)) return { token: d.token, gone: await this.throughRelay(d, sessionId, alert) };
-        const { host, gone } = await this.apns!.send(d, { aps: { alert, sound: 'default', 'thread-id': sessionId }, body: { sessionId } }, sessionId);
+        const alert = msg.alert(d);
+        if (this.relayed(d)) return { token: d.token, gone: await this.throughRelay(d, msg.thread, alert, msg.sessionId) };
+        const { host, gone } = await this.apns!.send(d, msg.payload(alert), msg.thread);
         return { token: d.token, host, gone };
       }),
     );
@@ -128,9 +159,9 @@ export class Pusher {
   }
 
   // Whether the relay says the device is gone.
-  private async throughRelay(d: ApnsDeviceRecord, sessionId: string, alert: object): Promise<boolean> {
+  private async throughRelay(d: ApnsDeviceRecord, thread: string, alert: object, sessionId?: string): Promise<boolean> {
     const { url, key } = d.relay!;
-    const body = { token: d.token, topic: d.topic, sealed: seal(key, { alert, sessionId }), thread: threadOf(key, sessionId), hidden: d.words.hidden ?? '' };
+    const body = { token: d.token, topic: d.topic, sealed: seal(key, { alert, sessionId }), thread: threadOf(key, thread), hidden: d.words.hidden ?? '' };
     try {
       return (await this.relayPost(`${url}/api/push/relay`, JSON.stringify(body))) === 410;
     } catch {

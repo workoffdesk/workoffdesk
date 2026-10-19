@@ -13,9 +13,12 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   `workoffdesk doctor`, and never calls `sudo`. It stops on anything but macOS and without Homebrew. Run in
   a terminal on a Mac with no `config.json` yet, it goes on to `workoffdesk setup --web`; otherwise it prints
   the commands. (`install.sh`, `apps/server/tests/integration/install.sh.test.ts`)
-- Commands: `setup [--web]`, `serve`, `doctor`, `status --json`, `activity --json`, `start`, `stop`, `restart`, `claude [--resume <id>]`,
+- Commands: `setup [--web]`, `serve`, `doctor`, `status --json`, `activity --json`, `push <title> <body>`, `start`, `stop`, `restart`, `claude [--resume <id>]`,
   `attach [id]`, `install`, `deploy <build folder>`, `rollback`; `--version` prints the installed version.
   (`apps/server/src/cli.ts`)
+- `workoffdesk push <title> <body>` sends a plain message to every registered iPhone app device and browser
+  subscription, with no session behind it: no cooldown, and not held back by a screen showing a session.
+  (`apps/server/src/commands/push.ts`, `apps/server/src/notify/push.ts` `announce`, `apps/server/tests/unit/notify/push.test.ts`)
 - `setup --web` serves the setup in the browser from a second server on `127.0.0.1` at a free port, opens it,
   and prints its address. It answers only requests that carry the token from that address's fragment, name
   `127.0.0.1:<port>` as the host, and, for a change, come from that page; it ends when the page says done,

@@ -129,6 +129,7 @@ export async function startServer(o: ServerOptions) {
       },
     },
     activity: { working: () => machine.working(), onChange: (cb) => machine.onChange(cb) },
+    push: (title, body) => pusher.announce(title, body),
   });
   const stopWatch = machine.watch(o.watchMs ?? 2000);
 

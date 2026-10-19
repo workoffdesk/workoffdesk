@@ -5,6 +5,7 @@ import { attach } from './commands/attach.js';
 import { doctor } from './commands/doctor.js';
 import { install } from './commands/install.js';
 import { openHere } from './commands/open.js';
+import { push } from './commands/push.js';
 import { serve } from './commands/serve.js';
 import { deployCommand, restartCommand, rollbackCommand, startCommand, stopCommand } from './commands/service.js';
 import { setup } from './commands/setup.js';
@@ -40,6 +41,7 @@ const commands = {
   activity,
   attach,
   account,
+  push,
   claude: (args) => openHere('claude', args),
   codex: (args) => openHere('codex', args),
   install,

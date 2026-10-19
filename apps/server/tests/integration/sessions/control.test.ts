@@ -3,7 +3,7 @@ import { mkdtempSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AccountsView } from '../../../src/agents/claude/accounts.js';
-import { askAccounts, askToMove, askToOpen, askToPick, startControlServer, watchActivity, type ControlAccounts, type OpenRequest } from '../../../src/sessions/control.js';
+import { askAccounts, askToMove, askToOpen, askToPick, askPush, startControlServer, watchActivity, type ControlAccounts, type OpenRequest } from '../../../src/sessions/control.js';
 import { Conflict } from '../../../src/system/errors.js';
 import { socketDir } from '../../helpers/socketDir.js';
 
@@ -25,6 +25,7 @@ const start = async (open: (r: OpenRequest) => Promise<string> = async () => 'ab
   const sock = join(mkdtempSync(join(dir, 's-')), 'sock');
   const asked: OpenRequest[] = [];
   const picked: string[] = [];
+  const pushed: [string, string][] = [];
   let moves = 0;
   // The machine's working count, and who it tells of a change.
   let working = 0;
@@ -33,13 +34,14 @@ const start = async (open: (r: OpenRequest) => Promise<string> = async () => 'ab
     open: (r) => (asked.push(r), open(r)),
     accounts: { view: async () => VIEW, pick: async (id) => (picked.push(id), VIEW), move: async () => (moves++, VIEW), ...accounts },
     activity: { working: () => working, onChange: (cb) => (listeners.add(cb), () => listeners.delete(cb)), recheckMs: 50 },
+    push: async (title, body) => void pushed.push([title, body]),
   });
   servers.push(server);
   const setWorking = (n: number, told = true) => {
     working = n;
     if (told) listeners.forEach((cb) => cb());
   };
-  return { sock, asked, picked, moves: () => moves, server, setWorking, listeners };
+  return { sock, asked, picked, pushed, moves: () => moves, server, setWorking, listeners };
 };
 
 const counts = () => {
@@ -58,6 +60,28 @@ const raw = (sock: string, o: { method?: string; path?: string; body?: string | 
     req.on('error', fail);
     req.end(o.body);
   });
+
+describe('POST /push and askPush', () => {
+  it('hands the title and the body to the push, and answers with nothing', async () => {
+    const s = await start();
+    await askPush(s.sock, 'Heads up', 'Lunch');
+    expect(s.pushed).toEqual([['Heads up', 'Lunch']]);
+  });
+
+  it.each([
+    ['no body', { title: 'Heads up' }],
+    ['no title', { body: 'Lunch' }],
+    ['an empty title', { title: '', body: 'Lunch' }],
+    ['a body that is not text', { title: 'Heads up', body: 5 }],
+    ['nothing', undefined],
+  ])('answers 400 and pushes nothing for %s', async (_name, payload) => {
+    const s = await start();
+    expect(s.pushed).toEqual([]);
+    const r = await raw(s.sock, { path: '/push', body: payload === undefined ? undefined : JSON.stringify(payload) });
+    expect(r.status).toBe(400);
+    expect(s.pushed).toEqual([]);
+  });
+});
 
 describe('startControlServer and askToOpen', () => {
   it('answers the id of the session opened, with what it asked for passed on as it was', async () => {

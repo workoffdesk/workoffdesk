@@ -61,6 +61,24 @@ describe('Pusher', () => {
       await pusher.notify('abc', 'proj', 'idle', '');
       expect(post).not.toHaveBeenCalled();
     });
+
+    it('announces a plain message to every device, with no session to open', async () => {
+      const { post, pusher } = setup(() => ({ status: 200 }));
+      await pusher.announce('Heads up', '**Lunch** is `ready`');
+      expect(post.mock.calls.map((c) => JSON.parse(c[3]))).toEqual([
+        { aps: { alert: { title: 'Heads up', body: 'Lunch is ready' }, sound: 'default', 'thread-id': 'announce' } },
+        { aps: { alert: { title: 'Heads up', body: 'Lunch is ready' }, sound: 'default', 'thread-id': 'announce' } },
+      ]);
+    });
+
+    it('announces again at once, whatever was sent or is on a screen', async () => {
+      const { post, pusher } = setup(() => ({ status: 200 }));
+      pusher.setVisible('announce', 'c1', true);
+      await pusher.notify('abc', 'proj', 'idle', '');
+      await pusher.announce('Same', 'text');
+      await pusher.announce('Same', 'text');
+      expect(post).toHaveBeenCalledTimes(6);
+    });
   });
 
   describe('with the App Store app, through its relay', () => {
@@ -101,6 +119,15 @@ describe('Pusher', () => {
       await pusher.notify('abc', 'proj', 'idle', '');
       expect(relayPost).not.toHaveBeenCalled();
       expect(JSON.parse(post.mock.calls[0][3])).toEqual({ aps: { alert: { title: 'proj', body: 'Done' }, sound: 'default', 'thread-id': 'abc' }, body: { sessionId: 'abc' } });
+    });
+
+    it('seals an announcement for the relay like any other, with the thread it is grouped under', async () => {
+      const { relayPost, pusher } = setup();
+      await pusher.announce('Heads up', 'Lunch');
+      const [[, body]] = sent(relayPost);
+      expect(body).toEqual({ token: RELAYED.token, topic: RELAYED.topic, sealed: expect.any(String), thread: threadOf(relayKey, 'announce'), hidden: 'New on your Mac' });
+      expect(JSON.stringify(body)).not.toMatch(/Heads up|Lunch/);
+      expect(openSealed(relayKey, body.sealed)).toEqual({ alert: { title: 'Heads up', body: 'Lunch' } });
     });
 
     it('forgets a device the relay says is gone', async () => {
@@ -153,6 +180,24 @@ describe('Pusher', () => {
       advance(1_001);
       await pusher.notify('abc', 't', 'idle', '');
       expect(send).toHaveBeenCalledTimes(6);
+    });
+
+    it('announces to every subscription, again and again, with the page to open', async () => {
+      const { send, pusher } = setup();
+      pusher.setVisible('announce', 'c1', true);
+      await pusher.announce('Heads up', '# Lunch');
+      await pusher.announce('Heads up', '# Lunch');
+      expect(send).toHaveBeenCalledTimes(4);
+      expect(JSON.parse(send.mock.calls[0][1])).toEqual({ title: 'Heads up', said: 'Lunch', url: '/', tag: 'announce' });
+    });
+
+    it('announces to no one, and says nothing, when nothing is registered', async () => {
+      const { store, send, pusher } = setup();
+      store.update((s) => {
+        s.pushSubs = [];
+      });
+      await expect(pusher.announce('Heads up', 'Lunch')).resolves.toBeUndefined();
+      expect(send).not.toHaveBeenCalled();
     });
 
     it('stays quiet while a visible page shows that session', async () => {

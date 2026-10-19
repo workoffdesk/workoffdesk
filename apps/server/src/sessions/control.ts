@@ -43,6 +43,15 @@ function openSession(open: (r: OpenRequest) => Promise<string>, body: unknown): 
   );
 }
 
+function announce(push: (title: string, body: string) => Promise<void>, body: unknown): Reply | Promise<Reply> {
+  const { title, body: text } = (body ?? {}) as { title?: unknown; body?: unknown };
+  if (typeof title !== 'string' || !title || typeof text !== 'string' || !text) return bad('title and body required');
+  return push(title, text).then(
+    () => ({ status: 204, body: {} }),
+    (e: unknown) => errorReply(e),
+  );
+}
+
 // The working count as a line of JSON at once, then again each time it changes, until the client goes away.
 function streamActivity(activity: ControlActivity, res: ServerResponse): void {
   res.writeHead(200, { 'content-type': 'application/x-ndjson' });
@@ -64,7 +73,7 @@ function streamActivity(activity: ControlActivity, res: ServerResponse): void {
 
 export function startControlServer(
   sockPath: string,
-  o: { open: (r: OpenRequest) => Promise<string>; accounts: ControlAccounts; activity: ControlActivity },
+  o: { open: (r: OpenRequest) => Promise<string>; accounts: ControlAccounts; activity: ControlActivity; push: (title: string, body: string) => Promise<void> },
 ): Promise<Server> {
   const answered = (view: Promise<AccountsView>): Promise<Reply> =>
     view.then(
@@ -83,6 +92,7 @@ export function startControlServer(
       return typeof id === 'string' ? answered(o.accounts.pick(id)) : bad('bad id');
     },
     'POST /account/move': () => answered(o.accounts.move()),
+    'POST /push': (r) => announce(o.push, r),
   };
   const server = createServer((req, res) => {
     const chunks: Buffer[] = [];
@@ -189,3 +199,5 @@ export function watchActivity(sockPath: string, onCount: (working: number) => vo
     },
   };
 }
+
+export const askPush = (sockPath: string, title: string, body: string) => ask<object>(sockPath, 'POST', '/push', { title, body });
