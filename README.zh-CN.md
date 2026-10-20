@@ -101,7 +101,8 @@ Cloudflare Tunnel 在任何网络下都能用，但 Cloudflare 看得到流量�
   **停止**打断它;**回退**回到之前的某个点。
 - **有事通知你。** Claude 等你回复或做完一轮时，会推送通知。
 
-想要原生 App?用你自己的 Apple 开发者账号[编译 iPhone App](docs/guide/ios-app.zh-CN.md)。
+想要原生 App?本项目的 iPhone App **Work Offdesk** 由项目维护方 Beijing Zhang Liang World Technology Co., Ltd.
+发布,正在 App Store 审核中。上架之前,可以用你自己的 Apple 开发者账号[自己编译](docs/guide/ios-app.zh-CN.md)。
 其余的都在[使用](docs/guide/usage.zh-CN.md)里。
 
 ### 在 Mac 上

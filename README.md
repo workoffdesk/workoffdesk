@@ -109,7 +109,9 @@ Then:
   into Claude's own queue. **Stop** interrupts it; **Rewind** goes back to an earlier point.
 - **Be told.** A notification comes when Claude waits for you or finishes a turn.
 
-Prefer a native app? [Build the iPhone app](docs/guide/ios-app.md) with your own Apple Developer account.
+Prefer a native app? **Work Offdesk**, the iPhone app for this project, comes from its maintainer,
+Beijing Zhang Liang World Technology Co., Ltd., and is in App Store review. Until it is out,
+[build it yourself](docs/guide/ios-app.md) with your own Apple Developer account.
 Everything else is in [Usage](docs/guide/usage.md).
 
 ### At the Mac
