@@ -16,6 +16,9 @@ for (const k of Object.keys(process.env)) if (k.startsWith('npm_')) delete proce
 
 const port = Number(process.env.E2E_PORT);
 const home = process.env.E2E_HOME!;
+// What is typed in the sessions' shells is kept here, not in the user's own history, where the up arrow would
+// bring it back. bash and sh take it; zsh's /etc/zshrc sets its own.
+process.env.HISTFILE = join(home, 'shell-history');
 rmSync(home, { recursive: true, force: true });
 mkdirSync(join(home, 'project-a'), { recursive: true });
 mkdirSync(join(home, 'claude-projects', '-p'), { recursive: true });
