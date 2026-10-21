@@ -21,7 +21,7 @@ set -g mode-keys emacs
 unbind -a -T copy-mode
 bind -T copy-mode Any if -F '#{mouse_x}#{mouse_y}' {} { send-keys -X cancel ; send-keys }
 bind -T copy-mode WheelUpPane select-pane \\; send-keys -X -N 5 scroll-up
-bind -T copy-mode WheelDownPane select-pane \\; send-keys -X -N 5 scroll-down-and-cancel
+bind -T copy-mode WheelDownPane select-pane \\; send-keys -X -N 5 scroll-down \\; if -F '#{==:#{scroll_position},0}' { send-keys -X cancel }
 bind -T copy-mode MouseDrag1Pane select-pane \\; send-keys -X begin-selection
 bind -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-no-clear
 bind -T copy-mode DoubleClick1Pane select-pane \\; send-keys -X select-word \\; send-keys -X copy-pipe-no-clear
