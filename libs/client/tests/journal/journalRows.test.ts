@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Turn } from '../../src/model/chat';
-import { applyRows, emptyView, onShow, queue, type Message, type SessionView } from '../../src/journal/journalRows';
+import { applyRows, chatPending, emptyView, onShow, queue, type Message, type SessionView } from '../../src/journal/journalRows';
 import { journalHeads } from '../../src/journal/pushes';
 import { item, message, state } from '../helpers/journal';
 
@@ -123,5 +123,21 @@ describe('onShow', () => {
     expect(onShow(view([lost]), [prompt('7', '2026-10-08T09:59:00Z')]).bubbles).toEqual([lost]);
     expect(onShow(view([lost]), [prompt('7')]).bubbles).toEqual([lost]);
     expect(onShow(view([lost]), [prompt('7', '2026-10-08T10:01:00Z'), reply]).bubbles).toEqual([]);
+  });
+});
+
+describe('chatPending', () => {
+  const held = { items: [{ itemId: 'i1', pos: 0, conv: 'c', kind: 'text', text: 'hi' } as never] };
+  it.each<{ when: string; v: Partial<SessionView>; ended?: boolean; waits: boolean }>([
+    { when: 'nothing is held yet', v: {}, waits: true },
+    { when: 'the copy held is known to be behind the Mac', v: { ...held, behind: true }, waits: true },
+    { when: 'only a message sent from here is held and the copy is behind', v: { messages: [{ id: 'm1', state: 'sending' } as never], behind: true }, waits: true },
+    { when: 'the copy held is not known to be behind', v: held, waits: false },
+    { when: 'only a message sent from here is held and the copy is not behind', v: { messages: [{ id: 'm1', state: 'sending' } as never] }, waits: false },
+    { when: 'the Mac has answered', v: { ...held, synced: true, behind: true }, waits: false },
+    { when: 'the Mac is not answering', v: { ...held, failed: true, behind: true }, waits: false },
+    { when: 'the session has ended', v: { behind: true }, ended: true, waits: false },
+  ])('waits on the Mac: $waits when $when', ({ v, ended = false, waits }) => {
+    expect(chatPending({ ...emptyView, ...v }, ended)).toBe(waits);
   });
 });

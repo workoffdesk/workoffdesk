@@ -1,5 +1,6 @@
 import { agentName, isAgent } from '@workoffdesk/client/base/api';
 import { chatEntries } from '@workoffdesk/client/chat/chatEntries';
+import { chatPending } from '@workoffdesk/client/journal/journalRows';
 import { shortPath } from '@workoffdesk/client/model/format';
 import { canMoveAccount, limitStopped } from '@workoffdesk/client/sessions/moveAccount';
 import { canGoOn } from '@workoffdesk/client/sessions/newSession';
@@ -87,9 +88,9 @@ function SessionScreen({ id }: { id: string }) {
     if (newest) void scrollMessageToEnd({ animated: true, closeKeyboard: false });
   }, [newest, scrollMessageToEnd]);
 
-  const kept = view.items.length > 0 || view.messages.length > 0;
-  // What the phone holds may be behind until the Mac answers.
+  // What the phone holds may be behind until the Mac answers; a chat known to be behind is not shown until then.
   const syncing = !view.synced && !view.failed && !ended;
+  const pending = chatPending(view, ended);
 
   const dialogUp = !!ss.dialog;
   const { entries: rowsOf, shown, inEntry } = useMemo(
@@ -149,7 +150,7 @@ function SessionScreen({ id }: { id: string }) {
           {/* Focus leaves the composer on a drag or a tap the chat's rows do not take (ChatList.tsx), and on a
               tap on a message (SelectText.tsx); a card's controls keep it, as on the web. */}
           <View style={s.chat}>
-            {chatShown && (!syncing || kept) && (
+            {chatShown && !pending && (
               // A chat kept from before shows while it is brought up to date, so the list is at its end before
               // what came since goes in.
               <ClaudeConversation value={kind === 'claude' ? (known?.claudeSessionId ?? null) : null}>
@@ -170,7 +171,7 @@ function SessionScreen({ id }: { id: string }) {
                 </JumpContext>
               </ClaudeConversation>
             )}
-            {(chatShown || kind === null) && syncing && !kept && <ChatSkeleton />}
+            {(chatShown || kind === null) && pending && <ChatSkeleton />}
             {kind === 'shell' && !ended && (
               <Overlay title={t.shellSession} sub={t.shellSessionSub} s={s}>
                 <View style={s.actions}>
@@ -272,7 +273,7 @@ function SessionScreen({ id }: { id: string }) {
                   />
                   {/* A chat kept from before shows while what came since is asked for; nothing is typed to it
                       until then. The page turns blue under the composer, as when the box is held. */}
-                  {syncing && kept && (
+                  {syncing && !pending && (
                     <View style={s.veil} accessible accessibilityLabel={t.syncing} accessibilityLiveRegion="polite">
                       <View style={s.veilFade} />
                       <View style={[s.veilBody, { paddingBottom: Math.max(insets.bottom, 8) }]}>

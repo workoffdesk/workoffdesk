@@ -108,6 +108,10 @@ export function applyRows(c: Copy, rows: JournalRow[], reset = false): void {
   }
 }
 
+// The chat waits on the Mac, shown as a skeleton, while nothing is held yet or what is held is known to be
+// behind: it would change under the reader as it caught up.
+export const chatPending = (v: SessionView, ended: boolean): boolean => !v.synced && !v.failed && !ended && (v.behind || (!v.items.length && !v.messages.length));
+
 export type Flags = { synced: boolean; failed: boolean; gone: boolean; loadingOlder: boolean; screenHidden: boolean };
 
 export function viewOf(id: string, c: Copy, { screenHidden, ...flags }: Flags): SessionView {
