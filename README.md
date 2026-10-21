@@ -155,7 +155,7 @@ Each is run as `workoffdesk <command>`.
 | `push <title> <body>` | Sends a plain message to every phone and browser registered with the service. Exits 1 when the service is not running. |
 | `claude [--resume <session id>]` | Starts Claude in this folder as a session and joins it; with `--resume`, going on with that conversation. |
 | `codex [--resume <thread id>]` | The same for Codex. |
-| `attach [id]` | Joins a session from this terminal; without an id, lists them to pick one. |
+| `attach [id]` | Joins a session from this terminal; without an id, lists them to pick one, the ended ones too, which go on with their conversation. |
 | `serve` | Runs the server in this terminal instead of as the service. |
 | `deploy <build folder>` | Installs a build as a new release, smoke-tests it, switches to it and restarts the service; keeps the newest 3. |
 | `rollback` | Goes back to the release before. |

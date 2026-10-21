@@ -3,7 +3,7 @@ import { mkdtempSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AccountsView } from '../../../src/agents/claude/accounts.js';
-import { askAccounts, askToMove, askToOpen, askToPick, askPush, startControlServer, watchActivity, type ControlAccounts, type OpenRequest } from '../../../src/sessions/control.js';
+import { askAccounts, askToGoOn, askToMove, askToOpen, askToPick, askPush, startControlServer, watchActivity, type ControlAccounts, type OpenRequest } from '../../../src/sessions/control.js';
 import { Conflict } from '../../../src/system/errors.js';
 import { socketDir } from '../../helpers/socketDir.js';
 
@@ -21,17 +21,23 @@ const VIEW: AccountsView = {
   elsewhere: 2,
   moving: 1,
 };
-const start = async (open: (r: OpenRequest) => Promise<string> = async () => 'abcd1234', accounts: Partial<ControlAccounts> = {}) => {
+const start = async (
+  open: (r: OpenRequest) => Promise<string> = async () => 'abcd1234',
+  accounts: Partial<ControlAccounts> = {},
+  goOn: (id: string) => Promise<string> = async (id) => id,
+) => {
   const sock = join(mkdtempSync(join(dir, 's-')), 'sock');
   const asked: OpenRequest[] = [];
   const picked: string[] = [];
   const pushed: [string, string][] = [];
+  const goneOn: string[] = [];
   let moves = 0;
   // The machine's working count, and who it tells of a change.
   let working = 0;
   const listeners = new Set<() => void>();
   const server = await startControlServer(sock, {
     open: (r) => (asked.push(r), open(r)),
+    goOn: (id) => (goneOn.push(id), goOn(id)),
     accounts: { view: async () => VIEW, pick: async (id) => (picked.push(id), VIEW), move: async () => (moves++, VIEW), ...accounts },
     activity: { working: () => working, onChange: (cb) => (listeners.add(cb), () => listeners.delete(cb)), recheckMs: 50 },
     push: async (title, body) => void pushed.push([title, body]),
@@ -41,7 +47,7 @@ const start = async (open: (r: OpenRequest) => Promise<string> = async () => 'ab
     working = n;
     if (told) listeners.forEach((cb) => cb());
   };
-  return { sock, asked, picked, pushed, moves: () => moves, server, setWorking, listeners };
+  return { sock, asked, picked, pushed, goneOn, moves: () => moves, server, setWorking, listeners };
 };
 
 const counts = () => {
@@ -60,6 +66,27 @@ const raw = (sock: string, o: { method?: string; path?: string; body?: string | 
     req.on('error', fail);
     req.end(o.body);
   });
+
+describe('POST /sessions/continue and askToGoOn', () => {
+  it('goes on with the ended session named, and answers the id of the session that has its conversation now', async () => {
+    const s = await start(undefined, {}, async () => 'live0001');
+    expect(await askToGoOn(s.sock, 'past0001')).toBe('live0001');
+    expect(s.goneOn).toEqual(['past0001']);
+  });
+
+  it('tells the terminal why not, with the code the server gave', async () => {
+    const s = await start(undefined, {}, async () => {
+      throw new Conflict('it is open in a terminal on this Mac (ttys003)', 'open-on-mac');
+    });
+    await expect(askToGoOn(s.sock, 'past0001')).rejects.toMatchObject({ message: 'it is open in a terminal on this Mac (ttys003)', code: 'open-on-mac' });
+  });
+
+  it.each(['{}', '{"id":7}'])('refuses %s, and goes on with nothing', async (body) => {
+    const s = await start();
+    expect(await raw(s.sock, { path: '/sessions/continue', body })).toEqual({ status: 400, body: { error: 'bad id' } });
+    expect(s.goneOn).toEqual([]);
+  });
+});
 
 describe('POST /push and askPush', () => {
   it('hands the title and the body to the push, and answers with nothing', async () => {

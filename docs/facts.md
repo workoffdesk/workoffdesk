@@ -209,6 +209,9 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   restarting the service does not end it. (`apps/server/src/system/paths.ts` `tmuxSocketFor`, `apps/server/src/sessions/machine/lifecycle.ts`)
 - `workoffdesk attach` joins a session from the Mac's terminal; `workoffdesk claude` and `workoffdesk codex`
   start a Claude or Codex session in the current folder and join it. (`apps/server/src/commands/attach.ts`, `apps/server/src/commands/open.ts`)
+- `workoffdesk attach` without an id lists the running sessions, then the ended ones with a conversation, latest
+  first. An ended one picked goes on with its conversation the way the phone's **Continue this conversation** does,
+  through the server, and is joined. (`apps/server/src/commands/attach.ts` `attachChoices`, `apps/server/src/sessions/control.ts` `askToGoOn`)
 - From the phone: start Claude or Codex in a project folder, or pick up a recent Claude or Codex conversation
   from the Mac, read first and taken over on a tap. (`apps/web/src/components/NewSessionSheet.tsx`, e2e `sessions.spec.ts`)
 - The project is found by name among the folders used before, or by typing a path (`~/` or `/`), which lists the

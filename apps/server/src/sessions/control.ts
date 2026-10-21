@@ -44,6 +44,15 @@ function openSession(open: (r: OpenRequest) => Promise<string>, body: unknown): 
   );
 }
 
+function goOnWith(goOn: (id: string) => Promise<string>, body: unknown): Reply | Promise<Reply> {
+  const id = (body as { id?: unknown } | undefined)?.id;
+  if (typeof id !== 'string') return bad('bad id');
+  return goOn(id).then(
+    (now) => ({ status: 200, body: { id: now } }),
+    (e: unknown) => errorReply(e),
+  );
+}
+
 function announce(push: (title: string, body: string) => Promise<void>, body: unknown): Reply | Promise<Reply> {
   const { title, body: text } = (body ?? {}) as { title?: unknown; body?: unknown };
   if (typeof title !== 'string' || typeof text !== 'string' || !plainTitle(title) || !plainLine(text)) return bad('title and body required');
@@ -74,7 +83,14 @@ function streamActivity(activity: ControlActivity, res: ServerResponse): void {
 
 export function startControlServer(
   sockPath: string,
-  o: { open: (r: OpenRequest) => Promise<string>; accounts: ControlAccounts; activity: ControlActivity; push: (title: string, body: string) => Promise<void> },
+  o: {
+    open: (r: OpenRequest) => Promise<string>;
+    // An ended session gone on with, as the phone goes on with one: the id of the session holding its conversation.
+    goOn: (id: string) => Promise<string>;
+    accounts: ControlAccounts;
+    activity: ControlActivity;
+    push: (title: string, body: string) => Promise<void>;
+  },
 ): Promise<Server> {
   const answered = (view: Promise<AccountsView>): Promise<Reply> =>
     view.then(
@@ -87,6 +103,7 @@ export function startControlServer(
     );
   const routes: Record<string, (body: unknown) => Reply | Promise<Reply>> = {
     'POST /sessions': (r) => openSession(o.open, r),
+    'POST /sessions/continue': (r) => goOnWith(o.goOn, r),
     'GET /accounts': () => answered(o.accounts.view()),
     'PUT /account': (r) => {
       const id = (r as { id?: unknown } | undefined)?.id;
@@ -152,6 +169,12 @@ export async function askToOpen(sockPath: string, r: OpenRequest): Promise<strin
   const { id } = await ask<{ id?: string }>(sockPath, 'POST', '/sessions', r);
   if (!id) throw new Error('server answered no session');
   return id;
+}
+
+export async function askToGoOn(sockPath: string, id: string): Promise<string> {
+  const { id: now } = await ask<{ id?: string }>(sockPath, 'POST', '/sessions/continue', { id });
+  if (!now) throw new Error('server answered no session');
+  return now;
 }
 
 export const askAccounts = (sockPath: string) => ask<AccountsView>(sockPath, 'GET', '/accounts');

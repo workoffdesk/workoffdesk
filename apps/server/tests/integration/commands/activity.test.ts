@@ -18,6 +18,7 @@ const serve = async (working: () => number) => {
   const sock = join(mkdtempSync(join(dir, 's-')), 'sock');
   const server = await startControlServer(sock, {
     open: async () => 'x',
+    goOn: async (id) => id,
     accounts: { view: async () => ({}) as never, pick: async () => ({}) as never, move: async () => ({}) as never },
     activity: { working, onChange: () => () => {} },
     push: async () => {},

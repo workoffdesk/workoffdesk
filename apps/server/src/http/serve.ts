@@ -115,6 +115,7 @@ export async function startServer(o: ServerOptions) {
   );
   const control = await startControlServer(socketPath(o.home, 'control.sock'), {
     open: async ({ kind, env, ...r }) => (await machine.createSession(kind === 'codex' ? { kind, ...r } : { kind: 'claude', env, ...r })).id,
+    goOn: async (id) => (await machine.continueSession(id)).id,
     accounts: {
       view: () => machine.claudeAccountsView(),
       pick: async (id) => {

@@ -46,7 +46,7 @@ export const en = {
       activity: [['activity --json', 'How many sessions are working: a line of JSON now and at each change']],
       claude: [['claude [--resume <session id>]', 'Start Claude in this folder as a session and join it']],
       codex: [['codex [--resume <thread id>]', 'Start Codex in this folder as a session and join it']],
-      attach: [['attach [id]', 'Join a session from this terminal; without an id, pick one']],
+      attach: [['attach [id]', 'Join a session from this terminal; without an id, pick one, an ended one going on with its conversation']],
       account: [
         ['account [--json]', 'The Claude accounts on this Mac, and the one new sessions start on'],
         ['account use <email or folder> [--move]', 'Start new sessions on it; with --move, move the open ones to it too'],
@@ -84,6 +84,8 @@ Before opening it to the internet, read SECURITY.md: whoever gets into this site
     noSuchNumber: 'There is no such number',
     notRunning: 'The WorkOffDesk service is not running. Start it first (workoffdesk serve, or the installed service).',
     couldNotOpen: (why: string) => `Could not open a session: ${why}`,
+    ended: '(ended: picked, it goes on with its conversation)',
+    couldNotGoOn: (why: string) => `Could not go on with it: ${why}`,
     noTunnel: (name: string) => `There is no tunnel named ${name}. Run:\n  cloudflared tunnel create ${name}\nthen workoffdesk install --tunnel ${name} again.`,
     noCloudflared: 'cloudflared not found. Run brew install cloudflared first.',
     notBuilt: (cliPath: string) => `Note: ${cliPath} does not exist yet; build first (pnpm build).`,

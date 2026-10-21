@@ -18,7 +18,7 @@ export const zh: Messages = {
       activity: [['activity --json', '几个会话正在干活：现在输出一行 JSON，之后每次变化再输出一行']],
       claude: [['claude [--resume <会话 id>]', '在当前目录开一个 Claude 会话并接上']],
       codex: [['codex [--resume <对话 id>]', '在当前目录开一个 Codex 会话并接上']],
-      attach: [['attach [id]', '在当前终端接上一个会话；不给 id 就让你挑']],
+      attach: [['attach [id]', '在当前终端接上一个会话；不给 id 就让你挑，挑已结束的就接着它的对话']],
       account: [
         ['account [--json]', '这台 Mac 上的 Claude 账号，以及新会话用哪一个'],
         ['account use <邮箱或目录> [--move]', '新会话改用它；加 --move 把开着的会话也搬过去'],
@@ -56,6 +56,8 @@ export const zh: Messages = {
     noSuchNumber: '没有这个编号',
     notRunning: 'WorkOffDesk 服务没有在运行。先启动它（workoffdesk serve，或已安装的服务）。',
     couldNotOpen: (why) => `打不开会话：${why}`,
+    ended: '（已结束，选它就接着这段对话）',
+    couldNotGoOn: (why) => `没能接着这段对话：${why}`,
     noTunnel: (name) => `没有叫 ${name} 的隧道。运行：\n  cloudflared tunnel create ${name}\n然后再运行一次 workoffdesk install --tunnel ${name}。`,
     noCloudflared: '找不到 cloudflared。先运行 brew install cloudflared。',
     notBuilt: (cliPath) => `注意：${cliPath} 还不存在，先构建（pnpm build）。`,

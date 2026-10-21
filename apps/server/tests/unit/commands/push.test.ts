@@ -42,6 +42,7 @@ describe('push', () => {
     servers.push(
       await startControlServer(sock, {
         open: async () => 'x',
+        goOn: async (id) => id,
         accounts: { view: async () => ({}) as never, pick: async () => ({}) as never, move: async () => ({}) as never },
         activity: { working: () => 0, onChange: () => () => {} },
         push: async (title, body) => void pushed.push([title, body]),
