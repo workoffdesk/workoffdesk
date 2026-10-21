@@ -5,12 +5,13 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = join(__dirname, '../../../../..');
 const SELF = relative(ROOT, __filename);
-// The comparison table names another project of that name; nothing else may.
-const COMPARISON = /zalify\/offdesk/g;
+// The comparison table names another project of that name, and the iPhone app is published as Work Offdesk;
+// nothing else may.
+const ALLOWED = /zalify\/offdesk|\bWork Offdesk\b/g;
 const OLD = /(?<!work)offdesk|term-?site|term\.example|ts_session|outsite/i;
 
 const tracked = () => execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
-const named = (f: string) => OLD.test(readFileSync(join(ROOT, f), 'utf8').replace(COMPARISON, ''));
+const named = (f: string) => OLD.test(readFileSync(join(ROOT, f), 'utf8').replace(ALLOWED, ''));
 
 describe('the name', () => {
   it('is workoffdesk everywhere', () => {
