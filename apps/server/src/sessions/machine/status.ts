@@ -1,3 +1,4 @@
+import { NOTHING_SHOWN } from '../../agents/claude/screen/screen.js';
 import { findTranscript } from '../../agents/claude/transcript/transcriptFile.js';
 import { notificationFor } from '../../agents/claude/hooks/status.js';
 import { turnInTranscript } from '../../agents/claude/transcript/turn.js';
@@ -79,6 +80,7 @@ export class Status {
   claudeQuit(id: string): void {
     if (this.s.statuses.get(id) === 'ended') return;
     this.d.asks.endAll(id);
+    this.d.journal.screenAsIs(id, NOTHING_SHOWN);
     this.setStatus(id, 'ended');
   }
 

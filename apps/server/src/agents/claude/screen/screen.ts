@@ -22,6 +22,9 @@ export type ScreenRead = {
   background: boolean;
 };
 
+// The screen of a session whose Claude no longer runs: whatever the shell left there draws is not Claude's.
+export const NOTHING_SHOWN: Omit<ScreenRead, 'live'> = { choices: null, panel: null, suggestion: null, mode: null, background: false };
+
 // How far above the screen to look for the top edge of a dialog taller than it.
 const PANEL_ABOVE = 200;
 // Ctrl+S, and how long what it puts aside is given to leave the prompt, looked at this often.

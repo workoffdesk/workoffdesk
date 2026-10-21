@@ -1,6 +1,7 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { writeClaudeSettings } from '../../../src/agents/claude/hooks/hooks.js';
 import { LocalMachine } from '../../../src/sessions/machine.js';
@@ -65,6 +66,32 @@ describe('LocalMachine', () => {
       const { m, store, id } = await running();
       await quit(m, id);
       expect(await statusOf(restarted(store), id)).toBe('ended');
+    });
+
+    // A dialog drawn by what runs in the shell left behind, the way a statusline under a rule left on it looks.
+    const PANEL = fileURLToPath(new URL('../../fixtures/panel.mjs', import.meta.url));
+    const NOTHING = { choices: null, panel: null, suggestion: null, mode: null };
+    const shownScreen = (m: LocalMachine, id: string) => m.journal.sync(id, undefined, 0).rows.find((r) => r.t === 'state' && r.key === 'screen')?.body;
+
+    it('shows nothing of Claude on the screen the shell left behind holds', async () => {
+      const { m, id } = await running();
+      await quit(m, id);
+      expect(await until(async () => (await statusOf(m, id)) === 'ended')).toBe(true);
+      await m.type(id, `${process.execPath} ${PANEL} ${join(dir, 'ended-keys.log')} usage\r`);
+      expect(await until(async () => (await m.screenText(id)).includes('Current session'))).toBe(true);
+      expect(await m.onScreen(id)).toMatchObject(NOTHING);
+      expect(shownScreen(m, id)).toMatchObject(NOTHING);
+    });
+
+    it('takes back what its screen showed once its Claude quits', async () => {
+      const { m, id } = await running();
+      // Claude, at a dialog, is what draws it.
+      await m.type(id, `exec ${process.execPath} ${PANEL} ${join(dir, 'quit-keys.log')} usage\r`);
+      expect(await until(async () => (await m.onScreen(id)).panel !== null)).toBe(true);
+      expect(shownScreen(m, id)).toMatchObject({ panel: { title: expect.any(String) } });
+      await quit(m, id, ways[1][2]);
+      expect(await until(async () => (await statusOf(m, id)) === 'ended')).toBe(true);
+      expect(shownScreen(m, id)).toMatchObject(NOTHING);
     });
 
     it('is told apart from one whose Claude still runs, whatever said it ended', async () => {

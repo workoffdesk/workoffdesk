@@ -1,5 +1,6 @@
 import type { HeldHook, PermissionPayload } from '../../agents/claude/hooks/asks.js';
 import type { Choices } from '../../agents/claude/screen/choices.js';
+import { NOTHING_SHOWN } from '../../agents/claude/screen/screen.js';
 import { codexChoices } from '../../agents/codex/screen.js';
 import type { Answer } from '../../agents/types.js';
 import { InvalidRequest } from '../../system/errors.js';
@@ -49,6 +50,10 @@ export class Input {
       this.p.lifecycle.openOnMac().catch(() => {});
     }
     const { screen, compacting } = await this.d.claude.read(tmuxName(id), this.s.statuses.get(id) === 'working');
+    if (this.s.statuses.get(id) === 'ended') {
+      this.d.journal.screenAsIs(id, NOTHING_SHOWN);
+      return { ...NOTHING_SHOWN, live: null, asks: this.d.asks.list(id) };
+    }
     this.p.status.compactingOnScreen(id, compacting);
     this.d.journal.screen(id, screen);
     return { ...screen, asks: this.d.asks.list(id) };
