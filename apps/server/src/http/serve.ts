@@ -89,6 +89,8 @@ export async function startServer(o: ServerOptions) {
   const claudeBin = o.claudeBin ?? resolveClaude();
   const codexBin = o.codexBin === undefined ? resolveCodex() : o.codexBin;
   const logger = o.logger ?? createLogger({ file: join(o.home, 'logs/workoffdesk.log') });
+  // The sessions' tmux outlives this process, and was started with the config as it was then.
+  await tmux.loadConf().catch((err: unknown) => logger.warn({ err }, 'tmux config not loaded'));
   const machine = new LocalMachine({
     tmux,
     store,

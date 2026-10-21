@@ -14,6 +14,22 @@ setw -g window-size latest
 set -g set-titles on
 set -g default-terminal xterm-256color
 set -g focus-events on
+# The mouse selects as in a terminal: what is selected stays shown, and is copied, as a terminal could not
+# copy it itself; a click lets go of it, back to what the program shows now unless scrolled back; keys go
+# to the program. Any is every other key, mouse events too, which have a position.
+set -g mode-keys emacs
+unbind -a -T copy-mode
+bind -T copy-mode Any if -F '#{mouse_x}#{mouse_y}' {} { send-keys -X cancel ; send-keys }
+bind -T copy-mode WheelUpPane select-pane \\; send-keys -X -N 5 scroll-up
+bind -T copy-mode WheelDownPane select-pane \\; send-keys -X -N 5 scroll-down-and-cancel
+bind -T copy-mode MouseDrag1Pane select-pane \\; send-keys -X begin-selection
+bind -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-no-clear
+bind -T copy-mode DoubleClick1Pane select-pane \\; send-keys -X select-word \\; send-keys -X copy-pipe-no-clear
+bind -T copy-mode TripleClick1Pane select-pane \\; send-keys -X select-line \\; send-keys -X copy-pipe-no-clear
+# Once a double or triple click could no longer be on its way; waited for aside, so they are not held up.
+bind -T copy-mode MouseDown1Pane select-pane \\; send-keys -X clear-selection \\; run -b -C -d 0.4 "if -F -t #{pane_id} '##{&&:##{pane_in_mode},##{&&:##{==:##{scroll_position},0},##{?selection_present,0,1}}}' { send-keys -t #{pane_id} -X cancel }"
+bind -T root DoubleClick1Pane select-pane -t = \\; if -F '#{||:#{pane_in_mode},#{mouse_any_flag}}' { send-keys -M } { copy-mode -H ; send-keys -X select-word ; send-keys -X copy-pipe-no-clear }
+bind -T root TripleClick1Pane select-pane -t = \\; if -F '#{||:#{pane_in_mode},#{mouse_any_flag}}' { send-keys -M } { copy-mode -H ; send-keys -X select-line ; send-keys -X copy-pipe-no-clear }
 `;
 
 export function writeTmuxConf(path: string): void {
@@ -42,9 +58,11 @@ export class Tmux {
   private readonly base: string[];
   private readonly baseEnv: NodeJS.ProcessEnv;
   private readonly timeoutMs: number;
+  private readonly conf: string;
 
   constructor(opts: { socket: string; conf: string; bin?: string; env?: NodeJS.ProcessEnv; timeoutMs?: number }) {
     this.bin = opts.bin ?? 'tmux';
+    this.conf = opts.conf;
     this.base = ['-L', opts.socket, '-f', opts.conf];
     this.baseEnv = opts.env ?? process.env;
     this.timeoutMs = opts.timeoutMs ?? TIMEOUT_MS;
@@ -228,6 +246,15 @@ export class Tmux {
     const out = await this.run(['display-message', '-p', '-t', `=${name}:`, '#{window_width} #{window_height}']);
     const [cols, rows] = out.trim().split(' ').map(Number);
     return { cols, rows };
+  }
+
+  // A server already running, as one is across a restart, takes the config as it is now; none is started.
+  async loadConf(): Promise<void> {
+    try {
+      await this.run(['source-file', this.conf]);
+    } catch (e) {
+      if (!NOT_RUNNING.test(stderrOf(e))) throw e;
+    }
   }
 
   async killServer(): Promise<void> {

@@ -2,9 +2,10 @@ import { execFile } from 'node:child_process';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { afterAll, describe, expect, it } from 'vitest';
-import { Tmux, TmuxTimeout } from '../../../src/system/tmux.js';
+import { TMUX_CONF, Tmux, TmuxTimeout } from '../../../src/system/tmux.js';
 import { until } from '../../helpers/until.js';
 import { testTmux } from '../../helpers/tmux.js';
 
@@ -243,6 +244,136 @@ describe('Tmux', () => {
       const e = await t.paste('ts-x', 'hello').then(() => null, (err: unknown) => err);
       expect(e).toBeInstanceOf(Error);
       expect(e).not.toBeInstanceOf(TmuxTimeout);
+    });
+  });
+
+  // The tmux server outlives a restart of workoffdesk, which writes its config anew.
+  describe('loading the config again', () => {
+    const old = join(dir, 'old.conf');
+    const serverOn = (name: string) => {
+      const socket = `workoffdesk-test-${name}-${process.pid}-${Date.now()}`;
+      return { t: new Tmux({ socket, conf: old }), says: (...args: string[]) => execFileAsync('tmux', ['-L', socket, ...args]).then((r) => r.stdout) };
+    };
+
+    it('gives a running server what the config says now', async () => {
+      writeFileSync(old, 'set -g mouse on\n');
+      const { t, says } = serverOn('reload');
+      try {
+        await t.newSession('ts-reload', { cwd: dir, env: {}, command: 'sleep 60' });
+        writeFileSync(old, TMUX_CONF);
+        await t.loadConf();
+        expect(await says('list-keys', '-T', 'copy-mode')).toMatch(/MouseDragEnd1Pane +send-keys -X copy-pipe-no-clear/);
+      } finally {
+        await t.killServer();
+      }
+    });
+
+    it('starts no server where none runs', async () => {
+      const { t, says } = serverOn('none');
+      await t.loadConf();
+      await expect(says('list-sessions')).rejects.toThrow(/no server running|error connecting/);
+    });
+  });
+
+  // Selecting with the mouse in a Mac terminal attached to a session works as in the terminal itself: what is
+  // selected stays shown and is copied, a click lets go of it, and keys go to the program.
+  describe('with the mouse', () => {
+    const TERMINAL = fileURLToPath(new URL('../../fixtures/terminal.py', import.meta.url));
+    // A server started where EDITOR names vi, which turns tmux's copy mode keys to vi's.
+    const vi = { tmux: new Tmux({ socket: `${socket}-vi`, conf, env: { ...process.env, EDITOR: 'vi' } }), socket: `${socket}-vi` };
+    afterAll(() => vi.tmux.killServer());
+    type Shown = { on: { tmux: Tmux; socket: string }; name: string };
+    const tmuxSays = ({ on }: Shown, ...args: string[]) => execFileAsync('tmux', ['-L', on.socket, ...args]).then((r) => r.stdout);
+    // What an xterm sends, at a 1-based column and row.
+    const at = (button: number, end: 'M' | 'm') => (col: number, row: number) => `\x1b[<${button};${col};${row}${end}`;
+    const [down, up, drag, wheelUp, wheelDown, rightDown, rightUp] = [at(0, 'M'), at(0, 'm'), at(32, 'M'), at(64, 'M'), at(65, 'M'), at(2, 'M'), at(2, 'm')];
+    const click = (col: number, row: number) => down(col, row) + up(col, row);
+    // Longer than tmux waits to tell a click from a double click.
+    const SETTLE = 0.6;
+    let n = 0;
+    // A session showing line-38 to line-60 in rows 1 to 23, its program echoing what it is sent.
+    const showing = async (on = { tmux, socket }): Promise<Shown> => {
+      const shown = { on, name: `ts-mouse-${++n}` };
+      await on.tmux.newSession(shown.name, { cwd: dir, env: {}, command: "seq -f 'line-%g' 1 60; exec cat" });
+      expect(await until(async () => (await on.tmux.capture(shown.name, 0)).includes('line-60'))).toBe(true);
+      await tmuxSays(shown, 'set-buffer', 'nothing copied');
+      return shown;
+    };
+    const terminal = ({ on, name }: Shown, ...steps: [string, number][]) => execFileAsync('python3', [TERMINAL, on.socket, name, JSON.stringify(steps)]);
+    const state = (s: Shown) =>
+      tmuxSays(s, 'display', '-p', '-t', `=${s.name}:`, '#{pane_in_mode} #{selection_present} #{scroll_position}').then((out) => {
+        const [mode, selected, scrolled] = out.trim().split(' ');
+        return { mode: mode === '1', selected: selected === '1', scrolled: Number(scrolled || 0) };
+      });
+    const copied = (s: Shown) => tmuxSays(s, 'show-buffer');
+    const lastLine = async ({ on, name }: Shown) => (await on.tmux.capture(name, 0)).trimEnd().split('\n').at(-1);
+    const selectLine42 = (s: Shown) => terminal(s, [down(3, 5), 0.2], [drag(8, 5), 0.2], [up(8, 5), 0.3]);
+
+    it.each([
+      ['', () => ({ tmux, socket })],
+      [', on a server whose EDITOR is vi', () => vi],
+    ])('copies what a drag covers and leaves it selected%s', async (_name, on) => {
+      const s = await showing(on());
+      await selectLine42(s);
+      expect(await copied(s)).toBe('ne-42');
+      expect(await state(s)).toEqual({ mode: true, selected: true, scrolled: 0 });
+    });
+
+    it.each([
+      ['a letter', 'q', 'q'],
+      ['an arrow', '\x1b[A', '^[[A'],
+    ])('sends %s typed while something is selected to the program, letting go of the selection', async (_name, key, echoed) => {
+      const s = await showing();
+      await selectLine42(s);
+      await terminal(s, [key, 0.3]);
+      expect(await state(s)).toMatchObject({ mode: false });
+      expect(await lastLine(s)).toBe(echoed);
+    });
+
+    it('goes back to what the program shows now on a click away from the selection', async () => {
+      const s = await showing();
+      await selectLine42(s);
+      await terminal(s, [click(20, 10), SETTLE]);
+      expect(await state(s)).toMatchObject({ mode: false });
+      expect(await copied(s)).toBe('ne-42');
+    });
+
+    it('goes back to what the program shows now on the wheel turned down at the bottom', async () => {
+      const s = await showing();
+      await selectLine42(s);
+      await terminal(s, [wheelDown(5, 5), 0.3]);
+      expect(await state(s)).toMatchObject({ mode: false });
+    });
+
+    it('keeps the selection through a click of another button', async () => {
+      const s = await showing();
+      await selectLine42(s);
+      await terminal(s, [rightDown(6, 5) + rightUp(6, 5), SETTLE]);
+      expect(await state(s)).toEqual({ mode: true, selected: true, scrolled: 0 });
+    });
+
+    it('stays scrolled back where a click lets go of the selection, until scrolled to the bottom', async () => {
+      const s = await showing();
+      await terminal(s, [wheelUp(5, 5), 0.2], [wheelUp(5, 5), 0.2], [wheelUp(5, 5), 0.2], [down(3, 5), 0.2], [drag(8, 5), 0.2], [up(8, 5), 0.3]);
+      expect(await state(s)).toEqual({ mode: true, selected: true, scrolled: 10 });
+      expect(await copied(s)).toBe('ne-32');
+      await terminal(s, [click(20, 10), SETTLE]);
+      expect(await state(s)).toEqual({ mode: true, selected: false, scrolled: 10 });
+      await terminal(s, [wheelDown(5, 5), 0.2], [wheelDown(5, 5), 0.2]);
+      expect(await state(s)).toMatchObject({ mode: false });
+    });
+
+    it.each([
+      ['a double click selects a word', false, 2, 'line'],
+      ['a triple click selects a line', false, 3, 'line-43'],
+      ['a double click where something is selected selects a word', true, 2, 'line'],
+      ['a triple click where something is selected selects a line', true, 3, 'line-43'],
+    ])('%s, copied and left selected', async (_name, selected, clicks, word) => {
+      const s = await showing();
+      if (selected) await selectLine42(s);
+      await terminal(s, [click(4, 6).repeat(clicks), SETTLE]);
+      expect(await copied(s)).toBe(word);
+      expect(await state(s)).toEqual({ mode: true, selected: true, scrolled: 0 });
     });
   });
 

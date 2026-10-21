@@ -212,6 +212,10 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
 - `workoffdesk attach` without an id lists the running sessions, then the ended ones with a conversation, latest
   first. An ended one picked goes on with its conversation the way the phone's **Continue this conversation** does,
   through the server, and is joined. (`apps/server/src/commands/attach.ts` `attachChoices`, `apps/server/src/sessions/control.ts` `askToGoOn`)
+- In a Mac terminal attached to a session, the wheel scrolls back; a drag, double click or triple click selects,
+  copies what it selected and leaves it selected; a click lets go of it, back to what the program shows unless
+  scrolled back; a key goes to the program. A running tmux server takes the config again when the service
+  starts. (`apps/server/src/system/tmux.ts` `TMUX_CONF`, `loadConf`; `apps/server/tests/integration/system/tmux.test.ts`)
 - From the phone: start Claude or Codex in a project folder, or pick up a recent Claude or Codex conversation
   from the Mac, read first and taken over on a tap. (`apps/web/src/components/NewSessionSheet.tsx`, e2e `sessions.spec.ts`)
 - The project is found by name among the folders used before, or by typing a path (`~/` or `/`), which lists the

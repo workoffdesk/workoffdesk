@@ -190,3 +190,7 @@ In a session, ⋯ → **Continue on the Mac** shows its `attach` command to copy
 the phone and the Mac can both be on it. `Ctrl-b d` detaches and leaves it
 running. While no Mac terminal is attached, the phone sizes the window to 100×50 so dialogs fit; once one is,
 the window follows that terminal.
+
+The mouse works as in the terminal itself: the wheel scrolls back, and a drag, double click or triple click
+selects and stays selected. What is selected is copied as soon as it is, since the terminal cannot see it to
+copy it on ⌘C. A click lets go of it, and a key goes to the program.
