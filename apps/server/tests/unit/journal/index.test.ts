@@ -286,6 +286,24 @@ describe('Journal', () => {
       j.status(S, 'working');
       expect(stateOf(j, 'workingSince')).toBe(T0 + 5000);
     });
+
+    it('says since when it compacts, apart from the work it broke off', () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(T0);
+      const { j } = open();
+      j.status(S, 'working');
+      vi.setSystemTime(T0 + 5000);
+      j.status(S, 'compacting');
+      expect(stateOf(j, 'workingSince')).toBe(T0 + 5000);
+      vi.setSystemTime(T0 + 9000);
+      j.status(S, 'compacting');
+      expect(stateOf(j, 'workingSince')).toBe(T0 + 5000);
+      j.status(S, 'working');
+      expect(stateOf(j, 'workingSince')).toBe(T0 + 9000);
+      j.status(S, 'compacting');
+      j.status(S, 'idle');
+      expect(stateOf(j, 'workingSince')).toBe(null);
+    });
   });
 
   describe('putAgentItems', () => {

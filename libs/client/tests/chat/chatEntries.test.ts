@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Answer } from '../../src/chat/answered';
 import type { Ask, ChatItem, Choices, OnScreen } from '../../src/model/chat';
-import { chatEntries, type ChatInput } from '../../src/chat/chatEntries';
+import { busySince, chatEntries, type ChatInput } from '../../src/chat/chatEntries';
 import { emptyView, type JournalItem, type Message, type SessionView } from '../../src/journal/journalRows';
 
 const at = (min: number) => `2026-10-07T10:${String(min).padStart(2, '0')}:00Z`;
@@ -103,6 +103,11 @@ describe('chatEntries', () => {
     it('times the turn from when the Mac saw Claude start, not from the last message sent', () => {
       const e = chatEntries(input({ status: 'working', view: view({ workingSince: 99 }) })).entries.at(-1);
       expect(e).toEqual({ kind: 'working', key: 'working', since: 99 });
+    });
+
+    it('times a compaction from when the Mac saw it start, and nothing it has no start for', () => {
+      expect(busySince(view({ workingSince: 99 }))).toBe(99);
+      expect(busySince(view({ workingSince: null }))).toBe(null);
     });
   });
 

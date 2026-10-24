@@ -13,6 +13,7 @@ import { StatusWord } from '../components/StatusWord';
 import { ActionSheet } from '../components/ActionSheet';
 import { PageHeader } from '../components/PageHeader';
 import { shortPath } from '@workoffdesk/client/model/format';
+import { busySince } from '@workoffdesk/client/chat/chatEntries';
 import { IconClose, IconMore } from '../icons';
 import { navigate } from '../router';
 import { keyBar } from '../platform';
@@ -291,7 +292,7 @@ export function SessionPage({ id }: { id: string }) {
             )}
             {view.onMac > 0 && <OnMacBar terminals={view.onMac} sessionId={id} onError={session.sayToast} />}
             {status === 'compacting' && (
-              <CompactingBar count={s.queued.length} />
+              <CompactingBar count={s.queued.length} since={busySince(view)} />
             )}
             {chat && <TaskBar tasks={view.tasks} />}
             {s.canBackground && <ForegroundBar call={s.foreground} busy={s.backgrounding} onBackground={session.toBackground} />}

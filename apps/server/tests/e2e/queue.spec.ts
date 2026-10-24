@@ -14,7 +14,7 @@ test.describe('a message sent while Claude is busy', () => {
     const bar = page.getByRole('status', { name: '正在压缩上下文' });
     await hook(id, 'PreCompact', { trigger: 'auto' });
     await expect(bar).toBeVisible();
-    await expect(bar).toContainText('正在压缩上下文');
+    await expect(bar).toContainText(/正在压缩上下文… · \d+ 秒/);
 
     const composer = page.getByLabel('输入');
     await composer.fill('echo first-$((1+1))');

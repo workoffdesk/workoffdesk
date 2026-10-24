@@ -1,11 +1,13 @@
 import { panelName, type Panel } from '@workoffdesk/client/model/chat';
 import { quitOnMac } from '@workoffdesk/client/sessions/quitOnMac';
+import { duration } from '@workoffdesk/client/model/format';
 import { t } from '@workoffdesk/i18n';
 import { useEffect, useState } from 'react';
 import { Alert, Animated, Text, View } from 'react-native';
 import { api } from '../../client';
 import { Button } from '../ui';
 import { useAgentName } from '@workoffdesk/react/agentName';
+import { useNow } from '@workoffdesk/react/clock';
 import { useStyles } from './styles';
 import { useTheme } from '../../theme';
 import { SymbolView } from 'expo-symbols';
@@ -45,13 +47,17 @@ export function SendHeld(props: { panel: Panel; nudge: number; onKey: (data: str
   );
 }
 
-// Above the composer while Claude compacts its conversation.
-export function CompactingBar({ count }: { count: number }) {
+// Above the composer while Claude compacts its conversation, with how long it has been at it.
+export function CompactingBar({ count, since }: { count: number; since: number | null }) {
   const s = useStyles();
+  const now = useNow(since !== null);
   return (
     <View style={s.held} accessibilityLabel={t.compactingContext}>
       <View style={s.heldText}>
-        <Text style={s.heldTitle}>{t.compactingContext}</Text>
+        <Text style={s.heldTitle}>
+          {t.compactingContext}
+          {since !== null && ` · ${duration(Math.max(0, now - since))}`}
+        </Text>
         <Text style={s.heldSub}>{count ? t.compactingQueued(count) : t.compactingWillQueue}</Text>
       </View>
     </View>

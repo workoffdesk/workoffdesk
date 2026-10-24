@@ -81,7 +81,7 @@ export function chatEntries(input: ChatInput): { entries: ChatEntry[]; shown: Tu
   for (const message of bubbles) entries.push({ kind: 'bubble', key: `message-${message.id}`, message });
   if (view.failed) entries.push({ kind: 'failed', key: 'failed' });
   if (view.background.length) entries.push({ kind: 'background', key: 'background', running: view.background });
-  if (status === 'working') entries.push({ kind: 'working', key: 'working', since: view.workingSince === null ? null : onThisClock(view.workingSince) });
+  if (status === 'working') entries.push({ kind: 'working', key: 'working', since: busySince(view) });
 
   // What Claude Code said it waits on comes first; the screen shows the same prompt meanwhile. A dialog
   // opened while Claude works (/model) has the keyboard as much as a question does.
@@ -96,3 +96,6 @@ export function chatEntries(input: ChatInput): { entries: ChatEntry[]; shown: Tu
   else if (status === 'waiting') entries.push({ kind: 'waiting', key: 'waiting' });
   return { entries, shown, inEntry };
 }
+
+// When the Mac saw Claude set out on its work or its compaction, on this device's clock; null when it did not see.
+export const busySince = (view: SessionView): number | null => (view.workingSince === null ? null : onThisClock(view.workingSince));

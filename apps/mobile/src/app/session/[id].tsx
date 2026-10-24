@@ -1,5 +1,5 @@
 import { agentName, isAgent } from '@workoffdesk/client/base/api';
-import { chatEntries } from '@workoffdesk/client/chat/chatEntries';
+import { busySince, chatEntries } from '@workoffdesk/client/chat/chatEntries';
 import { chatPending } from '@workoffdesk/client/journal/journalRows';
 import { shortPath } from '@workoffdesk/client/model/format';
 import { canMoveAccount, limitStopped } from '@workoffdesk/client/sessions/moveAccount';
@@ -234,7 +234,7 @@ function SessionScreen({ id }: { id: string }) {
                 <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
                   {panel && <SendHeld nudge={ss.nudge} panel={panel} onKey={press} onDone={reread} />}
                   {view.onMac > 0 && <OnMacBar terminals={view.onMac} sessionId={id} />}
-                  {status === 'compacting' && <CompactingBar count={queued.length} />}
+                  {status === 'compacting' && <CompactingBar count={queued.length} since={busySince(view)} />}
                   {chatShown && <TaskBar tasks={view.tasks} />}
                   {ss.canBackground && <ForegroundBar call={ss.foreground} busy={ss.backgrounding} onBackground={session.toBackground} />}
                   <QueueTray

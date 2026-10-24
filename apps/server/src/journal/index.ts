@@ -66,11 +66,11 @@ export class Journal {
     return this.db.message(id, qid);
   }
 
-  // workingSince: when Claude set out on what it is doing, by this Mac's clock.
+  // workingSince: when Claude set out on what it is doing, its work or a compaction, by this Mac's clock.
   status(id: string, status: ClaudeStatus | null): void {
     const wrote = this.db.tx(() => {
       const changed = this.db.putState(id, 'status', status);
-      const since = status === 'working' ? changed && this.db.putState(id, 'workingSince', Date.now()) : this.db.putState(id, 'workingSince', null);
+      const since = status === 'working' || status === 'compacting' ? changed && this.db.putState(id, 'workingSince', Date.now()) : this.db.putState(id, 'workingSince', null);
       return changed || since;
     });
     if (wrote) this.tell(id);

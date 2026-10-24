@@ -7,13 +7,19 @@ import { api } from '../api';
 import { ActionSheet } from './ActionSheet';
 import { IconDesktop } from '../icons';
 import { useAgentName } from '@workoffdesk/react/agentName';
+import { useNow } from '@workoffdesk/react/clock';
+import { duration } from '@workoffdesk/client/model/format';
 
-// Above the composer while Claude compacts its conversation, from the moment it starts.
-export function CompactingBar({ count }: { count: number }) {
+// Above the composer while Claude compacts its conversation, from the moment it starts, with how long it has been at it.
+export function CompactingBar({ count, since }: { count: number; since: number | null }) {
+  const now = useNow(since !== null);
   return (
     <div className="send-held compacting" role="status" aria-label={t.compactingContext}>
       <span>
-        <b>{t.compactingContext}</b>
+        <b>
+          {t.compactingContext}
+          {since !== null && ` · ${duration(Math.max(0, now - since))}`}
+        </b>
         <small>{count ? t.compactingQueued(count) : t.compactingWillQueue}</small>
       </span>
     </div>
