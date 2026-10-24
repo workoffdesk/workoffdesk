@@ -108,9 +108,9 @@ export function applyRows(c: Copy, rows: JournalRow[], reset = false): void {
   }
 }
 
-// The chat waits on the Mac, shown as a skeleton, while nothing is held yet or what is held is known to be
-// behind: it would change under the reader as it caught up.
-export const chatPending = (v: SessionView, ended: boolean): boolean => !v.synced && !v.failed && !ended && (v.behind || (!v.items.length && !v.messages.length));
+// The chat waits on the Mac, shown as a skeleton, until it has what the Mac has, so it shows once, whole,
+// rather than changing under the reader as it catches up. A Mac that does not answer leaves what is held.
+export const chatPending = (v: SessionView, ended: boolean): boolean => !v.synced && !v.failed && !ended;
 
 export type Flags = { synced: boolean; failed: boolean; gone: boolean; loadingOlder: boolean; screenHidden: boolean };
 

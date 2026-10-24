@@ -35,6 +35,7 @@ export function ChatList({
   keyboardOffset,
   empty,
   onAway,
+  onLaidOut,
 }: {
   listRef: RefObject<LegendListRef | null>;
   entries: Entry[];
@@ -49,6 +50,8 @@ export function ChatList({
   keyboardOffset: number;
   empty: ReactElement | null;
   onAway: (away: boolean) => void;
+  // The list has laid out its rows at its end and shows them: until then they are drawn unseen.
+  onLaidOut: () => void;
 }) {
   const theme = useTheme();
   const [following, setFollowing] = useState(true);
@@ -139,7 +142,10 @@ export function ChatList({
       renderItem={renderEntry}
       initialScrollAtEnd
       // Rows of markdown can take longer to lay out than the list waits for its first scroll to the end.
-      onReady={() => void listRef.current?.scrollToEnd({ animated: false })}
+      onReady={() => {
+        void listRef.current?.scrollToEnd({ animated: false });
+        onLaidOut();
+      }}
       recycleItems={false}
       alignItemsAtEnd
       maintainVisibleContentPosition

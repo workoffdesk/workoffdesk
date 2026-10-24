@@ -30,7 +30,6 @@ export const sessions = {
   end: 'End',
   shellSession: 'This is a command-line session on the Mac',
   shellSessionSub: 'The phone shows only Claude conversations; use this session on the Mac',
-  syncing: 'Syncing',
   reconnecting: 'Reconnecting…',
   reconnectingSub: 'It reconnects when the network is back; the session keeps running on the Mac',
   sessionEnded: 'Session ended',

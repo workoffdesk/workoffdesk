@@ -35,7 +35,7 @@ import { PageHeader } from '../../components/header';
 import { dialogOn, entryNode } from '../../components/session/entries';
 import { useJump } from '../../components/session/jump';
 import { useSessionMenu } from '../../components/session/menu';
-import { Overlay, SyncDots } from '../../components/session/parts';
+import { Overlay } from '../../components/session/parts';
 import { styles } from '../../components/session/styles';
 
 // A session as the phone has it: Claude's conversation, and a way to type to it. A session that is not
@@ -88,8 +88,6 @@ function SessionScreen({ id }: { id: string }) {
     if (newest) void scrollMessageToEnd({ animated: true, closeKeyboard: false });
   }, [newest, scrollMessageToEnd]);
 
-  // What the phone holds may be behind until the Mac answers; a chat known to be behind is not shown until then.
-  const syncing = !view.synced && !view.failed && !ended;
   const pending = chatPending(view, ended);
 
   const dialogUp = !!ss.dialog;
@@ -112,6 +110,10 @@ function SessionScreen({ id }: { id: string }) {
   const dialog = ss.dialog && dialogOn(ss.dialog, { id, press, onScreen, settle });
 
   const jump = useJump(list, entries, inEntry, shown);
+  // The skeleton stays until the chat can show whole: what the Mac has, laid out by the list at its end.
+  const [laidOut, setLaidOut] = useState(false);
+  if (pending && laidOut) setLaidOut(false);
+  const skeleton = pending || (chatShown && entries.length > 0 && !laidOut);
 
   return (
     <AgentName.Provider value={who}>
@@ -151,8 +153,6 @@ function SessionScreen({ id }: { id: string }) {
               tap on a message (SelectText.tsx); a card's controls keep it, as on the web. */}
           <View style={s.chat}>
             {chatShown && !pending && (
-              // A chat kept from before shows while it is brought up to date, so the list is at its end before
-              // what came since goes in.
               <ClaudeConversation value={kind === 'claude' ? (known?.claudeSessionId ?? null) : null}>
                 <JumpContext value={jump}>
                   <ChatList
@@ -167,11 +167,12 @@ function SessionScreen({ id }: { id: string }) {
                     keyboardOffset={keyboardOffset}
                     empty={!view.synced && !view.failed && ended ? <Text style={[s.muted, s.center, s.reading]}>{t.endedNoChat}</Text> : null}
                     onAway={setAway}
+                    onLaidOut={() => setLaidOut(true)}
                   />
                 </JumpContext>
               </ClaudeConversation>
             )}
-            {(chatShown || kind === null) && pending && <ChatSkeleton />}
+            {(chatShown || kind === null) && skeleton && <ChatSkeleton />}
             {kind === 'shell' && !ended && (
               <Overlay title={t.shellSession} sub={t.shellSessionSub} s={s}>
                 <View style={s.actions}>
@@ -271,17 +272,6 @@ function SessionScreen({ id }: { id: string }) {
                       kind === null ? <PillSkeleton /> : chatShown && <SessionPill usage={known?.usage} account={known?.claudeAccount} mode={ss.mode} models={ss.models} switching={ss.switching} commanding={ss.commanding} fixed={kind === 'codex'} onCommand={session.runCommand} onMode={(m) => void session.switchMode(m)} />
                     }
                   />
-                  {/* A chat kept from before shows while what came since is asked for; nothing is typed to it
-                      until then. The page turns blue under the composer, as when the box is held. */}
-                  {syncing && !pending && (
-                    <View style={s.veil} accessible accessibilityLabel={t.syncing} accessibilityLiveRegion="polite">
-                      <View style={s.veilFade} />
-                      <View style={[s.veilBody, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-                        <Text style={s.veilText}>{t.syncing}</Text>
-                        <SyncDots />
-                      </View>
-                    </View>
-                  )}
                 </View>
               )}
             </View>

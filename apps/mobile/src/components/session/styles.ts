@@ -3,9 +3,6 @@ import { MONO, tint, type Theme } from '../../theme';
 
 export type S = ReturnType<typeof styles>;
 
-// How far over the chat the veil on the composer fades in.
-const VEIL_FADE = 40;
-
 export const styles = ({ c, fs }: Theme) =>
   StyleSheet.create({
     page: { flex: 1, backgroundColor: c.bg },
@@ -62,16 +59,5 @@ export const styles = ({ c, fs }: Theme) =>
       borderColor: c.border,
     },
     toast: { position: 'absolute', alignSelf: 'center', maxWidth: '86%', paddingVertical: 9, paddingHorizontal: 14, borderRadius: 12, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
-    veil: { position: 'absolute', left: 0, right: 0, bottom: 0, top: -VEIL_FADE },
-    veilFade: { height: VEIL_FADE, experimental_backgroundImage: `linear-gradient(to bottom, ${tint(c.bg, 0)}, ${c.glow[0]})` },
-    veilBody: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 10,
-      experimental_backgroundImage: `linear-gradient(to bottom, ${c.glow[0]}, ${c.glow[1]} 30%, ${c.glow[2]} 55%, ${c.glow[3]})`,
-    },
-    veilText: { fontSize: fs(15), fontWeight: '600', color: '#fff' },
     toastText: { fontSize: fs(14), color: c.text, textAlign: 'center' },
   });

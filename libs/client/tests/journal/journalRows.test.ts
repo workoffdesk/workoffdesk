@@ -128,15 +128,16 @@ describe('onShow', () => {
 
 describe('chatPending', () => {
   const held = { items: [{ itemId: 'i1', pos: 0, conv: 'c', kind: 'text', text: 'hi' } as never] };
+  const sent = { messages: [{ id: 'm1', state: 'sending' } as never] };
   it.each<{ when: string; v: Partial<SessionView>; ended?: boolean; waits: boolean }>([
     { when: 'nothing is held yet', v: {}, waits: true },
-    { when: 'the copy held is known to be behind the Mac', v: { ...held, behind: true }, waits: true },
-    { when: 'only a message sent from here is held and the copy is behind', v: { messages: [{ id: 'm1', state: 'sending' } as never], behind: true }, waits: true },
-    { when: 'the copy held is not known to be behind', v: held, waits: false },
-    { when: 'only a message sent from here is held and the copy is not behind', v: { messages: [{ id: 'm1', state: 'sending' } as never] }, waits: false },
+    { when: 'a copy is held that is known to be behind the Mac', v: { ...held, behind: true }, waits: true },
+    { when: 'a copy is held that is not known to be behind', v: held, waits: true },
+    { when: 'only a message sent from here is held', v: sent, waits: true },
     { when: 'the Mac has answered', v: { ...held, synced: true, behind: true }, waits: false },
-    { when: 'the Mac is not answering', v: { ...held, failed: true, behind: true }, waits: false },
-    { when: 'the session has ended', v: { behind: true }, ended: true, waits: false },
+    { when: 'the Mac has answered with nothing', v: { synced: true }, waits: false },
+    { when: 'the Mac is not answering', v: { ...held, failed: true }, waits: false },
+    { when: 'the session has ended', v: held, ended: true, waits: false },
   ])('waits on the Mac: $waits when $when', ({ v, ended = false, waits }) => {
     expect(chatPending({ ...emptyView, ...v }, ended)).toBe(waits);
   });

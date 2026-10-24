@@ -31,7 +31,6 @@ export const sessions: typeof en = {
   end: '结束',
   shellSession: '这是 Mac 上的命令行会话',
   shellSessionSub: '手机上只看 Claude 的对话，这个会话在 Mac 上用',
-  syncing: '同步中',
   reconnecting: '重连中…',
   reconnectingSub: '网络恢复后会自动接上，会话一直在 Mac 上跑着',
   sessionEnded: '会话已结束',
