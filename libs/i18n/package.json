@@ -16,11 +16,11 @@
     "check": "pnpm run lint && pnpm run typecheck && vitest run"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.3",
-    "@types/node": "20.19.9",
-    "eslint": "^9.39.3",
-    "typescript": "5.9.3",
-    "typescript-eslint": "^8.56.1",
-    "vitest": "4.1.11"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "26.6.5",
+    "eslint": "^10.13.0",
+    "typescript": "7.0.2",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "5.0.5"
   }
 }
