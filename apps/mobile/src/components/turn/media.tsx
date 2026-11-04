@@ -13,7 +13,7 @@ import { useStyles } from './styles';
 
 // A picture the session names, read from the Mac with this login.
 const sourceOf = (sessionId: string, path: string): Source => ({
-  uri: (auth.current()?.server ?? '') + imageSrc(sessionId, path),
+  uri: auth.reach() + imageSrc(sessionId, path),
   headers: signIn(),
 });
 
@@ -206,7 +206,7 @@ export function Pictures({ sessionId, paths: named, mine, read = false }: { sess
 }
 
 // A file sent from the phone, fetched from the Mac with this login.
-const fromMac = (url: string): Source => ({ uri: (auth.current()?.server ?? '') + url, headers: signIn() });
+const fromMac = (url: string): Source => ({ uri: auth.reach() + url, headers: signIn() });
 
 // A video stands as its first still, with a play button; until that has come, as a dark square.
 function VideoCover({ video, size, onPlay }: { video: SentFile; size: number; onPlay: () => void }) {

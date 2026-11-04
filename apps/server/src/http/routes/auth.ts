@@ -73,6 +73,9 @@ export const register: RouteModule = (app, ctx) => {
 
   app.get('/api/me', async () => ({ username: store.get().user?.username }));
 
+  // Every address the Mac is reached at, the origin first: a login made at one is good at each.
+  app.get('/api/addresses', async () => ({ addresses: [deps.origin, ...(deps.extraOrigins ?? [])] }));
+
   app.get(
     '/api/auth/logins',
     async (req) => {

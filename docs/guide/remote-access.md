@@ -104,7 +104,10 @@ proxy sets that header itself; passed through from the visitor, it would let the
 each try.
 
 To keep an address you already have, such as a Cloudflare tunnel, and add this one beside it, list it in
-`extraOrigins` in [config.json](configuration.md#configjson) and restart the service.
+`extraOrigins` in [config.json](configuration.md#configjson) and restart the service. The iPhone app, signed
+in at any one of them, learns them all and keeps them as one account. It uses the one that answers first and
+asks them all again on coming back to the foreground or when a request gets no answer. Its JS updates still
+come from the address it signed in to.
 
 ## What not to do
 

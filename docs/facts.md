@@ -165,6 +165,12 @@ Checked against the source on 2026-10-07 unless a line says otherwise.
   `extraOrigins`, which must be `https://`. A passkey is made and checked for the address the page is on: an
   extra address shares `rpId` when its host is under it, and otherwise uses its own hostname.
   (`apps/server/src/http/app.ts`, `apps/server/src/system/config.ts` `sites`, `apps/server/src/http/auth/guard.ts` `siteOf`)
+- The iPhone app learns every address of the Mac (the origin and `extraOrigins`, `https://` only) from
+  `/api/addresses` and keeps them under the one account. It goes to the one that answered first, asks them all
+  again on coming back to the foreground and when a request gets no answer, and starts on the one used last.
+  Another account of the same user at one of those addresses is folded into it. Its JS updates still come from
+  the address it signed in to. (`apps/server/src/http/routes/auth.ts`, `libs/client/src/base/route.ts`,
+  `libs/client/src/demo/account.ts` `foldAccounts`, `apps/mobile/src/client.ts`, `libs/client/tests/base/route.test.ts`)
 - The Content Security Policy loads everything from the site itself (images also from `data:`) and forbids
   framing the page. Images from the web in Claude's replies are shown as a "Web image" link with the host,
   never loaded. The server does not trust `X-Forwarded-*` headers (`trustProxy: false`).

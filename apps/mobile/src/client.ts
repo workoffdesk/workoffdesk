@@ -12,10 +12,11 @@ import { createSeen } from '@workoffdesk/client/sessions/seen';
 import { createSessions } from '@workoffdesk/client/sessions/session';
 import { createSessionLinks } from '@workoffdesk/client/sessions/sessionLink';
 import { createReleaseWatch } from '@workoffdesk/client/base/release';
+import { createRoute, keepRoute, keptRoute } from '@workoffdesk/client/base/route';
 import { createSessionList } from '@workoffdesk/client/sessions/sessionList';
 import { createSlowReport, SLOW_PATH } from '@workoffdesk/client/base/slow';
 import { createSnippets } from '@workoffdesk/client/composer/snippets';
-import { accountsOnStart, DEMO_LOGIN, isDemo, sameAccount, type Login } from '@workoffdesk/client/demo/account';
+import { accountsOnStart, addressesOf, DEMO_LOGIN, foldAccounts, isDemo, learnedAddresses, sameAccount, type Login } from '@workoffdesk/client/demo/account';
 import { createDemoMac } from '@workoffdesk/client/demo/demoMac';
 import { lang } from '@workoffdesk/i18n';
 import { createGroupingChoice, createThemeChoice } from '@workoffdesk/client/settings/choices';
@@ -50,8 +51,10 @@ export const storage: KeyValue = {
 };
 
 const loginOf = (v: unknown): Login | null => {
-  const l = v as { server?: unknown; token?: unknown; user?: unknown } | null;
-  return l && typeof l.server === 'string' && typeof l.token === 'string' ? { server: l.server, token: l.token, user: typeof l.user === 'string' ? l.user : undefined } : null;
+  const l = v as { server?: unknown; token?: unknown; user?: unknown; addresses?: unknown } | null;
+  if (!l || typeof l.server !== 'string' || typeof l.token !== 'string') return null;
+  const addresses = Array.isArray(l.addresses) && l.addresses.every((a) => typeof a === 'string') ? (l.addresses as string[]) : undefined;
+  return { server: l.server, token: l.token, user: typeof l.user === 'string' ? l.user : undefined, ...(addresses && { addresses }) };
 };
 
 function kept(key: string): unknown {
@@ -73,12 +76,31 @@ const setLogin = (l: Login | null, list: Login[]) => {
   login = l;
   accounts = list;
   void keep(l, list).catch(() => {});
+  followLogin();
   for (const f of loginListeners) f();
 };
 const withAccount = (l: Login) => {
   const at = accounts.findIndex((a) => sameAccount(a, l));
   return at < 0 ? [...accounts, l] : accounts.map((a, i) => (i === at ? l : a));
 };
+
+// Which of the Mac's addresses the phone goes to (route.ts): asked with the login in use, starting on the one
+// used last for it. Told, it is kept for the next cold start.
+const route = createRoute({
+  probe: (base, signal) =>
+    fetch(`${base}/api/addresses`, { headers: signIn(), signal }).then((r) => {
+      if (!r.ok) throw new Error(`answered ${r.status}`);
+    }),
+});
+function followLogin() {
+  route.use(login && !isDemo(login) ? addressesOf(login) : [], login ? keptRoute(storage, login.server) : undefined);
+}
+route.subscribe(() => {
+  if (login && route.base()) keepRoute(storage, login.server, route.base());
+  for (const f of loginListeners) f();
+});
+// Where the Mac is reached now: the address the route is on, or the demo's.
+const macBase = () => route.base() || (login?.server ?? '');
 
 // The server records the device a login came from by its user agent; the settings list names it so.
 const USER_AGENT = `WorkOffDesk/${Constants.expoConfig?.version ?? '0'} (iPhone; iOS ${Platform.Version})`;
@@ -91,7 +113,8 @@ let demoMac: ReturnType<typeof createDemoMac> | null = null;
 const demo = () => (demoMac ??= createDemoMac({ lang }));
 
 export const { api, wsUrl, signIn } = createApi({
-  base: () => login?.server ?? '',
+  base: macBase,
+  onNoAnswer: route.failed,
   fetch: (url, init) => (isDemo(login) ? demo().fetch(url, init) : fetch(url, init)),
   headers: () => ({ 'user-agent': USER_AGENT, ...(login ? { authorization: `Bearer ${login.token}` } : {}) }),
   onUnauthorized: (sent) => signedOut(sent.get('authorization')?.replace(/^Bearer /, '')),
@@ -117,8 +140,18 @@ const CLOSE_DROPPED = 1006;
 const open: OpenSocket = (path, on) => {
   if (isDemo(login)) return demo().open(path, on);
   const by = login?.token;
-  const closed = (code: number) => on.close(CLOSE_SIGNED_OUT.includes(code) && by !== login?.token ? CLOSE_DROPPED : code);
-  return standardSocket(new (WebSocket as unknown as NativeWebSocket)(wsUrl(path), undefined, { headers: signIn() }), { ...on, close: closed });
+  // A socket that closes before it opened is a request with no answer, told to the route like one.
+  const at = macBase();
+  let opened = false;
+  const closed = (code: number) => {
+    if (!opened) route.failed(at);
+    on.close(CLOSE_SIGNED_OUT.includes(code) && by !== login?.token ? CLOSE_DROPPED : code);
+  };
+  const opens = () => {
+    opened = true;
+    on.open();
+  };
+  return standardSocket(new (WebSocket as unknown as NativeWebSocket)(wsUrl(path), undefined, { headers: signIn() }), { ...on, open: opens, close: closed });
 };
 
 // A socket says signed out only for the login in use (open, above).
@@ -150,8 +183,28 @@ export const sessions = createSessions({
 // A login of the account given, asked with its own token.
 const askAs = (l: Login) => createApi({ base: () => l.server, headers: () => ({ 'user-agent': USER_AGENT, authorization: `Bearer ${l.token}` }), onUnauthorized: () => {} }).api;
 
+// The addresses again: the fastest that answers, then what the Mac names now. Another account kept of the
+// same user at one of them is the same Mac: it folds into the one in use and is signed out there.
+async function refreshAddresses() {
+  await route.check();
+  const l = login;
+  if (!l || isDemo(l)) return;
+  const said = await api('/api/addresses').catch((e) => (e instanceof ApiError && e.status === 404 ? null : undefined));
+  if (said === undefined || login !== l) return;
+  const addresses = learnedAddresses(l, said);
+  const { kept, gone } = foldAccounts(accounts, { ...l, addresses });
+  if (!gone.length && addresses.join() === addressesOf(l).join()) return;
+  setLogin({ ...l, addresses }, kept);
+  for (const g of gone) void askAs(g)('/api/auth/logout', { method: 'POST' }).catch(() => {});
+}
+followLogin();
+void refreshAddresses();
+AppState.addEventListener('change', (state) => state === 'active' && void refreshAddresses());
+
 export const auth = {
   current: () => login,
+  // Where the Mac is reached now, for what is fetched outside the api: pictures, videos.
+  reach: macBase,
   // Every account kept on the phone, the one in use among them, in the order they were added.
   accounts: () => accounts,
   subscribe(listener: () => void) {
@@ -207,9 +260,12 @@ export const auth = {
 };
 
 async function moveTo(to: Login, leaving?: () => Promise<unknown>) {
-  if (!login) return setLogin(to, withAccount(to));
-  await leaving?.().catch(() => {});
-  changeAccount(to, withAccount(to));
+  if (!login) setLogin(to, withAccount(to));
+  else {
+    await leaving?.().catch(() => {});
+    changeAccount(to, withAccount(to));
+  }
+  void refreshAddresses();
 }
 
 // The server no longer takes a login, or the user logged out of it. Once it is the one in use, what it showed

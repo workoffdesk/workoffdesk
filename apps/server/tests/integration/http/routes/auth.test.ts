@@ -181,3 +181,32 @@ describe('Guard', () => {
     });
   });
 });
+
+describe('GET /api/addresses', () => {
+  const OTHER = 'https://other.example.test';
+  let other: FastifyInstance;
+  beforeAll(async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ts-addresses-'));
+    const store = new Store(join(dir, 'state.json'));
+    await addUser(store);
+    ({ app: other } = await buildApp({ store, machine, origin: ORIGIN, rpId: RP_ID, extraOrigins: [OTHER], auditPath: join(dir, 'audit.log') }));
+  });
+  afterAll(() => other.close());
+  const tokenAt = async (host: string) => {
+    const res = await other.inject({ method: 'POST', url: '/api/auth/token', headers: { host }, payload: { username: 'alice', password: PASSWORD } });
+    return (res.json() as { token: string }).token;
+  };
+
+  it('names every address of the Mac, the origin first, to a login from any of them', async () => {
+    const token = await tokenAt(new URL(OTHER).host);
+    for (const host of [new URL(ORIGIN).host, new URL(OTHER).host]) {
+      const res = await other.inject({ method: 'GET', url: '/api/addresses', headers: { host, authorization: `Bearer ${token}` } });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ addresses: [ORIGIN, OTHER] });
+    }
+  });
+
+  it('is not told without a login', async () => {
+    expect((await other.inject({ method: 'GET', url: '/api/addresses' })).statusCode).toBe(401);
+  });
+});

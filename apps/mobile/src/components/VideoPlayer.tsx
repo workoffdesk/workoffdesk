@@ -32,7 +32,7 @@ export function VideoPlayer() {
 // A video full screen on black, played from the Mac with this login, in the ranges the player asks for.
 function Player({ path, onClose }: { path: string; onClose: () => void }) {
   const insets = useSafeAreaInsets();
-  const source = useMemo(() => ({ uri: (auth.current()?.server ?? '') + videoUrl(path), headers: signIn() }), [path]);
+  const source = useMemo(() => ({ uri: auth.reach() + videoUrl(path), headers: signIn() }), [path]);
   const player = useVideoPlayer(source, (p) => p.play());
   const { status } = useEvent(player, 'statusChange', { status: player.status });
   const [gone, setGone] = useState(false);

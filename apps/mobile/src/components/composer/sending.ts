@@ -13,7 +13,7 @@ import { useStore } from '../../store';
 export type Source = { uri: string; headers?: Record<string, string> };
 
 // An image on the Mac, fetched with the login.
-export const fromMac = (url: string) => ({ uri: (auth.current()?.server ?? '') + url, headers: signIn() });
+export const fromMac = (url: string) => ({ uri: auth.reach() + url, headers: signIn() });
 
 // What iOS was refused, with the way to Settings, where only the user can allow it.
 export const refused = (message: string) =>

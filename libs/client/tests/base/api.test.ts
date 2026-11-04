@@ -195,3 +195,52 @@ describe('the fetch a client is given', () => {
     expect(network).not.toHaveBeenCalled();
   });
 });
+
+describe('onNoAnswer', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  // Requests to `base()` as it is at each try; refused at the addresses in `dead`, else answered with status.
+  function at(dead: string[], status = 200) {
+    const asked: string[] = [];
+    const fetch = vi.fn((url: string, init: RequestInit) => {
+      asked.push(new URL(url).origin);
+      if (dead.includes(new URL(url).origin)) return Promise.reject(new TypeError('Load failed'));
+      if (status === 0)
+        return new Promise<Response>((_, reject) => init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))));
+      return Promise.resolve(new Response('{}', { status, headers: { 'content-type': 'application/json' } }));
+    });
+    return { fetch, asked };
+  }
+
+  it.each([
+    ['refused', ['https://a.example'], 200],
+    ['never answered', [], 0],
+  ])('tells the address a request was %s at', async (_, dead, status) => {
+    const told: string[] = [];
+    const { api } = createApi({ base: () => 'https://a.example', onUnauthorized: () => {}, onNoAnswer: (b) => told.push(b), fetch: at(dead, status).fetch });
+    const done = api('/api/x', { method: 'POST', json: {} }).catch(() => {});
+    await vi.advanceTimersByTimeAsync(60_000);
+    await done;
+    expect(told).toEqual(['https://a.example']);
+  });
+
+  it('tells nothing of an address that answered, even with an error', async () => {
+    const told: string[] = [];
+    const { api } = createApi({ base: () => 'https://a.example', onUnauthorized: () => {}, onNoAnswer: (b) => told.push(b), fetch: at([], 502).fetch });
+    const done = api('/api/x').catch(() => {});
+    await vi.advanceTimersByTimeAsync(60_000);
+    await done;
+    expect(told).toEqual([]);
+  });
+
+  it('tries a read again at the address the route moved to', async () => {
+    let base = 'https://a.example';
+    const net = at(['https://a.example']);
+    const { api } = createApi({ base: () => base, onUnauthorized: () => {}, onNoAnswer: () => (base = 'https://b.example'), fetch: net.fetch });
+    const done = api('/api/x');
+    await vi.advanceTimersByTimeAsync(60_000);
+    await done;
+    expect(net.asked).toEqual(['https://a.example', 'https://b.example']);
+  });
+});
