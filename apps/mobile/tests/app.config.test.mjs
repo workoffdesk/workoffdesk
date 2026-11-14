@@ -56,6 +56,12 @@ describe('app.config', () => {
     });
   }
 
+  // On its side, an iPhone keeps one page at a time and a tablet-sized screen lists the sessions beside it
+  // (split.ts); either way the app turns with the phone.
+  test('turns with the phone, upright or on its side', () => {
+    assert.equal(config({}).orientation, 'default');
+  });
+
   test('takes the bundle id from the environment', () => {
     assert.equal(config({ WORKOFFDESK_IOS_BUNDLE_ID: 'dev.someone.app' }).ios.bundleIdentifier, 'dev.someone.app');
   });

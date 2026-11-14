@@ -19,7 +19,7 @@ export function Sidebar({ width }: { width: number }) {
   const current = openOf(usePathname());
   const [query, setQuery] = useState('');
   return (
-    <View style={[st.side, { width, paddingLeft: insets.left }]}>
+    <View style={[st.side, { width }]}>
       <View style={[st.bar, { paddingTop: insets.top }]}>
         <GearButton />
         <Text style={st.title} numberOfLines={1} accessibilityRole="header">

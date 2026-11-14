@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { onPage, pageBeforeReopen, useAppUpdates } from '../appUpdate';
 import { ErrorScreen, sayUncaughtErrors } from '../errors';
 import { useLogin, useSplit } from '../hooks';
@@ -29,6 +30,7 @@ export default function RootLayout() {
   useNotifications(signedIn, path);
   const navReady = !!useRootNavigationState()?.key;
   const split = useSplit();
+  const { left, right } = useSafeAreaInsets();
   useEffect(() => onPage(path), [path]);
   useEffect(() => {
     if (!navReady || !signedIn) return;
@@ -53,8 +55,9 @@ export default function RootLayout() {
       <ThemeProvider value={navTheme}>
         <StatusBar style="auto" />
         {/* On a wide screen the session list stays on the left; the stack keeps its place in the tree, so
-            opening the screen out or folding it keeps what is open. */}
-        <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.bg }}>
+            opening the screen out or folding it keeps what is open. On its side, the camera and the rounded
+            corners take the screen's sides, and every page keeps clear of them here. */}
+        <View style={{ flex: 1, flexDirection: 'row', paddingLeft: left, paddingRight: right, backgroundColor: c.bg }}>
           {signedIn && split && <Sidebar width={split.list} />}
           <View style={{ flex: 1 }}>
             <Stack

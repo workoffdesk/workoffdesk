@@ -36,7 +36,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'workoffdesk',
   platforms: ['ios', 'android'],
   version: '1.0.0',
-  orientation: 'portrait',
+  orientation: 'default',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   runtimeVersion: {
@@ -52,7 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier,
-    buildNumber: '22',
+    buildNumber: '23',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },

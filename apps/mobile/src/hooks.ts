@@ -11,7 +11,10 @@ export const useLogin = () => useSyncExternalStore(auth.subscribe, auth.current)
 export const useAccounts = () => useSyncExternalStore(auth.subscribe, auth.accounts);
 
 // The list's width when it stays beside the page, or null for one page at a time (split.ts).
-export const useSplit = () => splitOf(useWindowDimensions().width);
+export const useSplit = () => {
+  const { width, height } = useWindowDimensions();
+  return splitOf(width, height);
+};
 
 // The session list, live from /api/events while any screen shows it.
 export const useSessions = (): TermSession[] | null => useSyncExternalStore(sessionList.subscribe, sessionList.current);
