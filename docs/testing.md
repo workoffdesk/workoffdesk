@@ -293,7 +293,7 @@ Every test file is listed under the risks it guards; one that guards several is 
   `apps/server/tests/unit/package/name.test.ts`, `apps/server/tests/unit/sessions/sessionName.test.ts`,
   `libs/client/tests/sessions/leave.test.ts`, `libs/client/tests/sessions/rename.test.ts`, `libs/client/tests/sessions/pin.test.ts`,
   `libs/client/tests/sessions/macHistory.test.ts`,
-  `apps/server/tests/integration/sessions/machine.past.test.ts`
+  `apps/server/tests/integration/sessions/machine.past.test.ts`, `apps/mobile/tests/split.test.mjs`
 - Words, errors and settings: `libs/client/tests/model/format.test.ts`, `libs/client/tests/base/api.test.ts`,
   `libs/client/tests/settings/textSize.test.ts`, `libs/client/tests/settings/choices.test.ts`, `libs/client/tests/base/api.test.ts`,
   `libs/i18n/tests/index.test.ts`, `apps/server/tests/unit/system/messages.test.ts`,

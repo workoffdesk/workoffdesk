@@ -3,9 +3,11 @@ import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider, usePathname, use
 import { StatusBar } from 'expo-status-bar';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useEffect, useRef } from 'react';
+import { View } from 'react-native';
 import { onPage, pageBeforeReopen, useAppUpdates } from '../appUpdate';
 import { ErrorScreen, sayUncaughtErrors } from '../errors';
-import { useLogin } from '../hooks';
+import { useLogin, useSplit } from '../hooks';
+import { Sidebar } from '../components/Sidebar';
 import { MacTooOld } from '../MacTooOld';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { useNotifications } from '../notifications';
@@ -26,6 +28,7 @@ export default function RootLayout() {
   const path = usePathname();
   useNotifications(signedIn, path);
   const navReady = !!useRootNavigationState()?.key;
+  const split = useSplit();
   useEffect(() => onPage(path), [path]);
   useEffect(() => {
     if (!navReady || !signedIn) return;
@@ -49,31 +52,38 @@ export default function RootLayout() {
     <KeyboardProvider>
       <ThemeProvider value={navTheme}>
         <StatusBar style="auto" />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: c.surface },
-            headerTintColor: c.text,
-            headerTitleStyle: { color: c.text, fontSize: fs(17) },
-            headerBackButtonDisplayMode: 'minimal',
-            contentStyle: { backgroundColor: c.bg },
-          }}
-        >
-          <Stack.Protected guard={signedIn}>
-            <Stack.Screen name="index" options={{ title: t.sessions }} />
-            <Stack.Screen name="session/[id]" options={{ title: t.session, headerShown: false }} />
-            <Stack.Screen name="settings" options={{ title: t.settings, headerShown: false }} />
-            <Stack.Screen name="mac" options={{ title: t.thisMac, headerShown: false }} />
-            <Stack.Screen name="new-session" options={{ title: t.newSession, presentation: 'modal' }} />
-            <Stack.Screen name="conversations" options={{ title: t.conversationsOnMac, headerBackTitle: t.back }} />
-            <Stack.Screen name="claude/[sid]" options={{ title: t.macSession, headerShown: false }} />
-            <Stack.Screen name="codex/[sid]" options={{ title: t.macSession, headerShown: false }} />
-            <Stack.Screen name="claude/[sid]/agents/[tool]" options={{ title: t.subagent, headerShown: false }} />
-            <Stack.Screen name="add-account" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-          </Stack.Protected>
-          <Stack.Protected guard={!signedIn}>
-            <Stack.Screen name="login" options={{ headerShown: false }} />
-          </Stack.Protected>
-        </Stack>
+        {/* On a wide screen the session list stays on the left; the stack keeps its place in the tree, so
+            opening the screen out or folding it keeps what is open. */}
+        <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.bg }}>
+          {signedIn && split && <Sidebar width={split.list} />}
+          <View style={{ flex: 1 }}>
+            <Stack
+              screenOptions={{
+                headerStyle: { backgroundColor: c.surface },
+                headerTintColor: c.text,
+                headerTitleStyle: { color: c.text, fontSize: fs(17) },
+                headerBackButtonDisplayMode: 'minimal',
+                contentStyle: { backgroundColor: c.bg },
+              }}
+            >
+              <Stack.Protected guard={signedIn}>
+                <Stack.Screen name="index" options={{ title: t.sessions }} />
+                <Stack.Screen name="session/[id]" options={{ title: t.session, headerShown: false }} />
+                <Stack.Screen name="settings" options={{ title: t.settings, headerShown: false }} />
+                <Stack.Screen name="mac" options={{ title: t.thisMac, headerShown: false }} />
+                <Stack.Screen name="new-session" options={{ title: t.newSession, presentation: 'modal' }} />
+                <Stack.Screen name="conversations" options={{ title: t.conversationsOnMac, headerBackTitle: t.back }} />
+                <Stack.Screen name="claude/[sid]" options={{ title: t.macSession, headerShown: false }} />
+                <Stack.Screen name="codex/[sid]" options={{ title: t.macSession, headerShown: false }} />
+                <Stack.Screen name="claude/[sid]/agents/[tool]" options={{ title: t.subagent, headerShown: false }} />
+                <Stack.Screen name="add-account" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+              </Stack.Protected>
+              <Stack.Protected guard={!signedIn}>
+                <Stack.Screen name="login" options={{ headerShown: false }} />
+              </Stack.Protected>
+            </Stack>
+          </View>
+        </View>
         {signedIn && <VideoPlayer />}
         {signedIn && <MacTooOld />}
       </ThemeProvider>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { openSessionFromOutside } from '../src/openSession.ts';
+import { openSessionOverList } from '../src/openSession.ts';
 
 // A stack as expo-router keeps it, by path: the list at the bottom, the page in front last.
 const stack = (...paths) => {
@@ -14,7 +14,7 @@ const stack = (...paths) => {
   };
 };
 
-describe('openSessionFromOutside', () => {
+describe('openSessionOverList', () => {
   for (const [what, under] of [
     ['from the list', []],
     ['from another session', ['/session/a']],
@@ -25,14 +25,14 @@ describe('openSessionFromOutside', () => {
   ]) {
     test(`leaves the session over the list alone, ${what}`, () => {
       const s = stack(...under);
-      openSessionFromOutside(s, 'b');
+      openSessionOverList(s, 'b');
       assert.deepEqual(s.paths, ['/', '/session/b']);
     });
   }
 
   test('moves nothing when the session is the one in front', () => {
     const s = stack('/session/a', '/session/b');
-    openSessionFromOutside(s, 'b');
+    openSessionOverList(s, 'b');
     assert.deepEqual(s.paths, ['/', '/session/a', '/session/b']);
   });
 });

@@ -3,10 +3,10 @@ import Constants from 'expo-constants';
 import { getRandomBytes } from 'expo-crypto';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
-import { router } from 'expo-router';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { api, auth, storage } from './client';
-import { openSessionFromOutside } from './openSession';
+import { routerStack } from './listStack';
+import { openSessionOverList } from './openSession';
 import { deviceOf, keyText, readyPath, type Relay } from './pushRelay';
 
 // Notifications when Claude needs you or finishes a turn, sent by the server through Apple's push service
@@ -118,7 +118,7 @@ export function useNotifications(signedIn: boolean, path: string) {
       const id = sessionOf(r);
       if (!id) return;
       Notifications.clearLastNotificationResponse();
-      openSessionFromOutside({ here: () => here.current, canDismiss: () => router.canDismiss(), dismissAll: () => router.dismissAll(), push: (href) => router.push(href) }, id);
+      openSessionOverList(routerStack(() => here.current), id);
     };
     open(Notifications.getLastNotificationResponse());
     const tapped = Notifications.addNotificationResponseReceivedListener(open);

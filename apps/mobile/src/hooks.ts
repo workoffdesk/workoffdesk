@@ -2,11 +2,16 @@ import type { TermSession } from '@workoffdesk/client/base/api';
 import type { ChatState } from '@workoffdesk/client/model/chat';
 import type { ChatFeed } from '@workoffdesk/client/chat/chatFeed';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useWindowDimensions } from 'react-native';
 import { auth, chatFeeds, sessionList } from './client';
+import { splitOf } from './split';
 import { usePage } from './store';
 
 export const useLogin = () => useSyncExternalStore(auth.subscribe, auth.current);
 export const useAccounts = () => useSyncExternalStore(auth.subscribe, auth.accounts);
+
+// The list's width when it stays beside the page, or null for one page at a time (split.ts).
+export const useSplit = () => splitOf(useWindowDimensions().width);
 
 // The session list, live from /api/events while any screen shows it.
 export const useSessions = (): TermSession[] | null => useSyncExternalStore(sessionList.subscribe, sessionList.current);

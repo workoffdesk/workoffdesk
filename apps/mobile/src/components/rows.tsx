@@ -1,10 +1,12 @@
 import { agentOf, isAgent, type RecentConversation, type TermSession } from '@workoffdesk/client/base/api';
 import { dirName, listTime, sessionPreview, shortPath } from '@workoffdesk/client/model/format';
 import { t } from '@workoffdesk/i18n';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import { ActionSheetIOS, Pressable, StyleSheet, Text, View } from 'react-native';
+import { routerStack } from '../listStack';
+import { openSessionOverList } from '../openSession';
 import { tint, type Theme } from '../theme';
 import { SwipeRow } from './SwipeRow';
 
@@ -14,11 +16,12 @@ export type RowAction = { label: string; run: () => void; destructive?: boolean;
 // A session here. It slides left to show its actions, as on the web, and a long press opens them in a sheet;
 // VoiceOver has them as its actions. open: whether it is the one row the list has open; a tap on an open row
 // shuts it rather than opening the session. A past one is drawn as a conversation on the Mac is, with no status:
-// nothing runs in it.
+// nothing runs in it. current: the one open beside the list, drawn as held.
 type OpenRow = { open: boolean; setOpen: Dispatch<SetStateAction<string | null>>; holdScroll: () => () => void };
-export function Row({ s, folder, unread, theme, actions, open, setOpen, holdScroll }: { s: TermSession; folder: string | null; unread: boolean; theme: Theme; actions: RowAction[] } & OpenRow) {
+export function Row({ s, folder, unread, current, theme, actions, open, setOpen, holdScroll }: { s: TermSession; folder: string | null; unread: boolean; current: boolean; theme: Theme; actions: RowAction[] } & OpenRow) {
   const st = useMemo(() => rowStyles(theme), [theme]);
   const { c } = theme;
+  const here = usePathname();
   const row = s.pinned ? c.rowPinned : c.row;
   const status = isAgent(s.kind) && !s.past ? s.status : null;
   const hold = () => {
@@ -33,11 +36,12 @@ export function Row({ s, folder, unread, theme, actions, open, setOpen, holdScro
       <Pressable
         testID="session-card"
         accessibilityRole="button"
-        onPress={() => (open ? setOpen(null) : router.push({ pathname: '/session/[id]', params: { id: s.id } }))}
+        accessibilityState={{ selected: current }}
+        onPress={() => (open ? setOpen(null) : openSessionOverList(routerStack(() => here), s.id))}
         onLongPress={hold}
         accessibilityActions={actions.map((a, i) => ({ name: String(i), label: a.label }))}
         onAccessibilityAction={(e) => actions[Number(e.nativeEvent.actionName)]?.run()}
-        style={({ pressed }) => [st.item, { backgroundColor: pressed ? c.rowHeld : row }]}
+        style={({ pressed }) => [st.item, { backgroundColor: pressed || current ? c.rowHeld : row }]}
       >
         <View style={[st.avatar, s.past && st.macAvatar, { backgroundColor: s.kind === 'codex' ? c.codex : isAgent(s.kind) ? c.claude : c.shell }]}>
           <SymbolView
@@ -77,7 +81,7 @@ export function Row({ s, folder, unread, theme, actions, open, setOpen, holdScro
 // A Claude or Codex conversation on the Mac, opened to read before picking it up here. One still open in a
 // terminal there is drawn as a session here is, with what the agent does in it; the line under it is what was
 // said last.
-export function MacRow({ r, theme }: { r: RecentConversation; theme: Theme }) {
+export function MacRow({ r, current = false, theme }: { r: RecentConversation; current?: boolean; theme: Theme }) {
   const st = useMemo(() => rowStyles(theme), [theme]);
   const { c } = theme;
   const status = r.onMac?.status;
@@ -86,8 +90,9 @@ export function MacRow({ r, theme }: { r: RecentConversation; theme: Theme }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ selected: current }}
       onPress={() => router.push({ pathname: codex ? '/codex/[sid]' : '/claude/[sid]', params: { sid: r.sessionId } })}
-      style={({ pressed }) => [st.item, pressed && { backgroundColor: c.rowHeld }]}
+      style={({ pressed }) => [st.item, (pressed || current) && { backgroundColor: c.rowHeld }]}
     >
       <View style={[st.avatar, !status && st.macAvatar, { backgroundColor: codex ? c.codex : c.claude }]}>
         <SymbolView name={codex ? 'chevron.left.forwardslash.chevron.right' : 'bubble.left'} tintColor="#fff" size={codex ? 22 : 26} />
