@@ -52,7 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier,
-    buildNumber: '23',
+    buildNumber: '24',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
