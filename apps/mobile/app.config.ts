@@ -52,7 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier,
-    buildNumber: '24',
+    buildNumber: '25',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
@@ -112,6 +112,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     'expo-video',
+    './plugins/withSceneLifecycle',
     ...(keychainGroup ? [['./plugins/withPushExtension', { keychainGroup }] as [string, unknown]] : []),
   ],
   scheme: 'workoffdesk',

@@ -265,7 +265,8 @@ Every test file is listed under the risks it guards; one that guards several is 
 - The iPhone app's updates: `apps/server/tests/integration/http/routes/appUpdate.test.ts`,
   `apps/server/tests/unit/ios-update/appUpdate.test.ts`, `apps/server/tests/unit/scripts/build-app-update.test.ts`,
   `apps/server/tests/unit/ios-update/bundlePatch.test.ts`, `apps/mobile/tests/app.config.test.mjs`,
-  `apps/mobile/tests/reloadWatch.test.mjs`, `apps/mobile/tests/updateSource.test.mjs`
+  `apps/mobile/tests/reloadWatch.test.mjs`, `apps/mobile/tests/updateSource.test.mjs`,
+  `apps/mobile/tests/plugins/withSceneLifecycle.test.mjs`
 - Push notifications: `apps/server/tests/unit/notify/apns.test.ts`, `apps/server/tests/unit/notify/push.test.ts`,
   `apps/server/tests/integration/http/app.push.test.ts`, `apps/mobile/tests/openSession.test.mjs`,
   `apps/server/tests/unit/notify/seal.test.ts`, `apps/server/tests/integration/http/routes/pushRelay.test.ts`,

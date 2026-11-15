@@ -120,6 +120,13 @@ if [ "$(PLIST_OF CFBundleShortVersionString)" != "$VERSION" ] || [ "$(PLIST_OF C
   exit 1
 fi
 echo "    archived: $ARCHIVE"
+# Built with the iOS 27 SDK, an app with no scene delegate stops at launch (plugins/withSceneLifecycle.js).
+SCENE=$(/usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName" \
+  "$ARCHIVE/Products/Applications/$SCHEME.app/Info.plist" 2>/dev/null || true)
+if [ "$SCENE" != "$SCHEME.SceneDelegate" ]; then
+  echo "the app names no scene delegate (got '${SCENE}'); built with the iOS 27 SDK it would stop at launch" >&2
+  exit 1
+fi
 # CocoaPods quietly builds React Native from source when it cannot fetch the prebuilt core, and the
 # precompiled Expo frameworks then load a React.framework the app does not carry.
 "$ROOT/scripts/check-app-links.sh" "$ARCHIVE/Products/Applications/$SCHEME.app"
