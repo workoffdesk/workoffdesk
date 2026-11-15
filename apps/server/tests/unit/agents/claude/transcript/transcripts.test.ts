@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdirSync, mkdtempSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { heldInBackground, listProjectDirs, listRecentClaudeSessions } from '../../../../../src/agents/claude/transcript/transcripts.js';
+import { heldInBackground, listAllClaudeSessions, listProjectDirs, listRecentClaudeSessions } from '../../../../../src/agents/claude/transcript/transcripts.js';
 
 const U1 = 'aaaaaaaa-0000-0000-0000-000000000001';
 const U2 = 'aaaaaaaa-0000-0000-0000-000000000002';
@@ -373,6 +373,40 @@ describe('listRecentClaudeSessions', () => {
       expect(a).toBe(b);
       await a;
       expect(listRecentClaudeSessions(root)).not.toBe(a);
+    });
+  });
+  // A project folder can be reached under a second name (a link left when the worktrees' folder was renamed),
+  // and a transcript by a second path; it is still one conversation.
+  describe('a transcript reached by more than one path', () => {
+    const shapes: [string, (root: string, f: string) => void][] = [
+      ['its project folder linked under another name', (root) => symlinkSync('-old', join(root, '-new'))],
+      ['the file linked into another project folder', (root, f) => (mkdirSync(join(root, '-other')), symlinkSync(f, join(root, '-other', `${U1}.jsonl`)))],
+      ['the file hard-linked into another project folder', (root, f) => (mkdirSync(join(root, '-other')), linkSync(f, join(root, '-other', `${U1}.jsonl`)))],
+    ];
+    const twice = (shape: (root: string, f: string) => void) => {
+      const root = mkdtempSync(join(tmpdir(), 'ts-claude-'));
+      mkdirSync(join(root, '-old'));
+      const f = join(root, '-old', `${U1}.jsonl`);
+      writeFileSync(f, line({ type: 'user', cwd: '/Users/me/p', message: { content: 'hello' } }));
+      writeFileSync(join(root, '-old', `${U2}.jsonl`), line({ type: 'user', cwd: '/Users/me/p', message: { content: 'other' } }));
+      shape(root, f);
+      return root;
+    };
+
+    it.each(shapes)('lists it once among the recent, %s', async (_, shape) => {
+      expect((await listRecentClaudeSessions(twice(shape))).map((r) => r.sessionId).sort()).toEqual([U1, U2]);
+    });
+
+    it.each(shapes)('lists it once among all, %s', async (_, shape) => {
+      expect((await listAllClaudeSessions(twice(shape))).map((r) => r.sessionId).sort()).toEqual([U1, U2]);
+    });
+
+    it('lists a conversation whose only project folder is a link', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'ts-claude-'));
+      const real = mkdtempSync(join(tmpdir(), 'ts-claude-real-'));
+      writeFileSync(join(real, `${U1}.jsonl`), line({ type: 'user', cwd: '/Users/me/p', message: { content: 'hello' } }));
+      symlinkSync(real, join(root, '-p'));
+      expect((await listRecentClaudeSessions(root)).map((r) => r.sessionId)).toEqual([U1]);
     });
   });
 });

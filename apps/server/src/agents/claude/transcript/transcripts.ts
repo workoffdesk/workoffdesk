@@ -112,6 +112,8 @@ async function transcriptFiles(root: string) {
     return [];
   }
   const files: { path: string; mtimeMs: number; size: number }[] = [];
+  // One file reached by more than one path (a project folder linked under a second name) is one conversation.
+  const seen = new Set<string>();
   for (const d of dirs) {
     let names: string[];
     try {
@@ -124,7 +126,11 @@ async function transcriptFiles(root: string) {
       const p = join(root, d, n);
       try {
         const s = await stat(p);
-        if (s.isFile()) files.push({ path: p, mtimeMs: s.mtimeMs, size: s.size });
+        const file = `${s.dev}:${s.ino}`;
+        if (s.isFile() && !seen.has(file)) {
+          seen.add(file);
+          files.push({ path: p, mtimeMs: s.mtimeMs, size: s.size });
+        }
       } catch {
         // vanished between readdir and stat
       }
