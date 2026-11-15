@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { CHAT_MIN, splitOf } from '../src/split.ts';
+import { CHAT_MIN, openingOf, splitOf } from '../src/split.ts';
 
 describe('splitOf', () => {
   // Every iPhone upright, and a foldable's cover screen: one page at a time, as ever.
@@ -50,5 +50,17 @@ describe('splitOf', () => {
   test('gives the list the web app’s width once there is room for it', () => {
     assert.equal(splitOf(951, 669)?.list, 320);
     assert.ok(splitOf(669, 951).list < 320);
+  });
+});
+
+describe('openingOf', () => {
+  test('beside the list, a page opens in place: the list stays and nothing slides under it', () => {
+    assert.equal(openingOf(splitOf(951, 669)), 'none');
+    assert.equal(openingOf(splitOf(669, 951)), 'none');
+  });
+
+  test('one page at a time, a page slides in over the last as ever', () => {
+    assert.equal(openingOf(splitOf(402, 874)), 'default');
+    assert.equal(openingOf(splitOf(874, 402)), 'default');
   });
 });

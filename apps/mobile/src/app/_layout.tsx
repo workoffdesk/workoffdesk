@@ -2,12 +2,14 @@ import { t } from '@workoffdesk/i18n';
 import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider, usePathname, useRootNavigationState, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { onPage, pageBeforeReopen, useAppUpdates } from '../appUpdate';
 import { ErrorScreen, sayUncaughtErrors } from '../errors';
-import { useLogin, useSplit } from '../hooks';
+import { PageFrameContext, useLogin, useSplit } from '../hooks';
+import type { PageFrame } from '../pageFrame';
+import { openingOf } from '../split';
 import { Sidebar } from '../components/Sidebar';
 import { MacTooOld } from '../MacTooOld';
 import { VideoPlayer } from '../components/VideoPlayer';
@@ -31,6 +33,7 @@ export default function RootLayout() {
   const navReady = !!useRootNavigationState()?.key;
   const split = useSplit();
   const { left, right } = useSafeAreaInsets();
+  const [page, setPage] = useState<PageFrame | null>(null);
   useEffect(() => onPage(path), [path]);
   useEffect(() => {
     if (!navReady || !signedIn) return;
@@ -59,32 +62,35 @@ export default function RootLayout() {
             corners take the screen's sides, and every page keeps clear of them here. */}
         <View style={{ flex: 1, flexDirection: 'row', paddingLeft: left, paddingRight: right, backgroundColor: c.bg }}>
           {signedIn && split && <Sidebar width={split.list} />}
-          <View style={{ flex: 1 }}>
-            <Stack
-              screenOptions={{
-                headerStyle: { backgroundColor: c.surface },
-                headerTintColor: c.text,
-                headerTitleStyle: { color: c.text, fontSize: fs(17) },
-                headerBackButtonDisplayMode: 'minimal',
-                contentStyle: { backgroundColor: c.bg },
-              }}
-            >
-              <Stack.Protected guard={signedIn}>
-                <Stack.Screen name="index" options={{ title: t.sessions }} />
-                <Stack.Screen name="session/[id]" options={{ title: t.session, headerShown: false }} />
-                <Stack.Screen name="settings" options={{ title: t.settings, headerShown: false }} />
-                <Stack.Screen name="mac" options={{ title: t.thisMac, headerShown: false }} />
-                <Stack.Screen name="new-session" options={{ title: t.newSession, presentation: 'modal' }} />
-                <Stack.Screen name="conversations" options={{ title: t.conversationsOnMac, headerBackTitle: t.back }} />
-                <Stack.Screen name="claude/[sid]" options={{ title: t.macSession, headerShown: false }} />
-                <Stack.Screen name="codex/[sid]" options={{ title: t.macSession, headerShown: false }} />
-                <Stack.Screen name="claude/[sid]/agents/[tool]" options={{ title: t.subagent, headerShown: false }} />
-                <Stack.Screen name="add-account" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-              </Stack.Protected>
-              <Stack.Protected guard={!signedIn}>
-                <Stack.Screen name="login" options={{ headerShown: false }} />
-              </Stack.Protected>
-            </Stack>
+          <View style={{ flex: 1 }} onLayout={(e) => setPage({ x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width })}>
+            <PageFrameContext.Provider value={page}>
+              <Stack
+                screenOptions={{
+                  headerStyle: { backgroundColor: c.surface },
+                  headerTintColor: c.text,
+                  headerTitleStyle: { color: c.text, fontSize: fs(17) },
+                  headerBackButtonDisplayMode: 'minimal',
+                  contentStyle: { backgroundColor: c.bg },
+                  animation: openingOf(split),
+                }}
+              >
+                <Stack.Protected guard={signedIn}>
+                  <Stack.Screen name="index" options={{ title: t.sessions }} />
+                  <Stack.Screen name="session/[id]" options={{ title: t.session, headerShown: false }} />
+                  <Stack.Screen name="settings" options={{ title: t.settings, headerShown: false }} />
+                  <Stack.Screen name="mac" options={{ title: t.thisMac, headerShown: false }} />
+                  <Stack.Screen name="new-session" options={{ title: t.newSession, presentation: 'modal', animation: 'default' }} />
+                  <Stack.Screen name="conversations" options={{ title: t.conversationsOnMac, headerBackTitle: t.back }} />
+                  <Stack.Screen name="claude/[sid]" options={{ title: t.macSession, headerShown: false }} />
+                  <Stack.Screen name="codex/[sid]" options={{ title: t.macSession, headerShown: false }} />
+                  <Stack.Screen name="claude/[sid]/agents/[tool]" options={{ title: t.subagent, headerShown: false }} />
+                  <Stack.Screen name="add-account" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'default' }} />
+                </Stack.Protected>
+                <Stack.Protected guard={!signedIn}>
+                  <Stack.Screen name="login" options={{ headerShown: false }} />
+                </Stack.Protected>
+              </Stack>
+            </PageFrameContext.Provider>
           </View>
         </View>
         {signedIn && <VideoPlayer />}

@@ -4,6 +4,8 @@ import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePageFrame } from '../../hooks';
+import { acrossPage } from '../../pageFrame';
 import { tint, useTheme } from '../../theme';
 import { type Frame } from './voice';
 import { FADE_PX, type S, TARGETS_BOTTOM, TARGETS_TOP } from './styles';
@@ -12,12 +14,14 @@ const WAVE_BARS = 54;
 
 const HINTS: Record<Zone, string> = { send: t.holdSendSlide, cancel: t.holdCancel, text: t.holdText };
 
-// Over the bottom of the screen while the box is held, as the web draws it: the page fades into a blue
-// glow rising from the bottom, with the two targets and the hint on it and what is heard just above them,
-// on the glow, marked as speech. The glow grows to hold it as tall as it is, fading in just above it.
+// Over the bottom of the page while the box is held, as the web draws it, from one side of the page to the
+// other (beside the session list, the page's sides, not the window's): the page fades into a blue glow
+// rising from the bottom, with the two targets and the hint on it and what is heard just above them, on the
+// glow, marked as speech. The glow grows to hold it as tall as it is, fading in just above it.
 export function VoicePanel({ hold, at, measure, s }: { hold: Hold; at: Frame; measure: (zone: Zone) => (e: LayoutChangeEvent) => void; s: S }) {
   const { c, fs } = useTheme();
   const window = useWindowDimensions();
+  const across = acrossPage(usePageFrame(), at.x);
   const bottom = useSafeAreaInsets().bottom;
   const heardAt = bottom + TARGETS_TOP + 16;
   const [heardTall, setHeardTall] = useState(0);
@@ -41,7 +45,7 @@ export function VoicePanel({ hold, at, measure, s }: { hold: Hold; at: Frame; me
   };
   return (
     <View
-      style={[s.panel, { left: -at.x, width: window.width, top: window.height - veil - at.y, height: veil, experimental_backgroundImage: glow }]}
+      style={[s.panel, { ...across, top: window.height - veil - at.y, height: veil, experimental_backgroundImage: glow }]}
       pointerEvents="none"
       accessibilityLiveRegion="polite"
     >

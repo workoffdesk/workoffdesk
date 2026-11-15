@@ -1,9 +1,10 @@
 import type { TermSession } from '@workoffdesk/client/base/api';
 import type { ChatState } from '@workoffdesk/client/model/chat';
 import type { ChatFeed } from '@workoffdesk/client/chat/chatFeed';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { auth, chatFeeds, sessionList } from './client';
+import type { PageFrame } from './pageFrame';
 import { splitOf } from './split';
 import { usePage } from './store';
 
@@ -14,6 +15,13 @@ export const useAccounts = () => useSyncExternalStore(auth.subscribe, auth.accou
 export const useSplit = () => {
   const { width, height } = useWindowDimensions();
   return splitOf(width, height);
+};
+
+// The open page's frame across the window, as the root layout lays it out (pageFrame.ts).
+export const PageFrameContext = createContext<PageFrame | null>(null);
+export const usePageFrame = (): PageFrame => {
+  const width = useWindowDimensions().width;
+  return useContext(PageFrameContext) ?? { x: 0, width };
 };
 
 // The session list, live from /api/events while any screen shows it.

@@ -13,3 +13,7 @@ export function splitOf(width: number, height: number): { list: number } | null 
   return { list: width - LIST >= CHAT_MIN ? LIST : LIST_MIN };
 }
 splitOf.from = { width: LIST_MIN + CHAT_MIN, height: 500 };
+
+// How a page opens. Beside the list it takes the place of the one open, as a list's selection changes what is
+// shown; one page at a time, it slides in over the last, for Back to slide it away.
+export const openingOf = (split: { list: number } | null): 'none' | 'default' => (split ? 'none' : 'default');
